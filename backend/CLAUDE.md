@@ -16,7 +16,7 @@ TECH & TOOLS
 - Containers: Docker + docker-compose for API, worker, Redis, DB.
 - Video/AI: Whisper API, Gemini, MoviePy, OpenCV, librosa, PyDub.
 - Storage: S3 pre-signed URLs; do not store raw media locally beyond temp.
-- Realtime: Redis-powered WebSocket updates.
+- Realtime: Redis-powered WebSocket updates.1
 
 REPO STRUCTURE (honor these paths)
 
@@ -37,6 +37,7 @@ CLEAN CODE & STYLE
 - Descriptive names, single responsibility, fail fast with actionable errors.
 - No dead code, no incidental complexity, no hidden side effects.
 - Add docstrings to public functions/classes; keep comments high-signal.
+- Comments should be lower-cased and only be used when needed.
 
 API DESIGN
 
