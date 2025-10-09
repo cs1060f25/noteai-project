@@ -1,0 +1,112 @@
+# ============================================
+# Python / FastAPI Backend
+# ============================================
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# UV package manager
+.uv_cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Logs
+*.log
+logs/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# ============================================
+# Node.js / Vite / TypeScript Frontend
+# ============================================
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Vite
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================================
+# Databases
+# ============================================
+
+# PostgreSQL
+*.pgsql
+postgres_data/
+
+# Redis
+redis_data/
+
+# SQLite (if used for dev)
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# IDEs & Editors
+# ============================================
+
+# VSCode
+.vscode/
+
+# PyCharm / IntelliJ
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# ============================================
+# Docker
+# ============================================
+
+docker-compose.override.yml
+postgres_data/
+redis_data/
+
+# ============================================
+# Misc
+# ============================================
+
+# Temporary files
+*.tmp
+*.swp
+*.bak
+
+# Cache
+.cache/
