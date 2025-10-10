@@ -41,10 +41,6 @@ This project leverages distributed processing with Celery, integrates Google Gem
 * Professional, accessible output with subtitles
 * Supports educational content re-use and accessibility
 
-## Architecture
-
-![NoteAI Architecture Diagram](docs/architecture-diagram.png)
-
 ### System Components
 
 | Component                         | Description                                                                                                   |
@@ -115,10 +111,10 @@ This project leverages distributed processing with Celery, integrates Google Gem
 
 | Role                          | Member   | Responsibility                     |
 | ----------------------------- | -------- | ---------------------------------- |
-| **Project Lead**              | *(Name)* | Organization & scheduling          |
-| **Product Lead**              | *(Name)* | PRD ownership & requirements       |
-| **Engineering Lead**          | *(Name)* | Backend & pipeline development     |
-| **Quality Lead**              | *(Name)* | Testing and QA                     |
+| **Project Lead**              | *Miranda Shen* | Organization & scheduling          |
+| **Product Lead**              | *Anay Patel* | PRD ownership & requirements       |
+| **Engineering Lead**          | *Eliot Atlani* | Backend & pipeline development     |
+| **Quality Lead**              | *Aaron Gong* | Testing and QA                     |
 
 ## Resources
 
@@ -132,8 +128,8 @@ This project leverages distributed processing with Celery, integrates Google Gem
 | Resource                       | URL                                                                                        |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | **GitHub Repo**                | [https://github.com/cs1060f25/noteai-project](https://github.com/cs1060f25/noteai-project) |
-| **Google Drive Folder**        | (https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link)  |
-| **Linear Project**             | (https://linear.app/cs1060f25/team/NOTEAI/all)                                             |
+| **Google Drive Folder**        | [https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link]https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link  |
+| **Linear Project**             | [https://linear.app/cs1060f25/team/NOTEAI/all]https://linear.app/cs1060f25/team/NOTEAI/all                                             |
 
 ## License
 
