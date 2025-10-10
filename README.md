@@ -125,11 +125,11 @@ This project leverages distributed processing with Celery, integrates Google Gem
 
 ## Links
 
-| Resource                       | URL                                                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| **GitHub Repo**                | [https://github.com/cs1060f25/noteai-project](https://github.com/cs1060f25/noteai-project) |
-| **Google Drive Folder**        | [https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link]https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link  |
-| **Linear Project**             | [https://linear.app/cs1060f25/team/NOTEAI/all]https://linear.app/cs1060f25/team/NOTEAI/all                                             |
+| Resource                | URL                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| **GitHub Repo**          | [https://github.com/cs1060f25/noteai-project](https://github.com/cs1060f25/noteai-project) |
+| **Google Drive Folder**  | [https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link](https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link) |
+| **Linear Project**       | [https://linear.app/cs1060f25/team/NOTEAI/all](https://linear.app/cs1060f25/team/NOTEAI/all) |
 
 ## License
 
