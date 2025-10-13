@@ -1,22 +1,21 @@
 import axios from 'axios';
 
 import { apiClient } from '../lib/api';
+
 import type { JobResponse, UploadRequest, UploadResponse } from '../types/api';
 
 export class UploadError extends Error {
-  constructor(
-    message: string,
-    public code: string,
-    public statusCode?: number
-  ) {
+  code: string;
+  statusCode?: number;
+
+  constructor(message: string, code: string, statusCode?: number) {
     super(message);
     this.name = 'UploadError';
+    this.code = code;
+    this.statusCode = statusCode;
   }
 }
 
-/**
- * Initiate video upload and get pre-signed S3 URL
- */
 export const initiateUpload = async (file: File): Promise<UploadResponse> => {
   try {
     const request: UploadRequest = {
@@ -36,9 +35,6 @@ export const initiateUpload = async (file: File): Promise<UploadResponse> => {
   }
 };
 
-/**
- * Upload file directly to S3 using pre-signed URL
- */
 export const uploadToS3 = async (
   file: File,
   uploadUrl: string,
@@ -46,19 +42,15 @@ export const uploadToS3 = async (
   onProgress?: (progress: number) => void
 ): Promise<void> => {
   try {
-    // check if we have fields (POST) or just URL (PUT)
     const hasFields = Object.keys(uploadFields).length > 0;
 
     if (hasFields) {
-      // POST with multipart/form-data (for post_object presigned URLs)
       const formData = new FormData();
 
-      // add all pre-signed fields first
       Object.entries(uploadFields).forEach(([key, value]) => {
         formData.append(key, value);
       });
 
-      // add the file last
       formData.append('file', file);
 
       await axios.post(uploadUrl, formData, {
@@ -73,7 +65,6 @@ export const uploadToS3 = async (
         },
       });
     } else {
-      // PUT with file content (for put_object presigned URLs)
       await axios.put(uploadUrl, file, {
         headers: {
           'Content-Type': file.type,
@@ -88,9 +79,7 @@ export const uploadToS3 = async (
     }
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      const errorDetails = error.response?.data
-        ? `: ${JSON.stringify(error.response.data)}`
-        : '';
+      const errorDetails = error.response?.data ? `: ${JSON.stringify(error.response.data)}` : '';
       throw new UploadError(
         `Failed to upload file to S3${errorDetails}`,
         'S3_UPLOAD_FAILED',
@@ -101,22 +90,16 @@ export const uploadToS3 = async (
   }
 };
 
-/**
- * Complete upload flow: initiate + upload to S3
- */
 export const uploadVideo = async (
   file: File,
   onProgress?: (progress: number) => void
 ): Promise<{ jobId: string; s3Key: string; uploadResponse: UploadResponse }> => {
-  // initiate upload (0-10% progress)
   onProgress?.(5);
   const uploadResponse = await initiateUpload(file);
 
   onProgress?.(10);
 
-  // upload to S3 (10-100% progress)
   await uploadToS3(file, uploadResponse.upload_url, uploadResponse.upload_fields, (s3Progress) => {
-    // map S3 progress (0-100) to overall progress (10-100)
     const overallProgress = 10 + Math.round(s3Progress * 0.9);
     onProgress?.(overallProgress);
   });
@@ -124,9 +107,6 @@ export const uploadVideo = async (
   return { jobId: uploadResponse.job_id, s3Key: uploadResponse.s3_key, uploadResponse };
 };
 
-/**
- * Get job status
- */
 export const getJobStatus = async (jobId: string): Promise<JobResponse> => {
   try {
     const response = await apiClient.get<JobResponse>(`/jobs/${jobId}`);
@@ -140,9 +120,6 @@ export const getJobStatus = async (jobId: string): Promise<JobResponse> => {
   }
 };
 
-/**
- * Validate file before upload
- */
 export const validateVideoFile = (file: File): { valid: boolean; error?: string } => {
   const MAX_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
   const ALLOWED_TYPES = [

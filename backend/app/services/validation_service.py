@@ -1,4 +1,4 @@
-"""File validation service for upload security and integrity."""
+"""file validation service for upload security and integrity."""
 
 import mimetypes
 from pathlib import Path
@@ -8,7 +8,6 @@ from app.core.settings import settings
 
 logger = get_logger(__name__)
 
-# MIME type mappings for common video formats
 VIDEO_MIME_TYPES = {
     "video/mp4",
     "video/quicktime",  # .mov
@@ -21,50 +20,36 @@ VIDEO_MIME_TYPES = {
 
 
 class ValidationError(Exception):
-    """Custom validation error with user-friendly messages."""
+    """custom validation error with user-friendly messages."""
 
     def __init__(self, message: str, field: str | None = None):
-        """Initialize validation error.
-
-        Args:
-            message: Error message
-            field: Field name that failed validation
-        """
+        """initialize validation error."""
         self.message = message
         self.field = field
         super().__init__(message)
 
 
 class FileValidator:
-    """Validator for file uploads."""
+    """validator for file uploads."""
 
     def __init__(self):
-        """Initialize file validator with settings."""
+        """initialize file validator with settings."""
         self.max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
         self.allowed_extensions = settings.get_upload_extensions()
         self.allowed_mime_types = VIDEO_MIME_TYPES
 
     def validate_filename(self, filename: str) -> None:
-        """Validate filename format and extension.
-
-        Args:
-            filename: Name of the file to validate
-
-        Raises:
-            ValidationError: If validation fails
-        """
+        """validate filename format and extension."""
         if not filename:
             raise ValidationError("Filename cannot be empty", field="filename")
 
         if len(filename) > 255:
             raise ValidationError("Filename too long (max 255 characters)", field="filename")
 
-        # check for dangerous characters
         dangerous_chars = ["\\", "/", ":", "*", "?", '"', "<", ">", "|", "\x00"]
         if any(char in filename for char in dangerous_chars):
             raise ValidationError("Filename contains invalid characters", field="filename")
 
-        # validate extension
         extension = Path(filename).suffix.lower()
         if not extension:
             raise ValidationError("File must have an extension", field="filename")
@@ -79,14 +64,7 @@ class FileValidator:
         logger.debug("Filename validated", extra={"file_name": filename})
 
     def validate_file_size(self, file_size: int) -> None:
-        """Validate file size is within limits.
-
-        Args:
-            file_size: Size of file in bytes
-
-        Raises:
-            ValidationError: If validation fails
-        """
+        """validate file size is within limits."""
         if file_size <= 0:
             raise ValidationError("File size must be greater than 0", field="file_size")
 
@@ -101,18 +79,10 @@ class FileValidator:
         logger.debug("File size validated", extra={"file_size": file_size})
 
     def validate_content_type(self, content_type: str) -> None:
-        """Validate MIME content type.
-
-        Args:
-            content_type: MIME type string
-
-        Raises:
-            ValidationError: If validation fails
-        """
+        """validate mime content type."""
         if not content_type:
             raise ValidationError("Content type is required", field="content_type")
 
-        # normalize content type (remove parameters like charset)
         base_content_type = content_type.split(";")[0].strip().lower()
 
         if base_content_type not in self.allowed_mime_types:
@@ -124,18 +94,9 @@ class FileValidator:
         logger.debug("Content type validated", extra={"content_type": base_content_type})
 
     def validate_extension_matches_content_type(self, filename: str, content_type: str) -> None:
-        """Validate that file extension matches content type.
-
-        Args:
-            filename: Name of the file
-            content_type: MIME type string
-
-        Raises:
-            ValidationError: If there's a mismatch
-        """
+        """validate that file extension matches content type."""
         base_content_type = content_type.split(";")[0].strip().lower()
 
-        # get expected MIME type from extension
         expected_mime_type = mimetypes.guess_type(filename)[0]
 
         if expected_mime_type and expected_mime_type.lower() != base_content_type:
@@ -147,20 +108,10 @@ class FileValidator:
                     "expected_type": expected_mime_type,
                 },
             )
-            # Note: This is a warning, not an error, as MIME type detection
-            # can be inconsistent across systems
+            # note: this is a warning, not an error, as mime type detection can be inconsistent
 
     def validate_upload_request(self, filename: str, file_size: int, content_type: str) -> None:
-        """Validate complete upload request.
-
-        Args:
-            filename: Name of the file
-            file_size: Size in bytes
-            content_type: MIME type
-
-        Raises:
-            ValidationError: If any validation fails
-        """
+        """validate complete upload request."""
         self.validate_filename(filename)
         self.validate_file_size(file_size)
         self.validate_content_type(content_type)
@@ -176,5 +127,4 @@ class FileValidator:
         )
 
 
-# Global validator instance
 file_validator = FileValidator()

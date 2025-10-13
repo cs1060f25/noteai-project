@@ -30,14 +30,12 @@ const App = () => {
         </header>
 
         <main className="space-y-8">
-          {/* upload section */}
           <VideoUpload
             onUploadComplete={handleUploadComplete}
             onUploadError={handleUploadError}
             className="shadow-lg"
           />
 
-          {/* display job id after upload */}
           {uploadedJobId && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm font-medium text-blue-900">
@@ -52,7 +50,6 @@ const App = () => {
             </div>
           )}
 
-          {/* uploaded video player */}
           {uploadedVideoKey && (
             <div className="space-y-4">
               <h2 className="text-2xl font-semibold text-gray-900">Uploaded Video</h2>

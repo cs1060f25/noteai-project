@@ -1,4 +1,4 @@
-"""Video API routes for pre-signed URLs and video management."""
+"""video api routes for pre-signed urls and video management."""
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 class PresignedUrlResponse(BaseModel):
-    """Response model for pre-signed URL."""
+    """response model for pre-signed url."""
 
     url: str = Field(..., description="Pre-signed URL for video access")
     expires_in: int = Field(..., description="URL expiration time in seconds")
@@ -29,20 +29,8 @@ async def get_presigned_url(
         description="URL expiration in seconds (1 min to 7 days)",
     ),
 ) -> PresignedUrlResponse:
-    """Generate a pre-signed URL for accessing a video in S3.
-
-    Args:
-        key: The S3 object key for the video
-        expires_in: URL expiration time in seconds
-
-    Returns:
-        Pre-signed URL response
-
-    Raises:
-        HTTPException: If object doesn't exist or URL generation fails
-    """
+    """generate a pre-signed url for accessing a video in s3."""
     try:
-        # check if object exists
         if not s3_service.check_object_exists(key):
             logger.warning("Requested object not found", extra={"object_key": key})
             raise HTTPException(
@@ -50,7 +38,6 @@ async def get_presigned_url(
                 detail=f"Video not found: {key}",
             )
 
-        # generate pre-signed URL
         url = s3_service.generate_presigned_url(key, expires_in)
 
         return PresignedUrlResponse(

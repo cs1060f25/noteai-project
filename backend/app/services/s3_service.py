@@ -1,4 +1,4 @@
-"""S3 service for managing video storage and pre-signed URLs."""
+"""s3 service for managing video storage and pre-signed urls."""
 
 from datetime import datetime
 
@@ -13,10 +13,10 @@ logger = get_logger(__name__)
 
 
 class S3Service:
-    """Service for interacting with AWS S3."""
+    """service for interacting with aws s3."""
 
     def __init__(self) -> None:
-        """Initialize S3 client."""
+        """initialize s3 client."""
         self.s3_client = boto3.client(
             "s3",
             aws_access_key_id=settings.aws_access_key_id,
@@ -31,18 +31,7 @@ class S3Service:
         object_key: str,
         expiration: int | None = None,
     ) -> str:
-        """Generate a pre-signed URL for downloading an S3 object.
-
-        Args:
-            object_key: The S3 object key (path within bucket)
-            expiration: URL expiration time in seconds (default from settings)
-
-        Returns:
-            Pre-signed URL string
-
-        Raises:
-            ClientError: If URL generation fails
-        """
+        """generate a pre-signed url for downloading an s3 object."""
         if expiration is None:
             expiration = settings.s3_presigned_url_expiry
 
@@ -74,19 +63,7 @@ class S3Service:
         content_type: str,
         expiration: int | None = None,
     ) -> dict[str, str]:
-        """Generate a pre-signed URL for uploading to S3.
-
-        Args:
-            object_key: The S3 object key (path within bucket)
-            content_type: MIME type of the file to upload
-            expiration: URL expiration time in seconds (default from settings)
-
-        Returns:
-            Dictionary with 'url' and 'fields' for upload
-
-        Raises:
-            ClientError: If URL generation fails
-        """
+        """generate a pre-signed url for uploading to s3."""
         if expiration is None:
             expiration = settings.s3_presigned_url_expiry
 
@@ -123,22 +100,11 @@ class S3Service:
         filename: str,
         prefix: str = "uploads",
     ) -> str:
-        """Generate a unique S3 object key for a file.
-
-        Args:
-            job_id: Job identifier
-            filename: Original filename
-            prefix: S3 key prefix (default: uploads)
-
-        Returns:
-            S3 object key string
-        """
-        # sanitize filename - keep extension only
+        """generate a unique s3 object key for a file."""
         extension = ""
         if "." in filename:
             extension = filename.rsplit(".", 1)[-1].lower()
 
-        # create deterministic key: prefix/job_id/original.ext
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         object_key = f"{prefix}/{job_id}/{timestamp}_original.{extension}"
 
@@ -154,16 +120,7 @@ class S3Service:
         clip_id: str,
         extension: str = "mp4",
     ) -> str:
-        """Generate S3 object key for a generated clip.
-
-        Args:
-            job_id: Job identifier
-            clip_id: Clip identifier
-            extension: File extension (default: mp4)
-
-        Returns:
-            S3 object key string
-        """
+        """generate s3 object key for a generated clip."""
         return f"clips/{job_id}/{clip_id}.{extension}"
 
     def generate_thumbnail_key(
@@ -172,16 +129,7 @@ class S3Service:
         clip_id: str,
         extension: str = "jpg",
     ) -> str:
-        """Generate S3 object key for a clip thumbnail.
-
-        Args:
-            job_id: Job identifier
-            clip_id: Clip identifier
-            extension: File extension (default: jpg)
-
-        Returns:
-            S3 object key string
-        """
+        """generate s3 object key for a clip thumbnail."""
         return f"thumbnails/{job_id}/{clip_id}.{extension}"
 
     def generate_subtitle_key(
@@ -190,27 +138,11 @@ class S3Service:
         clip_id: str,
         extension: str = "vtt",
     ) -> str:
-        """Generate S3 object key for subtitles.
-
-        Args:
-            job_id: Job identifier
-            clip_id: Clip identifier
-            extension: File extension (default: vtt)
-
-        Returns:
-            S3 object key string
-        """
+        """generate s3 object key for subtitles."""
         return f"subtitles/{job_id}/{clip_id}.{extension}"
 
     def check_object_exists(self, object_key: str) -> bool:
-        """Check if an object exists in S3.
-
-        Args:
-            object_key: The S3 object key to check
-
-        Returns:
-            True if object exists, False otherwise
-        """
+        """check if an object exists in s3."""
         try:
             self.s3_client.head_object(Bucket=self.bucket_name, Key=object_key)
             return True
@@ -225,14 +157,7 @@ class S3Service:
             raise
 
     def delete_object(self, object_key: str) -> bool:
-        """Delete an object from S3.
-
-        Args:
-            object_key: The S3 object key to delete
-
-        Returns:
-            True if deletion successful, False otherwise
-        """
+        """delete an object from s3."""
         try:
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=object_key)
             logger.info("Deleted S3 object", extra={"object_key": object_key})
@@ -246,34 +171,18 @@ class S3Service:
             return False
 
     def get_cloudfront_url(self, object_key: str) -> str | None:
-        """Get CloudFront URL for an object if configured.
-
-        Args:
-            object_key: The S3 object key
-
-        Returns:
-            CloudFront URL if configured, None otherwise
-        """
+        """get cloudfront url for an object if configured."""
         if settings.cloudfront_domain:
             return f"https://{settings.cloudfront_domain}/{object_key}"
         return None
 
     def get_public_url(self, object_key: str) -> str:
-        """Get public S3 URL for an object (or CloudFront if configured).
-
-        Args:
-            object_key: The S3 object key
-
-        Returns:
-            Public URL string
-        """
+        """get public s3 url for an object (or cloudfront if configured)."""
         cloudfront_url = self.get_cloudfront_url(object_key)
         if cloudfront_url:
             return cloudfront_url
 
-        # fallback to S3 URL
         return f"https://{self.bucket_name}.s3.{settings.aws_region}.amazonaws.com/{object_key}"
 
 
-# Global S3 service instance
 s3_service = S3Service()

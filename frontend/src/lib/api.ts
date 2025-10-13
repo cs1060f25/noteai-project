@@ -13,7 +13,6 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-// add auth token and log requests in development
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
@@ -33,7 +32,6 @@ api.interceptors.request.use(
   }
 );
 
-// handle common errors globally
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     if (import.meta.env.DEV) {
@@ -47,7 +45,6 @@ api.interceptors.response.use(
 
       switch (status) {
         case 401:
-          // unauthorized - clear token and redirect to login
           localStorage.removeItem('auth_token');
           window.location.href = '/login';
           break;

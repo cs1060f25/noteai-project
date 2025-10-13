@@ -11,7 +11,6 @@ from app.api.routes import upload, videos
 from app.core.logging import get_logger, setup_logging
 from app.core.settings import settings
 
-# Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
@@ -19,7 +18,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
-    # Startup
+    # startup
     logger.info(
         "Starting application",
         extra={
@@ -50,11 +49,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    # Shutdown
+    # shutdown
     logger.info("Shutting down application")
 
 
-# Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -64,7 +62,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_allowed_origins(),
@@ -132,7 +130,6 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
     )
 
 
-# Import and include routers
 app.include_router(
     videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
 app.include_router(

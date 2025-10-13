@@ -1,4 +1,4 @@
-"""Upload API routes for initiating video uploads."""
+"""upload api routes for initiating video uploads."""
 
 import uuid
 
@@ -39,42 +39,26 @@ def initiate_upload(
     request: UploadRequest,
     db: Session = Depends(get_db),
 ) -> UploadResponse:
-    """Initiate video upload and get pre-signed S3 URL.
-
-    Args:
-        request: Upload request with file metadata
-        db: Database session
-
-    Returns:
-        UploadResponse with job_id and pre-signed upload URL
-
-    Raises:
-        HTTPException: If validation fails or S3 operation fails
-    """
+    """initiate video upload and get pre-signed s3 url."""
     try:
-        # validate file metadata
         file_validator.validate_upload_request(
             filename=request.filename,
             file_size=request.file_size,
             content_type=request.content_type,
         )
 
-        # generate unique job ID
         job_id = f"job_{uuid.uuid4().hex[:12]}"
 
-        # generate S3 object key
         object_key = s3_service.generate_object_key(
             job_id=job_id,
             filename=request.filename,
         )
 
-        # generate pre-signed upload URL
         upload_data = s3_service.generate_presigned_upload_url(
             object_key=object_key,
             content_type=request.content_type,
         )
 
-        # create job record in database
         db_service = DatabaseService(db)
         job = db_service.jobs.create(
             job_id=job_id,

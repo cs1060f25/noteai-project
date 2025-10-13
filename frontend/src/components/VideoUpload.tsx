@@ -27,7 +27,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
   const handleFileSelect = useCallback((file: File | null) => {
     if (!file) return;
 
-    // validate file
     const validation = validateVideoFile(file);
     if (!validation.valid) {
       setErrorMessage(validation.error || 'Invalid file');
@@ -125,7 +124,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* drag and drop zone */}
         {!selectedFile && uploadState === 'idle' && (
           <div
             onDragOver={handleDragOver}
@@ -146,7 +144,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
           </div>
         )}
 
-        {/* file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -155,7 +152,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
           className="hidden"
         />
 
-        {/* selected file info */}
         {selectedFile && uploadState === 'idle' && (
           <div className="flex items-start gap-4 p-4 border rounded-lg bg-gray-50">
             <FileVideo className="w-10 h-10 text-blue-500 flex-shrink-0 mt-1" />
@@ -169,7 +165,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
           </div>
         )}
 
-        {/* upload button */}
         {selectedFile && uploadState === 'idle' && (
           <Button onClick={handleUpload} className="w-full" size="lg">
             <Upload className="w-4 h-4 mr-2" />
@@ -177,7 +172,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
           </Button>
         )}
 
-        {/* uploading state */}
         {uploadState === 'uploading' && (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -196,7 +190,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
           </div>
         )}
 
-        {/* success state */}
         {uploadState === 'success' && (
           <div className="space-y-4">
             <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -214,7 +207,6 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
           </div>
         )}
 
-        {/* error state */}
         {uploadState === 'error' && (
           <div className="space-y-4">
             <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">

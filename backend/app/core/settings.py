@@ -1,4 +1,4 @@
-"""Application settings and configuration."""
+"""application settings and configuration."""
 
 from typing import Literal
 
@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
-        """Validate log level."""
+        """validate log level."""
         valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         v_upper = v.upper()
         if v_upper not in valid_levels:
@@ -101,21 +101,21 @@ class Settings(BaseSettings):
         return v_upper
 
     def get_allowed_origins(self) -> list[str]:
-        """Get allowed origins as a list."""
+        """get allowed origins as a list."""
         return [origin.strip() for origin in self.allowed_origins.split(",")]
 
     def get_upload_extensions(self) -> list[str]:
-        """Get allowed file extensions as a list."""
+        """get allowed file extensions as a list."""
         return [ext.strip() for ext in self.upload_allowed_extensions.split(",")]
 
     @property
     def is_production(self) -> bool:
-        """Check if running in production."""
+        """check if running in production."""
         return self.environment == "production"
 
     @property
     def is_development(self) -> bool:
-        """Check if running in development."""
+        """check if running in development."""
         return self.environment == "development"
 
 

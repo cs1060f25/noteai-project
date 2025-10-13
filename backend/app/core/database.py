@@ -1,4 +1,4 @@
-"""Database engine and session management."""
+"""database engine and session management."""
 
 from collections.abc import Generator
 
@@ -7,12 +7,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.settings import settings
 
-# create engine
 engine = create_engine(
     settings.database_url,
     echo=settings.db_echo,
-    pool_pre_ping=True,  # verify connections before using
-    pool_recycle=3600,  # recycle connections after 1 hour
+    pool_pre_ping=True,
+    pool_recycle=3600,
 )
 
 # create session factory
@@ -20,11 +19,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Get database session.
-
-    Yields:
-        Database session
-    """
+    """get database session."""
     db = SessionLocal()
     try:
         yield db
@@ -33,13 +28,10 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """Initialize database by creating all tables.
+    """initialize database by creating all tables.
 
-    Note: In production, use Alembic migrations instead:
-        alembic upgrade head
-
-    This method is kept for development convenience but should not be used
-    in production as it doesn't handle schema migrations properly.
+    note: in production, use alembic migrations instead.
+    this method is for development convenience only.
     """
     from app.models.database import Base
 
@@ -47,17 +39,11 @@ def init_db() -> None:
 
 
 def run_migrations() -> None:
-    """Run Alembic migrations programmatically.
-
-    This function runs pending database migrations using Alembic.
-    Use this in production instead of init_db().
-    """
-    from alembic import command
+    """run alembic migrations programmatically."""
+    from alembic import command  # noqa: I001
     from alembic.config import Config
 
-    # get alembic config
     alembic_cfg = Config("alembic.ini")
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
 
-    # run migrations
     command.upgrade(alembic_cfg, "head")
