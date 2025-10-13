@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 const TIMEOUT = 30000;
 
 const api: AxiosInstance = axios.create({

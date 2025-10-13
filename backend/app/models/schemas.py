@@ -49,6 +49,7 @@ class UploadResponse(BaseModel):
         default_factory=dict, description="Additional fields for the upload"
     )
     expires_in: int = Field(..., description="URL expiry time in seconds")
+    s3_key: str = Field(..., description="S3 object key for the uploaded file")
 
 
 # Job Models

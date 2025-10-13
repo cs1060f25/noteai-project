@@ -76,7 +76,7 @@ class FileValidator:
                 field="filename",
             )
 
-        logger.debug("Filename validated", extra={"filename": filename})
+        logger.debug("Filename validated", extra={"file_name": filename})
 
     def validate_file_size(self, file_size: int) -> None:
         """Validate file size is within limits.
@@ -142,7 +142,7 @@ class FileValidator:
             logger.warning(
                 "Content type mismatch",
                 extra={
-                    "filename": filename,
+                    "file_name": filename,
                     "declared_type": base_content_type,
                     "expected_type": expected_mime_type,
                 },
@@ -169,8 +169,8 @@ class FileValidator:
         logger.info(
             "Upload request validated",
             extra={
-                "filename": filename,
-                "file_size": file_size,
+                "file_name": filename,
+                "file_size_bytes": file_size,
                 "content_type": content_type,
             },
         )

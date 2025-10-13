@@ -33,7 +33,7 @@ export const VideoPlayer = ({
         setError(null);
 
         const response = await fetch(
-          `${apiBaseUrl}/api/v1/videos/presigned-url?key=${encodeURIComponent(videoKey)}`
+          `${apiBaseUrl}/videos/presigned-url?key=${encodeURIComponent(videoKey)}`
         );
 
         if (!response.ok) {

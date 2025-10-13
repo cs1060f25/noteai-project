@@ -92,8 +92,8 @@ def initiate_upload(
             "Upload initiated",
             extra={
                 "job_id": job_id,
-                "filename": request.filename,
-                "file_size": request.file_size,
+                "file_name": request.filename,
+                "file_size_bytes": request.file_size,
                 "object_key": object_key,
             },
         )
@@ -103,13 +103,14 @@ def initiate_upload(
             upload_url=upload_data["url"],
             upload_fields=upload_data["fields"],
             expires_in=3600,  # default expiry from settings
+            s3_key=object_key,
         )
 
     except ValidationError as e:
         logger.warning(
             "Upload validation failed",
             extra={
-                "filename": request.filename,
+                "file_name": request.filename,
                 "error": e.message,
                 "field": e.field,
             },
@@ -129,7 +130,7 @@ def initiate_upload(
         logger.error(
             "Upload initiation failed",
             exc_info=e,
-            extra={"filename": request.filename},
+            extra={"file_name": request.filename},
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
