@@ -7,7 +7,7 @@ AI-powered lecture video processing pipeline built with FastAPI and Celery.
 - **Framework**: FastAPI
 - **Task Queue**: Celery
 - **Broker/Cache**: Redis
-- **Database**: SQLite (dev) / PostgreSQL (prod)
+- **Database**: PostgreSQL
 - **Storage**: AWS S3 + CloudFront
 - **Runtime**: Python 3.11+, uv package manager
 - **Containerization**: Docker + Docker Compose
@@ -67,7 +67,7 @@ cp .env.example .env
 ### 4. Run with Docker Compose (Recommended)
 
 ```bash
-# Build and start all services
+# Build and start all services (API, PostgreSQL, Redis)
 docker-compose up --build
 
 # Run in detached mode
@@ -76,15 +76,31 @@ docker-compose up -d
 # View logs
 docker-compose logs -f
 
+# View logs for specific service
+docker-compose logs -f api
+docker-compose logs -f db
+
 # Stop services
 docker-compose down
+
+# Stop and remove volumes (clean slate)
+docker-compose down -v
 ```
 
 The API will be available at `http://localhost:8000`.
 
+**Services:**
+- **API:** http://localhost:8000
+- **PostgreSQL:** localhost:5432 (user: `lecture_user`, db: `lecture_extractor`)
+- **Redis:** localhost:6379
+
 ### 5. Run locally (without Docker)
 
 ```bash
+# Start PostgreSQL (required)
+# Ensure PostgreSQL is installed and running
+createdb lecture_extractor
+
 # Start Redis (required)
 redis-server
 
@@ -93,6 +109,42 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ## Development
+
+### Database Management
+
+The project uses PostgreSQL with Alembic for migrations.
+
+```bash
+# Access PostgreSQL container
+docker-compose exec db psql -U lecture_user -d lecture_extractor
+
+# Run migrations (once implemented)
+docker-compose exec api alembic upgrade head
+
+# Create a new migration
+docker-compose exec api alembic revision --autogenerate -m "description"
+
+# Rollback migration
+docker-compose exec api alembic downgrade -1
+
+# View migration history
+docker-compose exec api alembic history
+```
+
+**PostgreSQL commands:**
+```sql
+-- List all tables
+\dt
+
+-- Describe a table
+\d table_name
+
+-- List all databases
+\l
+
+-- Quit
+\q
+```
 
 ### Code Quality
 

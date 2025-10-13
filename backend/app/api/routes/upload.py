@@ -1,0 +1,142 @@
+"""Upload API routes for initiating video uploads."""
+
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.logging import get_logger
+from app.models.schemas import UploadRequest, UploadResponse
+from app.services.db_service import DatabaseService
+from app.services.s3_service import s3_service
+from app.services.validation_service import ValidationError, file_validator
+
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/upload", tags=["upload"])
+
+
+@router.post(
+    "",
+    response_model=UploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Initiate video upload",
+    description="""
+    Initiate a new video upload by providing file metadata.
+
+    This endpoint:
+    1. Validates the file metadata (size, type, name)
+    2. Creates a new job record in the database
+    3. Generates a pre-signed S3 URL for direct upload
+    4. Returns the job_id and upload URL to the client
+
+    The client should then upload the file directly to S3 using the
+    provided pre-signed URL with a PUT request.
+    """,
+)
+def initiate_upload(
+    request: UploadRequest,
+    db: Session = Depends(get_db),
+) -> UploadResponse:
+    """Initiate video upload and get pre-signed S3 URL.
+
+    Args:
+        request: Upload request with file metadata
+        db: Database session
+
+    Returns:
+        UploadResponse with job_id and pre-signed upload URL
+
+    Raises:
+        HTTPException: If validation fails or S3 operation fails
+    """
+    try:
+        # validate file metadata
+        file_validator.validate_upload_request(
+            filename=request.filename,
+            file_size=request.file_size,
+            content_type=request.content_type,
+        )
+
+        # generate unique job ID
+        job_id = f"job_{uuid.uuid4().hex[:12]}"
+
+        # generate S3 object key
+        object_key = s3_service.generate_object_key(
+            job_id=job_id,
+            filename=request.filename,
+        )
+
+        # generate pre-signed upload URL
+        upload_data = s3_service.generate_presigned_upload_url(
+            object_key=object_key,
+            content_type=request.content_type,
+        )
+
+        # create job record in database
+        db_service = DatabaseService(db)
+        job = db_service.jobs.create(
+            job_id=job_id,
+            filename=request.filename,
+            file_size=request.file_size,
+            content_type=request.content_type,
+            original_s3_key=object_key,
+            status="queued",
+            current_stage="uploading",
+            progress_percent=0.0,
+            progress_message="Waiting for file upload to S3",
+        )
+
+        logger.info(
+            "Upload initiated",
+            extra={
+                "job_id": job_id,
+                "filename": request.filename,
+                "file_size": request.file_size,
+                "object_key": object_key,
+            },
+        )
+
+        return UploadResponse(
+            job_id=job.job_id,
+            upload_url=upload_data["url"],
+            upload_fields=upload_data["fields"],
+            expires_in=3600,  # default expiry from settings
+        )
+
+    except ValidationError as e:
+        logger.warning(
+            "Upload validation failed",
+            extra={
+                "filename": request.filename,
+                "error": e.message,
+                "field": e.field,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": e.message,
+                    "field": e.field,
+                }
+            },
+        ) from e
+
+    except Exception as e:
+        logger.error(
+            "Upload initiation failed",
+            exc_info=e,
+            extra={"filename": request.filename},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "UPLOAD_INIT_FAILED",
+                    "message": "Failed to initiate upload. Please try again.",
+                }
+            },
+        ) from e

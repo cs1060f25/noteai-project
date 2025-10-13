@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import videos
+from app.api.routes import upload, videos
 from app.core.logging import get_logger, setup_logging
 from app.core.settings import settings
 
@@ -28,7 +28,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "environment": settings.environment,
         },
     )
+
+    # initialize database
+    # in production, use alembic migrations; in dev, use create_all for convenience
+    if settings.environment == "production":
+        from app.core.database import run_migrations
+
+        logger.info("Running database migrations...")
+        try:
+            run_migrations()
+            logger.info("Database migrations completed successfully")
+        except Exception as e:
+            logger.error("Failed to run migrations", exc_info=e)
+            raise
+    else:
+        from app.core.database import init_db
+
+        logger.info("Initializing database (development mode)...")
+        init_db()
+        logger.info("Database initialized successfully")
+
     yield
+
     # Shutdown
     logger.info("Shutting down application")
 
@@ -112,9 +133,10 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
 
 
 # Import and include routers
-app.include_router(videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
-# from app.api.routes import upload, jobs, results, websocket
-# app.include_router(upload.router, prefix=settings.api_v1_prefix, tags=["Upload"])
+app.include_router(
+    videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
+app.include_router(
+    upload.router, prefix=settings.api_v1_prefix, tags=["Upload"])
+# from app.api.routes import jobs, results
 # app.include_router(jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
 # app.include_router(results.router, prefix=settings.api_v1_prefix, tags=["Results"])
-# app.include_router(websocket.router, prefix=settings.api_v1_prefix, tags=["WebSocket"])

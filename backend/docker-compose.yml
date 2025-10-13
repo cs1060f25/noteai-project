@@ -1,6 +1,42 @@
 version: '3.8'
 
 services:
+  # PostgreSQL database
+  db:
+    image: postgres:15-alpine
+    container_name: lecture-extractor-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=lecture_user
+      - POSTGRES_PASSWORD=lecture_password
+      - POSTGRES_DB=lecture_extractor
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lecture-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lecture_user -d lecture_extractor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery broker and caching
+  redis:
+    image: redis:7-alpine
+    container_name: lecture-extractor-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - lecture-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # FastAPI application
   api:
     build:
@@ -13,7 +49,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - LOG_LEVEL=DEBUG
-      - DATABASE_URL=sqlite:////app/data/lecture_extractor.db
+      - DATABASE_URL=postgresql://lecture_user:lecture_password@db:5432/lecture_extractor
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
@@ -21,23 +57,17 @@ services:
       - .:/app
       - api_data:/app/data
     depends_on:
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - lecture-network
     restart: unless-stopped
-
-  # Redis for Celery broker and caching
-  redis:
-    image: redis:7-alpine
-    container_name: lecture-extractor-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - lecture-network
-    restart: unless-stopped
-    # No persistence needed for development (broker/cache only)
 
 volumes:
+  postgres_data:
+    driver: local
   api_data:
     driver: local
 
