@@ -48,10 +48,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         init_db()
         logger.info("Database initialized successfully")
 
-    # initialize prometheus metrics
-    Instrumentator().instrument(app).expose(app)
-    logger.info("Prometheus metrics initialized at /metrics")
-
     yield
 
     # shutdown
@@ -67,6 +63,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# initialize prometheus metrics (must be before app starts, but after app creation)
+Instrumentator().instrument(app).expose(app)
+logger.info("Prometheus metrics configured at /metrics")
 
 app.add_middleware(
     CORSMiddleware,
@@ -134,9 +133,6 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
         },
     )
 
-
-# prometheus metrics instrumentation
-Instrumentator().instrument(app).expose(app)
 
 app.include_router(
     videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
