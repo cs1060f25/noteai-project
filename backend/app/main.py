@@ -135,6 +135,9 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
     )
 
 
+# prometheus metrics instrumentation
+Instrumentator().instrument(app).expose(app)
+
 app.include_router(
     videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
 app.include_router(

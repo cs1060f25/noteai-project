@@ -2,11 +2,36 @@
 
 from celery import Celery
 from kombu import Exchange, Queue
+from prometheus_client import Counter, Gauge, Histogram
 
 from app.core.logging import get_logger
 from app.core.settings import settings
 
 logger = get_logger(__name__)
+
+# prometheus metrics for celery tasks
+task_duration_seconds = Histogram(
+    "celery_task_duration_seconds",
+    "Task execution duration in seconds",
+    ["task_name", "status"],
+)
+
+task_counter = Counter(
+    "celery_task_total",
+    "Total number of tasks executed",
+    ["task_name", "status"],
+)
+
+active_workers = Gauge(
+    "celery_active_workers",
+    "Number of active Celery workers",
+)
+
+queue_length = Gauge(
+    "celery_queue_length",
+    "Number of tasks waiting in queue",
+    ["queue_name"],
+)
 
 # create celery app instance
 celery_app = Celery(

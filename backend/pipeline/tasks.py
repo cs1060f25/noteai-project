@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from celery import Task, chain, group
+from celery.signals import worker_ready
+from prometheus_client import start_http_server
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -18,7 +20,7 @@ from app.core.logging import get_logger
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
 
-from .celery_app import celery_app
+from .celery_app import celery_app, task_counter, task_duration_seconds
 
 logger = get_logger(__name__)
 
@@ -33,6 +35,27 @@ def get_task_db():
 
 class BaseProcessingTask(Task):
     """base task with progress tracking and error handling."""
+
+    def before_start(self, task_id, args, kwargs):
+        """track task start time for metrics."""
+        self._start_time = time.time()
+
+    def on_success(self, retval, task_id, args, kwargs):
+        """track successful task completion metrics."""
+        if hasattr(self, "_start_time"):
+            duration = time.time() - self._start_time
+            task_duration_seconds.labels(task_name=self.name, status="success").observe(duration)
+
+        task_counter.labels(task_name=self.name, status="success").inc()
+
+        logger.info(
+            "Task completed successfully",
+            extra={
+                "task_id": task_id,
+                "task_name": self.name,
+                "duration": duration if hasattr(self, "_start_time") else None,
+            },
+        )
 
     def update_job_progress(
         self,
@@ -129,6 +152,13 @@ class BaseProcessingTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """handle task failure."""
+        # track failure metrics
+        if hasattr(self, "_start_time"):
+            duration = time.time() - self._start_time
+            task_duration_seconds.labels(task_name=self.name, status="failure").observe(duration)
+
+        task_counter.labels(task_name=self.name, status="failure").inc()
+
         job_id = kwargs.get("job_id") or (args[0] if args else None)
         if job_id:
             error_message = f"Task failed: {exc!s}"
@@ -395,3 +425,18 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
     layout_data = {}  # TODO: get from database
     transcript_data = {}  # TODO: get from database
     return compile_clips(video_path, segments_data, layout_data, transcript_data, job_id)
+
+
+# start prometheus metrics server when worker is ready
+@worker_ready.connect
+def start_metrics_server(**kwargs):
+    """start prometheus metrics HTTP server on worker startup."""
+    try:
+        start_http_server(9090)
+        logger.info("Prometheus metrics server started on port 9090")
+    except Exception as e:
+        logger.error(
+            "Failed to start metrics server",
+            exc_info=e,
+            extra={"port": 9090},
+        )
