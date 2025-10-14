@@ -9,3 +9,17 @@ datasources:
     editable: true
     jsonData:
       timeInterval: 15s
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: prometheus
+          matcherRegex: "job_id=(\\w+)"
+          name: job_id
+          url: /explore?left=["now-1h","now","Prometheus",{"expr":"job_count_by_status{job_id=\"$${__value.raw}\"}"}]

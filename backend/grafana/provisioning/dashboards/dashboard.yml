@@ -1,12 +1,12 @@
 apiVersion: 1
 
 providers:
-  - name: 'FastAPI Dashboards'
+  - name: 'Lecture Extractor Dashboards'
     orgId: 1
-    folder: ''
+    folder: 'Monitoring'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 10
     allowUiUpdates: true
     options:
-      path: /etc/grafana/provisioning/dashboards
+      path: /var/lib/grafana/dashboards

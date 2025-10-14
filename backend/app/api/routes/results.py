@@ -147,9 +147,7 @@ def get_results(
     # add job completion time
     metadata["completed_at"] = job.completed_at.isoformat() if job.completed_at else None
     metadata["processing_duration_seconds"] = (
-        (job.completed_at - job.created_at).total_seconds()
-        if job.completed_at
-        else None
+        (job.completed_at - job.created_at).total_seconds() if job.completed_at else None
     )
 
     logger.info(

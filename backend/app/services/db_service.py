@@ -124,11 +124,7 @@ class JobRepository:
 
         # apply ordering
         order_field = getattr(Job, order_by, Job.created_at)
-        query = (
-            query.order_by(desc(order_field))
-            if order_desc
-            else query.order_by(order_field)
-        )
+        query = query.order_by(desc(order_field)) if order_desc else query.order_by(order_field)
 
         return query.offset(offset).limit(limit).all()
 
