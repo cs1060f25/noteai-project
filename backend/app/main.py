@@ -6,10 +6,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.routes import jobs, results, upload, videos
 from app.core.logging import get_logger, setup_logging
 from app.core.settings import settings
+from app.services.metrics_service import update_job_metrics
 
 setup_logging()
 logger = get_logger(__name__)
@@ -18,6 +20,8 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
+    import asyncio
+
     # startup
     logger.info(
         "Starting application",
@@ -47,9 +51,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         init_db()
         logger.info("Database initialized successfully")
 
+    # start background task for updating job metrics
+    async def metrics_updater():
+        while True:
+            await asyncio.sleep(30)  # update every 30 seconds
+            try:
+                await update_job_metrics()
+            except Exception as e:
+                logger.error("Metrics update failed", exc_info=e)
+
+    metrics_task = asyncio.create_task(metrics_updater())
+    logger.info("Job metrics updater started")
+
     yield
 
     # shutdown
+    metrics_task.cancel()
     logger.info("Shutting down application")
 
 
@@ -62,6 +79,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# initialize prometheus metrics (must be before app starts, but after app creation)
+Instrumentator().instrument(app).expose(app)
+logger.info("Prometheus metrics configured at /metrics")
 
 app.add_middleware(
     CORSMiddleware,
@@ -130,11 +150,7 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
     )
 
 
-app.include_router(
-    videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
-app.include_router(
-    upload.router, prefix=settings.api_v1_prefix, tags=["Upload"])
-app.include_router(
-    jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
-app.include_router(
-    results.router, prefix=settings.api_v1_prefix, tags=["Results"])
+app.include_router(videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
+app.include_router(upload.router, prefix=settings.api_v1_prefix, tags=["Upload"])
+app.include_router(jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
+app.include_router(results.router, prefix=settings.api_v1_prefix, tags=["Results"])

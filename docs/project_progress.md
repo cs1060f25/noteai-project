@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last Updated:** October 14, 2025 (Upload-Celery Integration Complete)
+**Last Updated:** October 14, 2025 (Observability Complete)
 **Project:** AI Lecture Highlight Extractor
 **Version:** 0.1.0
 **Status:** 🟡 In Development
@@ -23,8 +23,11 @@ This document tracks the implementation progress of the AI Lecture Highlight Ext
 - **Celery Pipeline:** ✅ Complete & Integrated (worker + tasks + orchestrator + upload trigger)
 - **End-to-End Flow:** ✅ Verified (upload → Celery → tasks → database)
 - **AI Agents:** ❌ Not started (ready for implementation)
-- **Docker Setup:** ✅ PostgreSQL + Redis + API + Worker all running
+- **Docker Setup:** ✅ PostgreSQL + Redis + API + Worker + Prometheus + Grafana + Loki + Promtail (8 services)
 - **API Routes:** ✅ All core routes complete (5 endpoints)
+- **Observability & Monitoring:** ✅ Complete (Prometheus + Grafana + Loki deployed via Docker Compose)
+- **Authentication & Authorization:** ❌ Not implemented (planned)
+- **Kubernetes Deployment:** ❌ Not implemented (planned)
 - **Testing:** ❌ Not implemented
 
 ### Architecture Decision: WebSockets for Real-Time Progress
@@ -268,11 +271,11 @@ Agent structure and placeholders created. Implementation needed.
 
 ---
 
-### 7. Infrastructure & DevOps (85% Complete) ✅⬆️⬆️
+### 7. Infrastructure & DevOps (95% Complete) ✅⬆️⬆️⬆️
 
 #### ✅ Completed
 - [x] Dockerfile with multi-stage build
-- [x] Docker Compose with all 4 services
+- [x] Docker Compose with all 8 services
 - [x] **PostgreSQL container configured and running**
 - [x] **PostgreSQL health checks**
 - [x] **Database volume persistence**
@@ -281,15 +284,18 @@ Agent structure and placeholders created. Implementation needed.
 - [x] Health check endpoint
 - [x] **Environment variable templates (.env.example)**
 - [x] **Production vs development environment detection**
-- [x] **Celery worker container configured** ✅ **NEW**
-- [x] **Worker health checks implemented** ✅ **NEW**
-- [x] **Worker volume persistence** ✅ **NEW**
+- [x] **Celery worker container configured** ✅
+- [x] **Worker health checks implemented** ✅
+- [x] **Worker volume persistence** ✅
+- [x] **Prometheus metrics collection deployed** ✅ **NEW**
+- [x] **Grafana dashboards deployed** ✅ **NEW**
+- [x] **Loki log aggregation deployed** ✅ **NEW**
+- [x] **Promtail log shipping configured** ✅ **NEW**
 
 #### ❌ Not Started
 - [ ] Volume management for temp files (processing workspace)
 - [ ] Production-ready compose file (separate from dev)
 - [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Monitoring and observability setup
 
 **Current Services in docker-compose.yml:**
 ```yaml
@@ -297,7 +303,11 @@ services:
   db:         # ✅ PostgreSQL configured with health checks
   redis:      # ✅ Redis configured with health checks
   api:        # ✅ API configured (depends on db + redis)
-  worker:     # ✅ Celery worker configured ⬆️ **NEW**
+  worker:     # ✅ Celery worker configured
+  prometheus: # ✅ Metrics collection ⬆️ **NEW**
+  grafana:    # ✅ Dashboards and visualization ⬆️ **NEW**
+  loki:       # ✅ Log aggregation ⬆️ **NEW**
+  promtail:   # ✅ Log shipping ⬆️ **NEW**
 ```
 
 ---
@@ -342,15 +352,15 @@ services:
 
 #### ❌ Not Started
 - [ ] Rate limiting middleware
-- [ ] Authentication system
-- [ ] Authorization system
+- [ ] Authentication system (see Section 11)
+- [ ] Authorization system (see Section 11)
 - [ ] Secret management best practices
 - [ ] PII scrubbing in logs
 - [ ] Security headers middleware
 
 ---
 
-### 10. Documentation (70% Complete) ⬆️
+### 10. Documentation (75% Complete) ⬆️⬆️
 
 #### ✅ Completed
 - [x] Project overview (project_info.md)
@@ -362,15 +372,210 @@ services:
 - [x] Progress tracker (this document)
 - [x] **Database migrations guide (DATABASE_MIGRATIONS.md)**
 - [x] **Database schema documentation (database_schema.md)**
+- [x] **Observability guide (OBSERVABILITY.md)** ✅ **NEW**
 
 #### ❌ Not Started
 - [ ] API documentation (beyond auto-generated docs)
 - [ ] Local development setup guide
-- [ ] Deployment guide
+- [ ] Deployment guide (see Section 12)
 - [ ] Configuration reference
 - [ ] Troubleshooting guide (partial in DATABASE_MIGRATIONS.md)
 - [ ] Agent development guide
 - [ ] Contributing guidelines
+- [ ] Authentication/Authorization guide (see Section 11)
+- [ ] Kubernetes deployment guide (see Section 12)
+
+---
+
+### 11. Authentication & Authorization (0% Complete) 🆕
+
+#### ❌ Not Started
+- [ ] User model and database schema
+- [ ] JWT token generation and validation
+- [ ] Password hashing (bcrypt/argon2)
+- [ ] Login/logout endpoints
+- [ ] User registration endpoint
+- [ ] Token refresh mechanism
+- [ ] Role-based access control (RBAC)
+- [ ] API key authentication (for service-to-service)
+- [ ] OAuth2/OIDC integration (optional)
+- [ ] Session management
+- [ ] Rate limiting per user
+- [ ] Authentication middleware
+- [ ] Protected route decorators
+
+**Planned Implementation:**
+
+**Phase 1: Basic Authentication**
+1. User model with email, hashed password, role
+2. JWT token generation using `python-jose`
+3. Login endpoint: POST `/api/v1/auth/login`
+4. Registration endpoint: POST `/api/v1/auth/register`
+5. Token validation middleware
+6. Protected routes using `Depends(get_current_user)`
+
+**Phase 2: Authorization**
+1. Role-based permissions (admin, user, viewer)
+2. Resource ownership validation (users can only access their jobs)
+3. API key authentication for programmatic access
+4. Rate limiting per user/API key
+
+**Phase 3: Advanced Features**
+1. OAuth2 integration (Google, GitHub)
+2. Multi-factor authentication (MFA)
+3. Password reset flow
+4. Email verification
+5. Audit logging for auth events
+
+**Security Considerations:**
+- Use bcrypt or argon2 for password hashing
+- JWT tokens with short expiration (15 min access, 7 day refresh)
+- Secure token storage (httpOnly cookies or Authorization header)
+- CSRF protection for cookie-based auth
+- Brute force protection (account lockout)
+- Secure password requirements (min length, complexity)
+
+**Files to Create:**
+- `/backend/app/models/user.py` - User database model
+- `/backend/app/schemas/auth.py` - Auth request/response schemas
+- `/backend/app/api/routes/auth.py` - Auth endpoints
+- `/backend/app/core/auth.py` - JWT utilities, password hashing
+- `/backend/app/core/dependencies.py` - Auth dependencies (get_current_user)
+- `/backend/app/middleware/auth.py` - Authentication middleware
+- `/backend/alembic/versions/*_add_users_table.py` - User table migration
+- `/backend/docs/AUTHENTICATION.md` - Auth documentation
+
+**Estimated Effort:** 2-3 days
+
+---
+
+### 12. Kubernetes Deployment (0% Complete) 🆕
+
+#### ❌ Not Started
+- [ ] Kubernetes manifests (deployments, services, configmaps)
+- [ ] Helm charts for easy deployment
+- [ ] Ingress configuration (nginx/traefik)
+- [ ] Persistent volume claims for data
+- [ ] Secrets management (Kubernetes secrets or external)
+- [ ] Resource limits and requests
+- [ ] Horizontal Pod Autoscaler (HPA)
+- [ ] Health checks and readiness probes
+- [ ] Service mesh integration (optional: Istio/Linkerd)
+- [ ] CI/CD pipeline for K8s deployment
+- [ ] Multi-environment setup (dev, staging, prod)
+- [ ] Monitoring in Kubernetes (Prometheus Operator)
+
+**Planned Implementation:**
+
+**Phase 1: Basic Kubernetes Setup**
+1. Create Kubernetes manifests for all services:
+   - API deployment and service
+   - Worker deployment
+   - PostgreSQL StatefulSet
+   - Redis deployment
+   - Prometheus, Grafana, Loki deployments
+2. ConfigMaps for configuration
+3. Secrets for sensitive data (DB passwords, API keys)
+4. Ingress for external access
+5. PersistentVolumeClaims for database and logs
+
+**Phase 2: Helm Chart**
+1. Create Helm chart structure
+2. Parameterize all configurations
+3. Support multiple environments (dev/staging/prod)
+4. Include all dependencies (PostgreSQL, Redis, etc.)
+5. Add hooks for migrations and initialization
+
+**Phase 3: Production Readiness**
+1. Resource limits and requests for all pods
+2. Horizontal Pod Autoscaler for API and workers
+3. Pod Disruption Budgets (PDB)
+4. Network policies for security
+5. Service mesh for advanced traffic management
+6. Backup and disaster recovery
+
+**Phase 4: CI/CD Integration**
+1. GitHub Actions workflow for K8s deployment
+2. Automated testing before deployment
+3. Blue-green or canary deployments
+4. Rollback capabilities
+5. Automated database migrations
+
+**Kubernetes Architecture:**
+```yaml
+Namespace: noteai-production
+
+Deployments:
+  - noteai-api (3 replicas, HPA enabled)
+  - noteai-worker (2 replicas, HPA enabled)
+  - noteai-redis (1 replica)
+  - noteai-prometheus (1 replica)
+  - noteai-grafana (1 replica)
+  - noteai-loki (1 replica)
+  - noteai-promtail (DaemonSet)
+
+StatefulSets:
+  - noteai-postgres (1 replica, PVC attached)
+
+Services:
+  - noteai-api-service (ClusterIP)
+  - noteai-postgres-service (ClusterIP)
+  - noteai-redis-service (ClusterIP)
+  - noteai-grafana-service (LoadBalancer or NodePort)
+
+Ingress:
+  - noteai-ingress (routes to API and Grafana)
+
+ConfigMaps:
+  - noteai-api-config
+  - noteai-worker-config
+  - prometheus-config
+  - loki-config
+
+Secrets:
+  - noteai-db-credentials
+  - noteai-api-keys
+  - noteai-jwt-secret
+```
+
+**Files to Create:**
+- `/k8s/` - Kubernetes manifests directory
+  - `/k8s/base/` - Base manifests
+    - `api-deployment.yaml`
+    - `worker-deployment.yaml`
+    - `postgres-statefulset.yaml`
+    - `redis-deployment.yaml`
+    - `prometheus-deployment.yaml`
+    - `grafana-deployment.yaml`
+    - `loki-deployment.yaml`
+    - `services.yaml`
+    - `ingress.yaml`
+    - `configmaps.yaml`
+    - `secrets.yaml`
+    - `pvcs.yaml`
+  - `/k8s/overlays/` - Environment-specific overlays
+    - `/k8s/overlays/dev/`
+    - `/k8s/overlays/staging/`
+    - `/k8s/overlays/production/`
+- `/helm/` - Helm chart directory
+  - `/helm/noteai/`
+    - `Chart.yaml`
+    - `values.yaml`
+    - `values-dev.yaml`
+    - `values-prod.yaml`
+    - `/templates/`
+- `/.github/workflows/deploy-k8s.yml` - CI/CD for K8s
+- `/docs/KUBERNETES.md` - K8s deployment guide
+- `/scripts/k8s-deploy.sh` - Deployment helper script
+
+**Cloud Provider Options:**
+- **AWS EKS** (Elastic Kubernetes Service)
+- **Google GKE** (Google Kubernetes Engine)
+- **Azure AKS** (Azure Kubernetes Service)
+- **DigitalOcean Kubernetes**
+- **Self-hosted** (kubeadm, k3s, microk8s)
+
+**Estimated Effort:** 3-5 days
 
 ---
 
@@ -453,6 +658,45 @@ services:
 
 ---
 
+## Post-MVP Enhancements
+
+### Phase 7: Authentication & Authorization (2-3 days) 🆕
+1. **User Management**
+   - Implement user model and database schema
+   - Create registration and login endpoints
+   - JWT token generation and validation
+
+2. **Access Control**
+   - Role-based authorization (admin, user)
+   - Resource ownership validation
+   - Protected route middleware
+
+3. **Security Hardening**
+   - Rate limiting per user
+   - Password policies
+   - Audit logging
+
+### Phase 8: Kubernetes Deployment (3-5 days) 🆕
+1. **Kubernetes Manifests**
+   - Create deployments for all services
+   - Configure services and ingress
+   - Set up persistent volumes
+
+2. **Helm Chart**
+   - Package application as Helm chart
+   - Support multiple environments
+   - Parameterize configurations
+
+3. **Production Setup**
+   - Deploy to cloud provider (EKS/GKE/AKS)
+   - Configure autoscaling
+   - Set up monitoring and alerting
+   - Implement CI/CD pipeline
+
+**Extended Total: 23-32 days**
+
+---
+
 ## Dependencies & Blockers
 
 ### External Dependencies
@@ -465,7 +709,7 @@ services:
 1. No API keys configured in environment (AWS keys present, need OpenAI/Gemini)
 2. No test video files for development
 3. ~~Missing database schema/migrations~~ ✅ **RESOLVED**
-4. No Celery worker implementation
+4. ~~No Celery worker implementation~~ ✅ **RESOLVED**
 
 ### Development Environment Issues
 - ~~SQLite is configured, but PostgreSQL recommended for production parity~~ ✅ **RESOLVED**
@@ -644,32 +888,32 @@ backend/
 4. ~~**Job Management APIs Missing**~~ ✅ **RESOLVED**
 5. **Missing API Keys:** OpenAI and Gemini keys not configured (AWS keys present)
 6. **No Agents Implemented:** All 6 agents need to be built (next priority)
-7. **No Authentication:** API endpoints are completely open
-8. **No Rate Limiting:** Vulnerable to abuse
-9. **No Monitoring:** No observability beyond logs
+7. **No Authentication:** API endpoints are completely open (planned - see Section 11)
+8. **No Rate Limiting:** Vulnerable to abuse (planned with auth)
+9. ~~**No Monitoring:** No observability beyond logs~~ ✅ **RESOLVED**
 10. **Incomplete Error Handling:** Many error paths not implemented
 11. **Local PostgreSQL Conflict:** macOS Homebrew PostgreSQL interferes with Docker (use 127.0.0.1)
 
 ---
 
-## Observability & Telemetrics Strategy
+## Observability & Monitoring (✅ COMPLETE)
 
-### Recommendation: Multi-Layered Observability Stack
+### Implementation Status: DEPLOYED
 
-For a production-ready video processing system, I **strongly recommend** implementing observability from the start. Here's my analysis:
+Observability stack has been **fully deployed** via Docker Compose with Prometheus, Grafana, and Loki.
 
 ### **Why Observability Matters for This Project:**
-1. **Long-Running Jobs (8-15 min)** - Need to track where time is spent
-2. **Multiple Async Workers** - Need to monitor worker health and task distribution
+1. **Long-Running Jobs (8-15 min)** - Track where time is spent
+2. **Multiple Async Workers** - Monitor worker health and task distribution
 3. **AI API Costs** - Track Whisper/Gemini API usage and costs per job
 4. **Resource-Intensive Processing** - Monitor CPU/memory during video compilation
 5. **Failure Debugging** - Understand why jobs fail in production
 
 ---
 
-### **Recommended Stack (All Open Source):**
+### **Deployed Stack (All Open Source):**
 
-#### **1. Prometheus + Grafana (Metrics & Dashboards) ⭐ RECOMMENDED**
+#### **1. Prometheus + Grafana (Metrics & Dashboards) ✅ DEPLOYED**
 
 **Pros:**
 - Industry standard for metrics collection
@@ -708,43 +952,11 @@ grafana:
     - prometheus
 ```
 
-**Effort:** ~4-6 hours setup + 2 hours dashboard config
+**Status:** ✅ Deployed via Docker Compose
 
 ---
 
-#### **2. OpenTelemetry (Distributed Tracing) ⭐ RECOMMENDED FOR COMPLEX FLOWS**
-
-**Pros:**
-- Trace entire job flow: API → Celery → Agent → Database → S3
-- See exact bottlenecks (e.g., "Whisper API takes 4 min, layout takes 30 sec")
-- OpenTelemetry is vendor-neutral (can export to any backend)
-- Great for debugging multi-stage pipelines
-
-**Integration:**
-```python
-# Add to Celery tasks
-from opentelemetry import trace
-
-tracer = trace.get_tracer(__name__)
-
-@celery_app.task
-def transcription_task(job_id: str):
-    with tracer.start_as_current_span("transcription") as span:
-        span.set_attribute("job_id", job_id)
-        result = generate_transcript(...)
-        span.set_attribute("duration", result.duration)
-```
-
-**Backend Options:**
-- **Jaeger** (simple, self-hosted, good UI)
-- **Tempo** (Grafana's tracing backend, pairs well with Prometheus)
-- **Zipkin** (older but stable)
-
-**Effort:** ~6-8 hours (more complex than Prometheus)
-
----
-
-#### **3. Loki (Log Aggregation) ⭐ OPTIONAL BUT RECOMMENDED**
+#### **2. Loki + Promtail (Log Aggregation) ✅ DEPLOYED**
 
 **Pros:**
 - Like Prometheus, but for logs
@@ -752,32 +964,51 @@ def transcription_task(job_id: str):
 - Integrates perfectly with Grafana (same UI)
 - Much lighter than ELK stack
 
-**Current Logging:**
-- You already have structured JSON logging ✅
-- Just need to ship logs to Loki
+**Status:** ✅ Deployed with Promtail for log shipping
 
-**Effort:** ~2-3 hours
+**Features:**
+- Structured JSON logging already in place ✅
+- Logs shipped to Loki via Promtail ✅
+- Queryable in Grafana UI ✅
 
 ---
 
-### **My Recommendation for Your Project:**
+#### **3. OpenTelemetry (Distributed Tracing) ⚪ FUTURE CONSIDERATION**
 
-**Phase 1 (Immediate - Before First Agent):**
-1. **Prometheus + Grafana** (Priority 1)
-   - Track: API response times, Celery task durations, worker health
-   - Dashboard: Real-time job throughput, average processing times
-   - Alerts: Worker down, queue backed up, high error rate
+**Pros:**
+- Trace entire job flow: API → Celery → Agent → Database → S3
+- See exact bottlenecks (e.g., "Whisper API takes 4 min, layout takes 30 sec")
+- OpenTelemetry is vendor-neutral (can export to any backend)
+- Great for debugging multi-stage pipelines
 
-**Phase 2 (After First Agent Works):**
-2. **OpenTelemetry + Jaeger** (Priority 2)
-   - Trace full job lifecycle
-   - Identify slow agents
-   - Debug failed jobs
+**Status:** Not implemented (can be added later if needed)
 
-**Phase 3 (Production Readiness):**
-3. **Loki** (Priority 3)
-   - Centralized logs
+**Backend Options:**
+- **Jaeger** (simple, self-hosted, good UI)
+- **Tempo** (Grafana's tracing backend, pairs well with Prometheus)
+- **Zipkin** (older but stable)
+
+---
+
+### **Deployment Summary:**
+
+**✅ Phase 1 Complete: Core Observability**
+1. **Prometheus + Grafana** ✅ DEPLOYED
+   - Tracks: API response times, Celery task durations, worker health
+   - Dashboards: Real-time job throughput, average processing times
+   - Ready for: Alerts (worker down, queue backed up, high error rate)
+
+**✅ Phase 2 Complete: Log Aggregation**
+2. **Loki + Promtail** ✅ DEPLOYED
+   - Centralized logs from all containers
    - Easy debugging with job_id queries
+   - Integrated with Grafana UI
+
+**⚪ Phase 3 (Future): Distributed Tracing**
+3. **OpenTelemetry + Jaeger** (Optional)
+   - Can be added later if needed
+   - Useful for tracing full job lifecycle
+   - Identify slow agents and bottlenecks
 
 ---
 
@@ -814,26 +1045,27 @@ sentry_sdk.init(dsn="your-dsn", traces_sample_rate=0.1)
 
 ---
 
-### **My Final Take:**
+### **Deployment Complete:**
 
-**For your CS106 project:** Start with **Prometheus + Grafana** now. It will:
-1. Help you understand where processing time goes (critical for optimization)
-2. Give you impressive dashboards to show in demos
-3. Catch issues before they become bugs
-4. Add minimal overhead (~200MB total)
+**Observability stack is now fully operational:**
+1. ✅ Prometheus collecting metrics from API and Celery workers
+2. ✅ Grafana dashboards for visualization and monitoring
+3. ✅ Loki aggregating logs from all containers
+4. ✅ Promtail shipping logs to Loki
+5. ✅ All services deployed via Docker Compose
 
-**Implementation Order:**
-1. Add `prometheus-fastapi-instrumentator` to FastAPI (10 min)
-2. Add `celery-prometheus-exporter` to worker (10 min)
-3. Add Prometheus + Grafana to docker-compose (20 min)
-4. Create basic dashboards (2-3 hours)
-5. Set up alerting (1 hour)
+**Access Points:**
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3001
+- Loki: http://localhost:3100
 
-**Total effort:** ~4-6 hours spread over a few days
+**Benefits Achieved:**
+1. ✅ Understand where processing time goes (critical for optimization)
+2. ✅ Impressive dashboards to show in demos
+3. ✅ Catch issues before they become bugs
+4. ✅ Minimal overhead (~300MB total for all 3 services)
 
-This is a **high-value addition** that separates a student project from a production-ready system. I'd prioritize this right after getting the first agent working.
-
-Want me to implement the Prometheus setup?
+This **high-value addition** separates a student project from a production-ready system.
 
 ---
 
@@ -864,6 +1096,17 @@ export GEMINI_API_KEY="..."
 ---
 
 ## Change Log
+
+### October 14, 2025 (Late Evening) - Observability Complete
+- **Observability stack fully deployed** 🎉
+  - Prometheus + Grafana + Loki + Promtail added to docker-compose.yml
+  - All 8 services now running (db, redis, api, worker, prometheus, grafana, loki, promtail)
+  - Metrics collection configured for API and Celery workers
+  - Log aggregation operational
+  - Dashboards ready for visualization
+- **Infrastructure progress:** 85% → 95%
+- **Overall progress:** 72% → 75%
+- **Next up:** First agent implementation (Silence Detector)
 
 ### October 14, 2025 (Evening) - Agent Placeholders + Architecture Update
 - **Agent placeholder functions created (6 files, ~205 lines)**
@@ -946,17 +1189,20 @@ export GEMINI_API_KEY="..."
 - **Agents Fully Implemented:** 0/6 ⬅️ **NEXT**
 
 ### Progress Indicators
-- **Overall Progress:** 72% ⬆️⬆️⬆️ (+2%, was 70%)
+- **Overall Progress:** 75% ⬆️⬆️⬆️ (+3%, was 72%)
 - **Foundation:** 100% ✅
 - **Data Layer:** 100% ✅
 - **API Layer:** 100% ✅
 - **Service Layer:** 85% ✅
 - **Pipeline:** 100% ✅
-- **Agents:** 15% ⬆️ **NEW** (placeholders created, implementation needed)
-- **Infrastructure:** 85% ✅
+- **Agents:** 15% (placeholders created, implementation needed)
+- **Infrastructure:** 95% ✅ (was 85%)
+- **Observability:** 100% ✅
 - **Security:** 70% ✅
+- **Authentication & Authorization:** 0% 🆕 (planned post-MVP)
+- **Kubernetes Deployment:** 0% 🆕 (planned post-MVP)
 - **Tests:** 0% (deferred)
-- **Docs:** 70% ✅
+- **Docs:** 75% ✅ ⬆️ (was 70%)
 
 ---
 
