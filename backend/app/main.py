@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import upload, videos
+from app.api.routes import jobs, results, upload, videos
 from app.core.logging import get_logger, setup_logging
 from app.core.settings import settings
 
@@ -134,6 +134,7 @@ app.include_router(
     videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
 app.include_router(
     upload.router, prefix=settings.api_v1_prefix, tags=["Upload"])
-# from app.api.routes import jobs, results
-# app.include_router(jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
-# app.include_router(results.router, prefix=settings.api_v1_prefix, tags=["Results"])
+app.include_router(
+    jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
+app.include_router(
+    results.router, prefix=settings.api_v1_prefix, tags=["Results"])

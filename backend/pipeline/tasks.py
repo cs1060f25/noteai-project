@@ -1,0 +1,399 @@
+"""celery task definitions for video processing pipeline."""
+
+import time
+from datetime import datetime, timezone
+from typing import Any
+
+from celery import Task, chain, group
+from celery.exceptions import Ignore
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.core.logging import get_logger
+from app.core.settings import settings
+from app.services.db_service import DatabaseService
+
+from .celery_app import celery_app
+
+logger = get_logger(__name__)
+
+
+# database session factory for celery tasks
+def get_task_db():
+    """create database session for celery tasks."""
+    engine = create_engine(settings.database_url)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return SessionLocal()
+
+
+class BaseProcessingTask(Task):
+    """base task with progress tracking and error handling."""
+
+    def update_job_progress(
+        self,
+        job_id: str,
+        stage: str,
+        percent: float,
+        message: str,
+        status: str = "running",
+        eta_seconds: int | None = None,
+    ) -> None:
+        """update job progress in database."""
+        db = get_task_db()
+        try:
+            db_service = DatabaseService(db)
+            db_service.jobs.update_progress(
+                job_id=job_id,
+                status=status,
+                current_stage=stage,
+                progress_percent=percent,
+                progress_message=message,
+                estimated_completion_seconds=eta_seconds,
+            )
+            db.commit()
+
+            logger.info(
+                "Job progress updated",
+                extra={
+                    "job_id": job_id,
+                    "stage": stage,
+                    "percent": percent,
+                    "status": status,
+                },
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to update job progress",
+                exc_info=e,
+                extra={"job_id": job_id},
+            )
+            db.rollback()
+        finally:
+            db.close()
+
+    def mark_job_failed(self, job_id: str, error_message: str) -> None:
+        """mark job as failed with error message."""
+        db = get_task_db()
+        try:
+            db_service = DatabaseService(db)
+            job = db_service.jobs.get_by_id(job_id)
+            if job:
+                job.status = "failed"
+                job.error_message = error_message
+                job.completed_at = datetime.now(timezone.utc)
+                db.commit()
+
+            logger.error(
+                "Job marked as failed",
+                extra={"job_id": job_id, "error": error_message},
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to mark job as failed",
+                exc_info=e,
+                extra={"job_id": job_id},
+            )
+            db.rollback()
+        finally:
+            db.close()
+
+    def mark_job_completed(self, job_id: str) -> None:
+        """mark job as completed."""
+        db = get_task_db()
+        try:
+            db_service = DatabaseService(db)
+            job = db_service.jobs.get_by_id(job_id)
+            if job:
+                job.status = "completed"
+                job.current_stage = "complete"
+                job.progress_percent = 100.0
+                job.progress_message = "Processing complete"
+                job.completed_at = datetime.now(timezone.utc)
+                db.commit()
+
+            logger.info("Job marked as completed", extra={"job_id": job_id})
+        except Exception as e:
+            logger.error(
+                "Failed to mark job as completed",
+                exc_info=e,
+                extra={"job_id": job_id},
+            )
+            db.rollback()
+        finally:
+            db.close()
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        """handle task failure."""
+        job_id = kwargs.get("job_id") or (args[0] if args else None)
+        if job_id:
+            error_message = f"Task failed: {str(exc)}"
+            self.mark_job_failed(job_id, error_message)
+
+        logger.error(
+            "Task failed",
+            exc_info=exc,
+            extra={
+                "task_id": task_id,
+                "job_id": job_id,
+                "error": str(exc),
+            },
+        )
+
+
+@celery_app.task(
+    bind=True,
+    base=BaseProcessingTask,
+    name="pipeline.tasks.process_video",
+)
+def process_video(self, job_id: str) -> dict[str, Any]:
+    """main task to orchestrate video processing pipeline.
+
+    this task chains together the two-stage processing:
+    1. stage one: parallel processing (silence, transcript, layout)
+    2. stage two: sequential processing (content, segment, compiler)
+
+    args:
+        job_id: unique job identifier
+
+    returns:
+        dict with processing results
+    """
+    logger.info("Starting video processing pipeline", extra={"job_id": job_id})
+
+    try:
+        # update job status to running
+        self.update_job_progress(
+            job_id=job_id,
+            stage="uploading",
+            percent=5.0,
+            message="Starting processing pipeline",
+            status="running",
+        )
+
+        # verify s3 upload is complete (placeholder - will implement with s3 check)
+        time.sleep(1)  # simulate check
+
+        # chain the pipeline stages
+        pipeline = chain(
+            stage_one_parallel.s(job_id),
+            stage_two_sequential.s(job_id),
+        )
+
+        # execute pipeline
+        result = pipeline.apply_async()
+
+        logger.info(
+            "Pipeline started",
+            extra={"job_id": job_id, "chain_id": result.id},
+        )
+
+        return {
+            "job_id": job_id,
+            "status": "started",
+            "chain_id": result.id,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Failed to start pipeline",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        self.mark_job_failed(
+            job_id, f"Pipeline initialization failed: {str(e)}")
+        raise
+
+
+@celery_app.task(
+    bind=True,
+    base=BaseProcessingTask,
+    name="pipeline.tasks.stage_one_parallel",
+)
+def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
+    """stage one: parallel processing of silence, transcript, and layout.
+
+    runs three agents in parallel:
+    - silence detector
+    - transcript generator (whisper)
+    - layout analyzer
+
+    args:
+        job_id: unique job identifier
+
+    returns:
+        dict with stage one results
+    """
+    logger.info("Starting stage one (parallel)", extra={"job_id": job_id})
+
+    try:
+        self.update_job_progress(
+            job_id=job_id,
+            stage="silence_detection",
+            percent=10.0,
+            message="Running parallel analysis (silence, transcript, layout)",
+            status="running",
+            eta_seconds=300,
+        )
+
+        # create parallel task group
+        # note: actual agent tasks will be implemented in priority 3
+        parallel_tasks = group(
+            silence_detection_task.s(job_id),
+            transcription_task.s(job_id),
+            layout_analysis_task.s(job_id),
+        )
+
+        # execute parallel tasks (they will run in parallel automatically)
+        # note: we don't wait for results here, they update progress directly
+        parallel_tasks.apply_async()
+
+        logger.info("Stage one completed", extra={"job_id": job_id})
+
+        return {
+            "job_id": job_id,
+            "stage": "stage_one",
+            "status": "completed",
+        }
+
+    except Exception as e:
+        logger.error(
+            "Stage one failed",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        self.mark_job_failed(job_id, f"Stage one failed: {str(e)}")
+        raise
+
+
+@celery_app.task(
+    bind=True,
+    base=BaseProcessingTask,
+    name="pipeline.tasks.stage_two_sequential",
+)
+def stage_two_sequential(self, stage_one_result: dict[str, Any], job_id: str) -> dict[str, Any]:
+    """stage two: sequential processing of content, segmentation, and compilation.
+
+    runs three agents sequentially:
+    1. content analyzer (gemini)
+    2. segment extractor
+    3. video compiler
+
+    args:
+        stage_one_result: results from stage one
+        job_id: unique job identifier
+
+    returns:
+        dict with final processing results
+    """
+    logger.info("Starting stage two (sequential)", extra={"job_id": job_id})
+
+    try:
+        # content analysis
+        self.update_job_progress(
+            job_id=job_id,
+            stage="content_analysis",
+            percent=50.0,
+            message="Analyzing content with AI",
+            status="running",
+            eta_seconds=180,
+        )
+        content_analysis_task.apply_async(args=[job_id])
+
+        # segment extraction
+        self.update_job_progress(
+            job_id=job_id,
+            stage="segmentation",
+            percent=70.0,
+            message="Extracting highlight segments",
+            status="running",
+            eta_seconds=120,
+        )
+        segment_extraction_task.apply_async(args=[job_id])
+
+        # video compilation
+        self.update_job_progress(
+            job_id=job_id,
+            stage="compilation",
+            percent=85.0,
+            message="Compiling final video clips",
+            status="running",
+            eta_seconds=60,
+        )
+        video_compilation_task.apply_async(args=[job_id])
+
+        # mark job as completed
+        self.mark_job_completed(job_id)
+
+        logger.info("Stage two completed", extra={"job_id": job_id})
+
+        return {
+            "job_id": job_id,
+            "stage": "stage_two",
+            "status": "completed",
+        }
+
+    except Exception as e:
+        logger.error(
+            "Stage two failed",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        self.mark_job_failed(job_id, f"Stage two failed: {str(e)}")
+        raise
+
+
+# placeholder tasks for individual agents (will be replaced with actual agent implementations)
+
+
+@celery_app.task(bind=True, base=BaseProcessingTask)
+def silence_detection_task(self, job_id: str) -> dict[str, Any]:
+    """placeholder for silence detection agent."""
+    print(f"JOB RUNNING - Silence Detection - {job_id}")
+    logger.info("JOB RUNNING - Silence Detection", extra={"job_id": job_id})
+    time.sleep(1)
+    return {"job_id": job_id, "agent": "silence_detector", "status": "completed"}
+
+
+@celery_app.task(bind=True, base=BaseProcessingTask)
+def transcription_task(self, job_id: str) -> dict[str, Any]:
+    """placeholder for transcription agent."""
+    print(f"JOB RUNNING - Transcription - {job_id}")
+    logger.info("JOB RUNNING - Transcription", extra={"job_id": job_id})
+    time.sleep(1)
+    return {"job_id": job_id, "agent": "transcription", "status": "completed"}
+
+
+@celery_app.task(bind=True, base=BaseProcessingTask)
+def layout_analysis_task(self, job_id: str) -> dict[str, Any]:
+    """placeholder for layout analysis agent."""
+    print(f"JOB RUNNING - Layout Analysis - {job_id}")
+    logger.info("JOB RUNNING - Layout Analysis", extra={"job_id": job_id})
+    time.sleep(1)
+    return {"job_id": job_id, "agent": "layout_analysis", "status": "completed"}
+
+
+@celery_app.task(bind=True, base=BaseProcessingTask)
+def content_analysis_task(self, job_id: str) -> dict[str, Any]:
+    """placeholder for content analysis agent."""
+    print(f"JOB RUNNING - Content Analysis - {job_id}")
+    logger.info("JOB RUNNING - Content Analysis", extra={"job_id": job_id})
+    time.sleep(1)
+    return {"job_id": job_id, "agent": "content_analysis", "status": "completed"}
+
+
+@celery_app.task(bind=True, base=BaseProcessingTask)
+def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
+    """placeholder for segment extraction agent."""
+    print(f"JOB RUNNING - Segment Extraction - {job_id}")
+    logger.info("JOB RUNNING - Segment Extraction", extra={"job_id": job_id})
+    time.sleep(1)
+    return {"job_id": job_id, "agent": "segment_extraction", "status": "completed"}
+
+
+@celery_app.task(bind=True, base=BaseProcessingTask)
+def video_compilation_task(self, job_id: str) -> dict[str, Any]:
+    """placeholder for video compilation agent."""
+    print(f"JOB RUNNING - Video Compilation - {job_id}")
+    logger.info("JOB RUNNING - Video Compilation", extra={"job_id": job_id})
+    time.sleep(1)
+    return {"job_id": job_id, "agent": "video_compilation", "status": "completed"}

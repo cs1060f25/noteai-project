@@ -65,10 +65,44 @@ services:
       - lecture-network
     restart: unless-stopped
 
+  # Celery worker for async processing
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lecture-extractor-worker
+    command: celery -A pipeline.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://lecture_user:lecture_password@db:5432/lecture_extractor
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    volumes:
+      - .:/app
+      - worker_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lecture-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A pipeline.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
     driver: local
   api_data:
+    driver: local
+  worker_data:
     driver: local
 
 networks:

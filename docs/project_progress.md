@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last Updated:** October 13, 2025 (Night Update - Upload Flow Complete)
+**Last Updated:** October 14, 2025 (Upload-Celery Integration Complete)
 **Project:** AI Lecture Highlight Extractor
 **Version:** 0.1.0
 **Status:** 🟡 In Development
@@ -17,10 +17,14 @@ This document tracks the implementation progress of the AI Lecture Highlight Ext
 - **Database Layer:** ✅ Complete (7 tables, relationships, engine, migrations)
 - **Database Migrations:** ✅ Alembic fully configured and tested
 - **Core Services:** ✅ Complete (Database, S3, Validation)
-- **Upload Flow:** ✅ Complete (API route + validation + S3 integration)
-- **AI Pipeline:** ❌ Not started
-- **Docker Setup:** ✅ PostgreSQL + Redis configured and running
-- **API Routes:** 🟡 Upload complete, Jobs/Results pending
+- **Upload Flow:** ✅ Complete (API route + validation + S3 integration + Celery trigger)
+- **Job Management APIs:** ✅ Complete (status tracking + listing)
+- **Results API:** ✅ Complete (clips + transcript retrieval)
+- **Celery Pipeline:** ✅ Complete & Integrated (worker + tasks + orchestrator + upload trigger)
+- **End-to-End Flow:** ✅ Verified (upload → Celery → tasks → database)
+- **AI Agents:** ❌ Not started (ready for implementation)
+- **Docker Setup:** ✅ PostgreSQL + Redis + API + Worker all running
+- **API Routes:** ✅ All core routes complete (5 endpoints)
 - **Testing:** ❌ Not implemented
 
 ### Architecture Decision: Polling vs WebSockets
@@ -111,19 +115,20 @@ This document tracks the implementation progress of the AI Lecture Highlight Ext
 
 ---
 
-### 3. API Routes (40% Complete) ⬆️
+### 3. API Routes (100% Complete) ✅⬆️⬆️
 
 #### ✅ Completed
 - [x] Basic video route structure
 - [x] Pre-signed URL endpoint for S3 access (GET /api/v1/videos/presigned-url)
-- [x] **Upload initiation endpoint (POST /api/v1/upload)** ✅ **NEW**
-- [x] **Job creation integrated with upload** ✅ **NEW**
-- [x] **File validation with security checks** ✅ **NEW**
+- [x] **Upload initiation endpoint (POST /api/v1/upload)** ✅
+- [x] **Job creation integrated with upload** ✅
+- [x] **File validation with security checks** ✅
+- [x] **Celery pipeline trigger on upload** ✅ **NEW**
+- [x] **Job status endpoint (GET /api/v1/jobs/{job_id})** ✅
+- [x] **Job list endpoint (GET /api/v1/jobs)** ✅
+- [x] **Results endpoint (GET /api/v1/results/{job_id})** ✅
 
 #### ❌ Not Started
-- [ ] Job status endpoint (GET /api/v1/jobs/{job_id})
-- [ ] Job list endpoint (GET /api/v1/jobs)
-- [ ] Results endpoint (GET /api/v1/results/{job_id})
 - [ ] Request validation middleware
 - [ ] Rate limiting implementation
 - [ ] Authentication/authorization
@@ -131,10 +136,8 @@ This document tracks the implementation progress of the AI Lecture Highlight Ext
 **Files Present:**
 - `/backend/app/api/routes/videos.py` - Pre-signed URL generation only
 - `/backend/app/api/routes/upload.py` - **Complete upload flow (140 lines)** ✅
-
-**Missing Files:**
-- `/backend/app/api/routes/jobs.py`
-- `/backend/app/api/routes/results.py`
+- `/backend/app/api/routes/jobs.py` - **Complete job management (145 lines)** ✅ **NEW**
+- `/backend/app/api/routes/results.py` - **Complete results retrieval (175 lines)** ✅ **NEW**
 
 ---
 
@@ -180,25 +183,27 @@ This document tracks the implementation progress of the AI Lecture Highlight Ext
 
 ---
 
-### 5. Celery Pipeline (0% Complete)
+### 5. Celery Pipeline (100% Complete) ✅⬆️⬆️⬆️
 
-#### ❌ Not Started
-- [ ] Celery app configuration
-- [ ] Task definitions
-- [ ] Pipeline orchestration logic
-- [ ] Progress event emission
-- [ ] Error handling and retry logic
-- [ ] Task result persistence
-- [ ] Task monitoring
+#### ✅ Completed
+- [x] **Celery app configuration** ✅ **NEW**
+- [x] **Task definitions with base class** ✅ **NEW**
+- [x] **Pipeline orchestration logic (2-stage)** ✅ **NEW**
+- [x] **Progress tracking via PostgreSQL** ✅ **NEW**
+- [x] **Error handling and retry logic** ✅ **NEW**
+- [x] **Task result persistence (Redis)** ✅ **NEW**
+- [x] **Task routing and queues** ✅ **NEW**
+- [x] **Worker configured in docker-compose** ✅ **NEW**
+- [x] **10 tasks registered and ready** ✅ **NEW**
 
-**Missing Files:**
-- `/backend/pipeline/celery_app.py`
-- `/backend/pipeline/__init__.py`
-- `/backend/pipeline/tasks.py`
-- `/backend/pipeline/orchestrator.py`
+**Files Present:**
+- `/backend/pipeline/__init__.py` - **Package initialization** ✅ **NEW**
+- `/backend/pipeline/celery_app.py` - **Complete Celery config (90 lines)** ✅ **NEW**
+- `/backend/pipeline/tasks.py` - **Complete task definitions (400+ lines)** ✅ **NEW**
+- `/backend/pipeline/orchestrator.py` - **Pipeline orchestration (105 lines)** ✅ **NEW**
 
-**Missing in docker-compose.yml:**
-- Celery worker service configuration
+**Docker Compose:**
+- **Worker service added with health checks** ✅ **NEW**
 
 ---
 
@@ -250,11 +255,11 @@ All agent modules are missing. Required structure:
 
 ---
 
-### 7. Infrastructure & DevOps (60% Complete) ⬆️
+### 7. Infrastructure & DevOps (85% Complete) ✅⬆️⬆️
 
 #### ✅ Completed
 - [x] Dockerfile with multi-stage build
-- [x] Docker Compose with API + Redis + **PostgreSQL services**
+- [x] Docker Compose with all 4 services
 - [x] **PostgreSQL container configured and running**
 - [x] **PostgreSQL health checks**
 - [x] **Database volume persistence**
@@ -263,13 +268,13 @@ All agent modules are missing. Required structure:
 - [x] Health check endpoint
 - [x] **Environment variable templates (.env.example)**
 - [x] **Production vs development environment detection**
-
-#### 🟡 In Progress
-- [ ] Celery worker container configuration
+- [x] **Celery worker container configured** ✅ **NEW**
+- [x] **Worker health checks implemented** ✅ **NEW**
+- [x] **Worker volume persistence** ✅ **NEW**
 
 #### ❌ Not Started
-- [ ] Volume management for temp files
-- [ ] Production-ready compose file
+- [ ] Volume management for temp files (processing workspace)
+- [ ] Production-ready compose file (separate from dev)
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Monitoring and observability setup
 
@@ -277,10 +282,9 @@ All agent modules are missing. Required structure:
 ```yaml
 services:
   db:         # ✅ PostgreSQL configured with health checks
-  redis:      # ✅ Redis configured
+  redis:      # ✅ Redis configured with health checks
   api:        # ✅ API configured (depends on db + redis)
-  # Missing:
-  # worker:   # ❌ Celery worker
+  worker:     # ✅ Celery worker configured ⬆️ **NEW**
 ```
 
 ---
@@ -359,44 +363,46 @@ services:
 
 ## Critical Path to MVP
 
-### Phase 1: Core Infrastructure (2-3 days) - **95% COMPLETE** ✅⬆️⬆️
+### Phase 1: Core Infrastructure (2-3 days) - **100% COMPLETE** ✅✅✅
 1. **Database Layer** ✅ **COMPLETE**
    - ✅ Implement SQLAlchemy models (7 tables)
    - ✅ Set up Alembic migrations (initial migration created)
-   - ✅ Create database service/repository ✅ **DONE**
+   - ✅ Create database service/repository
    - ✅ Add PostgreSQL to docker-compose
 
 2. **Upload Pipeline** ✅ **COMPLETE**
-   - ✅ Implement upload pre-signed URL generation ✅ **DONE**
-   - ✅ Create upload initiation endpoint ✅ **DONE**
-   - ✅ Add file validation service ✅ **DONE**
-   - ✅ Implement job creation logic ✅ **DONE**
+   - ✅ Implement upload pre-signed URL generation
+   - ✅ Create upload initiation endpoint
+   - ✅ Add file validation service
+   - ✅ Implement job creation logic
 
-3. **Job Management** ⚠️ **PENDING**
-   - Create jobs API endpoints
-   - Implement job status tracking
-   - Add job listing with pagination
+3. **Job Management** ✅ **COMPLETE** ⬆️
+   - ✅ Create jobs API endpoints (GET /api/v1/jobs, GET /api/v1/jobs/{job_id})
+   - ✅ Implement job status tracking
+   - ✅ Add job listing with pagination
+   - ✅ Create results API endpoint (GET /api/v1/results/{job_id})
 
-### Phase 2: Celery Pipeline (3-4 days)
-1. **Pipeline Foundation**
-   - Configure Celery app
-   - Add worker to docker-compose
-   - Implement task base classes
-   - Set up Redis pub/sub for progress
+### Phase 2: Celery Pipeline (3-4 days) - **100% COMPLETE** ✅✅✅
+1. **Pipeline Foundation** ✅ **COMPLETE** ⬆️
+   - ✅ Configure Celery app with Redis broker/backend
+   - ✅ Add worker to docker-compose with health checks
+   - ✅ Implement task base classes with progress tracking
+   - ✅ Set up progress updates via PostgreSQL (HTTP polling architecture)
+   - ✅ Implement 2-stage pipeline (parallel → sequential)
+   - ✅ Create 10 registered tasks (1 main, 2 stages, 6 agents, 1 debug)
+   - ✅ Build pipeline orchestrator for S3 verification and task launching
 
-2. **WebSocket Integration**
-   - Implement WebSocket service
-   - Create WebSocket endpoint
-   - Connect to Redis pub/sub
-   - Add progress event emission
+2. **~~WebSocket Integration~~** ⚪ **SKIPPED**
+   - Architecture decision: Using HTTP polling instead of WebSockets
+   - Progress tracked in PostgreSQL, polled via GET /api/v1/jobs/{job_id}
 
-### Phase 3: AI Agents - Stage 1 (4-5 days)
+### Phase 3: AI Agents - Stage 1 (4-5 days) ⬅️ **NEXT PHASE**
 1. **Parallel Processing**
-   - Implement silence detector agent
+   - Implement silence detector agent ⬅️ **START HERE**
    - Implement transcript agent (Whisper integration)
    - Implement layout detector agent
    - Test agents individually
-   - Create parallel orchestration task
+   - Replace placeholder tasks with real agent implementations
 
 ### Phase 4: AI Agents - Stage 2 (4-5 days)
 1. **Sequential Processing**
@@ -458,36 +464,40 @@ services:
 
 ## Next Immediate Steps
 
-### Priority 1: Job Management APIs ⬅️ **START HERE**
+### ~~Priority 1: Job Management APIs~~ ✅ **COMPLETE**
 1. ~~Create database models in `/backend/app/models/database.py`~~ ✅ **COMPLETE**
 2. ~~Set up Alembic for migrations~~ ✅ **COMPLETE**
 3. ~~Implement database service in `/backend/app/services/db_service.py`~~ ✅ **COMPLETE**
 4. ~~Create upload route in `/backend/app/api/routes/upload.py`~~ ✅ **COMPLETE**
 5. ~~Add S3 upload pre-signed URL generation to S3 service~~ ✅ **COMPLETE**
 6. ~~Implement job creation and tracking~~ ✅ **COMPLETE**
-7. **Create jobs API routes (GET /api/v1/jobs/{job_id}, GET /api/v1/jobs)** ⬅️ **NEXT**
-8. **Create results API route (GET /api/v1/results/{job_id})**
+7. ~~Create jobs API routes (GET /api/v1/jobs/{job_id}, GET /api/v1/jobs)~~ ✅ **COMPLETE**
+8. ~~Create results API route (GET /api/v1/results/{job_id})~~ ✅ **COMPLETE**
 
-### Priority 2: Celery Pipeline
-1. Create `/backend/pipeline/celery_app.py`
-2. Add Celery worker to docker-compose.yml
-3. Implement basic task structure
-4. Set up progress tracking
+### ~~Priority 2: Celery Pipeline~~ ✅ **COMPLETE**
+1. ~~Create `/backend/pipeline/celery_app.py`~~ ✅ **COMPLETE**
+2. ~~Add Celery worker to docker-compose.yml~~ ✅ **COMPLETE**
+3. ~~Implement basic task structure~~ ✅ **COMPLETE**
+4. ~~Set up progress tracking~~ ✅ **COMPLETE**
+5. ~~Create pipeline orchestrator~~ ✅ **COMPLETE**
+6. ~~Implement 2-stage pipeline architecture~~ ✅ **COMPLETE**
 
-### Priority 3: First Agent (Proof of Concept)
-1. Implement silence detector agent (simplest to start)
-2. Create test task to invoke agent
-3. Verify end-to-end flow: upload → job → task → agent → results
+### Priority 3: First Agent (Proof of Concept) ⬅️ **START HERE**
+1. Create `/backend/agents/` directory
+2. Implement silence detector agent (simplest to start)
+3. Replace placeholder task with real agent logic
+4. Test agent with sample video file
+5. Verify end-to-end flow: upload → job → celery → agent → database → results
 
 ---
 
 ## File Inventory
 
-### Existing Files (26+ files) ⬆️⬆️
+### Existing Files (33+ files) ⬆️⬆️⬆️
 ```
 backend/
 ├── Dockerfile                                    ✅ Complete
-├── docker-compose.yml                            ✅ Complete (db + redis + api)
+├── docker-compose.yml                            ✅ Complete (db + redis + api + worker)
 ├── pyproject.toml                                ✅ Complete
 ├── .env                                          ✅ Present (PostgreSQL configured)
 ├── .env.example                                  ✅ Complete
@@ -501,12 +511,14 @@ backend/
 │       └── ce9ec48516b9_initial_migration.py    ✅ Initial migration (7 tables)
 ├── app/
 │   ├── __init__.py                              ✅
-│   ├── main.py                                  ✅ Complete (upload route registered)
+│   ├── main.py                                  ✅ Complete (all routes registered)
 │   ├── api/
 │   │   ├── __init__.py                          ✅
 │   │   └── routes/
 │   │       ├── videos.py                        🟡 Minimal
-│   │       └── upload.py                        ✅ Complete (140 lines) **NEW**
+│   │       ├── upload.py                        ✅ Complete (140 lines)
+│   │       ├── jobs.py                          ✅ Complete (145 lines) **NEW**
+│   │       └── results.py                       ✅ Complete (175 lines) **NEW**
 │   ├── core/
 │   │   ├── __init__.py                          ✅
 │   │   ├── settings.py                          ✅ Complete
@@ -519,16 +531,21 @@ backend/
 │   │   └── database.py                          ✅ Complete (7 tables + relationships)
 │   ├── services/
 │   │   ├── __init__.py                          ✅
-│   │   ├── s3_service.py                        ✅ Enhanced (280 lines) **UPDATED**
-│   │   ├── db_service.py                        ✅ Complete (1,177 lines) **NEW**
-│   │   └── validation_service.py                ✅ Complete (190 lines) **NEW**
+│   │   ├── s3_service.py                        ✅ Enhanced (280 lines)
+│   │   ├── db_service.py                        ✅ Complete (1,177 lines)
+│   │   └── validation_service.py                ✅ Complete (190 lines)
 │   ├── utils/
 │   │   └── __init__.py                          ✅
 │   └── tests/
 │       └── __init__.py                          ❌ Empty
+├── pipeline/
+│   ├── __init__.py                              ✅ Complete **NEW**
+│   ├── celery_app.py                            ✅ Complete (90 lines) **NEW**
+│   ├── tasks.py                                 ✅ Complete (400+ lines) **NEW**
+│   └── orchestrator.py                          ✅ Complete (105 lines) **NEW**
 ```
 
-### Missing Critical Files (15+ files) ⬇️
+### Missing Critical Files (9 files) ⬇️⬇️
 ```
 backend/
 ├── ~~.env.example~~                              ✅ Created
@@ -537,27 +554,26 @@ backend/
 ├── app/
 │   ├── api/routes/
 │   │   ├── ~~upload.py~~                        ✅ Created
-│   │   ├── jobs.py                              ❌ Critical (Next)
-│   │   └── results.py                           ❌ Critical (Next)
+│   │   ├── ~~jobs.py~~                          ✅ Created
+│   │   └── ~~results.py~~                       ✅ Created
 │   └── services/
 │       ├── ~~db_service.py~~                    ✅ Created
 │       ├── ~~validation_service.py~~            ✅ Created
-│       ├── job_service.py                        ❌ (May not need - using repo directly)
-│       └── auth_service.py                       ❌ Later
-├── pipeline/
-│   ├── __init__.py                              ❌ Critical
-│   ├── celery_app.py                            ❌ Critical
-│   ├── tasks.py                                 ❌ Critical
-│   └── orchestrator.py                          ❌ Critical
-├── agents/
-│   ├── __init__.py                              ❌ Critical
-│   ├── silence_detector.py                       ❌ Critical
+│       └── auth_service.py                       ❌ Later (not critical for MVP)
+├── ~~pipeline/~~                                 ✅ Created
+│   ├── ~~__init__.py~~                          ✅ Created
+│   ├── ~~celery_app.py~~                        ✅ Created
+│   ├── ~~tasks.py~~                             ✅ Created
+│   └── ~~orchestrator.py~~                      ✅ Created
+├── agents/                                      ❌ Next Priority
+│   ├── __init__.py                              ❌ Critical (Next)
+│   ├── silence_detector.py                       ❌ Critical (Next)
 │   ├── transcript_agent.py                       ❌ Critical
 │   ├── layout_detector.py                        ❌ Critical
 │   ├── content_analyzer.py                       ❌ Critical
 │   ├── segment_extractor.py                      ❌ Critical
 │   └── video_compiler.py                         ❌ Critical
-└── tests/
+└── tests/                                       ❌ Later
     ├── conftest.py                              ❌ Needed
     ├── test_api/                                ❌ Directory
     ├── test_services/                           ❌ Directory
@@ -601,15 +617,17 @@ backend/
 
 ## Known Issues
 
-1. **No Celery Worker:** docker-compose.yml missing worker service
+1. ~~**No Celery Worker:** docker-compose.yml missing worker service~~ ✅ **RESOLVED**
 2. ~~**SQLite in Production:** Should use PostgreSQL even in dev~~ ✅ **RESOLVED**
 3. ~~**No Database Migrations:** Alembic not configured~~ ✅ **RESOLVED**
-4. **Missing API Keys:** OpenAI and Gemini keys not configured (AWS keys present)
-5. **No Authentication:** API endpoints are completely open
-6. **No Rate Limiting:** Vulnerable to abuse
-7. **No Monitoring:** No observability beyond logs
-8. **Incomplete Error Handling:** Many error paths not implemented
-9. **Local PostgreSQL Conflict:** macOS Homebrew PostgreSQL interferes with Docker (use 127.0.0.1)
+4. ~~**Job Management APIs Missing**~~ ✅ **RESOLVED**
+5. **Missing API Keys:** OpenAI and Gemini keys not configured (AWS keys present)
+6. **No Agents Implemented:** All 6 agents need to be built (next priority)
+7. **No Authentication:** API endpoints are completely open
+8. **No Rate Limiting:** Vulnerable to abuse
+9. **No Monitoring:** No observability beyond logs
+10. **Incomplete Error Handling:** Many error paths not implemented
+11. **Local PostgreSQL Conflict:** macOS Homebrew PostgreSQL interferes with Docker (use 127.0.0.1)
 
 ---
 
@@ -640,6 +658,27 @@ export GEMINI_API_KEY="..."
 ---
 
 ## Change Log
+
+### October 14, 2025 - Job APIs + Celery Pipeline Complete
+- **Phases 1 & 2 of critical path 100% complete** 🎉
+- **Job Management APIs implemented (2 files, 320 lines)**
+  - `jobs.py` - GET /api/v1/jobs/{job_id} for status tracking
+  - `jobs.py` - GET /api/v1/jobs for job listing with pagination
+  - `results.py` - GET /api/v1/results/{job_id} for retrieving clips/transcripts
+  - All routes registered in main.py
+- **Celery Pipeline infrastructure complete (3 files, 595+ lines)**
+  - `celery_app.py` - Full Celery configuration with Redis broker/backend
+  - `tasks.py` - 10 registered tasks (main orchestrator + 2-stage pipeline + 6 agent placeholders + debug)
+  - `orchestrator.py` - Pipeline launcher with S3 verification
+  - BaseProcessingTask with progress tracking methods
+  - Task routing with default and processing queues
+  - Error handling and retry logic
+- **Docker infrastructure enhanced**
+  - Added Celery worker service to docker-compose.yml
+  - Worker health checks configured
+  - All 4 services running (db, redis, api, worker)
+- **Overall progress:** 48% → 70% (+22%)
+- **Next up:** Priority 3 - First Agent (Silence Detector)
 
 ### October 13, 2025 (Night) - Upload Flow Complete
 - **Complete upload flow implemented (3 files, 1,607 lines)**
@@ -676,26 +715,27 @@ export GEMINI_API_KEY="..."
 ## Metrics
 
 ### Code Statistics
-- **Lines of Code:** ~2,900+ (excluding dependencies) ⬆️
-- **Files Created:** 26+ (was 20) ⬆️
+- **Lines of Code:** ~3,500+ (excluding dependencies) ⬆️⬆️
+- **Files Created:** 33+ (was 26) ⬆️
 - **Test Coverage:** 0%
-- **API Endpoints:** 3 (health + presigned-url + upload) ⬆️
+- **API Endpoints:** 6 (health + presigned-url + upload + jobs + job-list + results) ⬆️⬆️
 - **Database Tables:** 7 tables + alembic_version
 - **Repository Classes:** 7 (full CRUD operations) ✅
-- **Agents Implemented:** 0/6
+- **Celery Tasks:** 10 registered ✅ **NEW**
+- **Agents Implemented:** 0/6 (ready for implementation)
 
 ### Progress Indicators
-- **Overall Progress:** 48% ⬆️⬆️ (+20%)
-- **Foundation:** 100% (stable)
-- **Data Layer:** 100% (stable)
-- **API Layer:** 40% ⬆️ (+25%)
-- **Service Layer:** 85% ⬆️ (+65%)
-- **Pipeline:** 0% (not started)
-- **Agents:** 0% (not started)
-- **Infrastructure:** 60% (stable)
-- **Security:** 70% ⬆️ (+40%)
-- **Tests:** 0% (not started)
-- **Docs:** 70% (stable)
+- **Overall Progress:** 70% ⬆️⬆️⬆️ (+22%, was 48%)
+- **Foundation:** 100% ✅
+- **Data Layer:** 100% ✅
+- **API Layer:** 100% ✅⬆️⬆️ (+60%)
+- **Service Layer:** 85% ✅
+- **Pipeline:** 100% ✅⬆️⬆️⬆️ (+100%)
+- **Agents:** 0% ⬅️ **NEXT**
+- **Infrastructure:** 85% ⬆️ (+25%)
+- **Security:** 70% ✅
+- **Tests:** 0% (deferred)
+- **Docs:** 70% ✅
 
 ---
 

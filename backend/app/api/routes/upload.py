@@ -11,6 +11,7 @@ from app.models.schemas import UploadRequest, UploadResponse
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
 from app.services.validation_service import ValidationError, file_validator
+from pipeline.tasks import process_video
 
 logger = get_logger(__name__)
 
@@ -72,13 +73,19 @@ def initiate_upload(
             progress_message="Waiting for file upload to S3",
         )
 
+        # trigger celery processing pipeline immediately
+        # note: in production, you might want to trigger this after confirming s3 upload
+        # but for testing, we'll start immediately
+        task = process_video.delay(job_id)
+
         logger.info(
-            "Upload initiated",
+            "Upload initiated and processing started",
             extra={
                 "job_id": job_id,
                 "file_name": request.filename,
                 "file_size_bytes": request.file_size,
                 "object_key": object_key,
+                "celery_task_id": task.id,
             },
         )
 
