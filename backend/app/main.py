@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.routes import jobs, results, upload, videos
 from app.core.logging import get_logger, setup_logging
@@ -46,6 +47,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Initializing database (development mode)...")
         init_db()
         logger.info("Database initialized successfully")
+
+    # initialize prometheus metrics
+    Instrumentator().instrument(app).expose(app)
+    logger.info("Prometheus metrics initialized at /metrics")
 
     yield
 
