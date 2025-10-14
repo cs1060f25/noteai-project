@@ -20,7 +20,7 @@ export const VideoPlayer = ({
   videoKey,
   poster,
   className,
-  apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  apiBaseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000',
 }: VideoPlayerProps) => {
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,8 +59,8 @@ export const VideoPlayer = ({
     return (
       <Card className={cn('w-full', className)}>
         <CardContent className="p-0">
-          <div className="animate-pulse bg-gray-200 w-full h-64 rounded-lg flex items-center justify-center">
-            <div className="text-gray-500 text-sm">Loading video...</div>
+          <div className="animate-pulse bg-muted w-full h-64 rounded-xl flex items-center justify-center">
+            <div className="fluent-caption">Loading video...</div>
           </div>
         </CardContent>
       </Card>
@@ -71,7 +71,7 @@ export const VideoPlayer = ({
     return (
       <Card className={cn('w-full', className)}>
         <CardContent className="p-6">
-          <div className="text-red-500 text-center">
+          <div className="text-destructive text-center">
             <svg
               className="w-12 h-12 mx-auto mb-4"
               fill="none"
@@ -86,8 +86,8 @@ export const VideoPlayer = ({
                 d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <p className="font-semibold mb-2">Failed to load video</p>
-            <p className="text-sm text-gray-600">{error}</p>
+            <p className="fluent-subtitle mb-2">Failed to load video</p>
+            <p className="fluent-caption">{error}</p>
           </div>
         </CardContent>
       </Card>
@@ -107,7 +107,7 @@ export const VideoPlayer = ({
           controls
           preload="metadata"
           playsInline
-          className="w-full h-auto"
+          className="w-full h-auto rounded-xl"
         >
           Your browser does not support video playback.
         </video>

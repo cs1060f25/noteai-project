@@ -1,20 +1,24 @@
-export enum JobStatus {
-  QUEUED = 'queued',
-  RUNNING = 'running',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-}
+export const JobStatus = {
+  QUEUED: 'queued',
+  RUNNING: 'running',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+} as const;
 
-export enum ProcessingStage {
-  UPLOADING = 'uploading',
-  SILENCE_DETECTION = 'silence_detection',
-  TRANSCRIPTION = 'transcription',
-  LAYOUT_ANALYSIS = 'layout_analysis',
-  CONTENT_ANALYSIS = 'content_analysis',
-  SEGMENTATION = 'segmentation',
-  COMPILATION = 'compilation',
-  COMPLETE = 'complete',
-}
+export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
+
+export const ProcessingStage = {
+  UPLOADING: 'uploading',
+  SILENCE_DETECTION: 'silence_detection',
+  TRANSCRIPTION: 'transcription',
+  LAYOUT_ANALYSIS: 'layout_analysis',
+  CONTENT_ANALYSIS: 'content_analysis',
+  SEGMENTATION: 'segmentation',
+  COMPILATION: 'compilation',
+  COMPLETE: 'complete',
+} as const;
+
+export type ProcessingStage = typeof ProcessingStage[keyof typeof ProcessingStage];
 
 export interface UploadRequest {
   filename: string;

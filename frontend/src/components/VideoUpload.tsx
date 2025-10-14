@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 
 import { Upload, CheckCircle2, XCircle, Loader2, FileVideo } from 'lucide-react';
 
@@ -130,17 +130,17 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={cn(
-              'border-2 border-dashed rounded-lg p-12 text-center transition-colors cursor-pointer',
+              'border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer fluent-hover-lift',
               isDragging
-                ? 'border-primary bg-primary/5'
-                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                ? 'border-primary bg-primary/5 fluent-shadow-lg'
+                : 'border-border hover:border-primary/50 hover:bg-accent/50'
             )}
             onClick={handleBrowseClick}
           >
-            <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <p className="text-lg font-medium text-gray-700 mb-2">Drag and drop your video here</p>
-            <p className="text-sm text-gray-500 mb-4">or click to browse</p>
-            <p className="text-xs text-gray-400">Supports MP4, MOV, AVI, MKV, WebM (max 2GB)</p>
+            <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="fluent-subtitle text-lg text-foreground mb-2">Drag and drop your video here</p>
+            <p className="fluent-body text-muted-foreground mb-4">or click to browse</p>
+            <p className="fluent-caption">Supports MP4, MOV, AVI, MKV, WebM (max 2GB)</p>
           </div>
         )}
 
@@ -153,11 +153,11 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
         />
 
         {selectedFile && uploadState === 'idle' && (
-          <div className="flex items-start gap-4 p-4 border rounded-lg bg-gray-50">
-            <FileVideo className="w-10 h-10 text-blue-500 flex-shrink-0 mt-1" />
+          <div className="flex items-start gap-4 p-4 border border-border rounded-xl bg-accent/50 fluent-hover-lift">
+            <FileVideo className="w-10 h-10 text-primary flex-shrink-0 mt-1" />
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-900 truncate">{selectedFile.name}</p>
-              <p className="text-sm text-gray-500">{formatFileSize(selectedFile.size)}</p>
+              <p className="fluent-body font-medium text-foreground truncate">{selectedFile.name}</p>
+              <p className="fluent-caption">{formatFileSize(selectedFile.size)}</p>
             </div>
             <Button variant="outline" size="sm" onClick={handleReset}>
               Remove
@@ -173,17 +173,17 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
         )}
 
         {uploadState === 'uploading' && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-accent/50 rounded-xl">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-700">Uploading video...</p>
-                <p className="text-xs text-gray-500">{progress}% complete</p>
+                <p className="fluent-body font-medium text-foreground">Uploading video...</p>
+                <p className="fluent-caption">{progress}% complete</p>
               </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
               <div
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                className="bg-primary h-3 rounded-full transition-all duration-300 fluent-shadow-sm"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -192,12 +192,12 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
 
         {uploadState === 'success' && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl">
+              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-green-900">Upload successful!</p>
-                <p className="text-sm text-green-700 mt-1">
-                  Your video is now processing. Job ID: <code className="text-xs">{jobId}</code>
+                <p className="fluent-body font-medium text-foreground">Upload successful!</p>
+                <p className="fluent-caption mt-1">
+                  Your video is now processing. Job ID: <code className="bg-accent px-1 py-0.5 rounded text-xs font-mono">{jobId}</code>
                 </p>
               </div>
             </div>
@@ -209,11 +209,11 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
 
         {uploadState === 'error' && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-destructive/5 border border-destructive/20 rounded-xl">
+              <XCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-red-900">Upload failed</p>
-                <p className="text-sm text-red-700 mt-1">{errorMessage}</p>
+                <p className="fluent-body font-medium text-foreground">Upload failed</p>
+                <p className="fluent-caption mt-1">{errorMessage}</p>
               </div>
             </div>
             <Button onClick={handleReset} variant="outline" className="w-full">
