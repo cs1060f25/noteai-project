@@ -5,10 +5,15 @@ from datetime import datetime, timezone
 from typing import Any
 
 from celery import Task, chain, group
-from celery.exceptions import Ignore
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from agents.content_analyzer import analyze_content
+from agents.layout_detector import detect_layout
+from agents.segment_extractor import extract_segments
+from agents.silence_detector import detect_silence
+from agents.transcript_agent import generate_transcript
+from agents.video_compiler import compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
@@ -22,8 +27,8 @@ logger = get_logger(__name__)
 def get_task_db():
     """create database session for celery tasks."""
     engine = create_engine(settings.database_url)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    return SessionLocal()
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return session_local()
 
 
 class BaseProcessingTask(Task):
@@ -126,7 +131,7 @@ class BaseProcessingTask(Task):
         """handle task failure."""
         job_id = kwargs.get("job_id") or (args[0] if args else None)
         if job_id:
-            error_message = f"Task failed: {str(exc)}"
+            error_message = f"Task failed: {exc!s}"
             self.mark_job_failed(job_id, error_message)
 
         logger.error(
@@ -200,7 +205,7 @@ def process_video(self, job_id: str) -> dict[str, Any]:
             extra={"job_id": job_id},
         )
         self.mark_job_failed(
-            job_id, f"Pipeline initialization failed: {str(e)}")
+            job_id, f"Pipeline initialization failed: {e!s}")
         raise
 
 
@@ -261,7 +266,7 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
             exc_info=e,
             extra={"job_id": job_id},
         )
-        self.mark_job_failed(job_id, f"Stage one failed: {str(e)}")
+        self.mark_job_failed(job_id, f"Stage one failed: {e!s}")
         raise
 
 
@@ -338,7 +343,7 @@ def stage_two_sequential(self, stage_one_result: dict[str, Any], job_id: str) ->
             exc_info=e,
             extra={"job_id": job_id},
         )
-        self.mark_job_failed(job_id, f"Stage two failed: {str(e)}")
+        self.mark_job_failed(job_id, f"Stage two failed: {e!s}")
         raise
 
 
@@ -347,53 +352,46 @@ def stage_two_sequential(self, stage_one_result: dict[str, Any], job_id: str) ->
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def silence_detection_task(self, job_id: str) -> dict[str, Any]:
-    """placeholder for silence detection agent."""
-    print(f"JOB RUNNING - Silence Detection - {job_id}")
-    logger.info("JOB RUNNING - Silence Detection", extra={"job_id": job_id})
-    time.sleep(1)
-    return {"job_id": job_id, "agent": "silence_detector", "status": "completed"}
+    """silence detection agent task."""
+    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
+    return detect_silence(video_path, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def transcription_task(self, job_id: str) -> dict[str, Any]:
-    """placeholder for transcription agent."""
-    print(f"JOB RUNNING - Transcription - {job_id}")
-    logger.info("JOB RUNNING - Transcription", extra={"job_id": job_id})
-    time.sleep(1)
-    return {"job_id": job_id, "agent": "transcription", "status": "completed"}
+    """transcription agent task."""
+    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
+    return generate_transcript(video_path, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def layout_analysis_task(self, job_id: str) -> dict[str, Any]:
-    """placeholder for layout analysis agent."""
-    print(f"JOB RUNNING - Layout Analysis - {job_id}")
-    logger.info("JOB RUNNING - Layout Analysis", extra={"job_id": job_id})
-    time.sleep(1)
-    return {"job_id": job_id, "agent": "layout_analysis", "status": "completed"}
+    """layout analysis agent task."""
+    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
+    return detect_layout(video_path, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def content_analysis_task(self, job_id: str) -> dict[str, Any]:
-    """placeholder for content analysis agent."""
-    print(f"JOB RUNNING - Content Analysis - {job_id}")
-    logger.info("JOB RUNNING - Content Analysis", extra={"job_id": job_id})
-    time.sleep(1)
-    return {"job_id": job_id, "agent": "content_analysis", "status": "completed"}
+    """content analysis agent task."""
+    transcript_data = {}  # TODO: get from database
+    return analyze_content(transcript_data, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
-    """placeholder for segment extraction agent."""
-    print(f"JOB RUNNING - Segment Extraction - {job_id}")
-    logger.info("JOB RUNNING - Segment Extraction", extra={"job_id": job_id})
-    time.sleep(1)
-    return {"job_id": job_id, "agent": "segment_extraction", "status": "completed"}
+    """segment extraction agent task."""
+    content_data = {}  # TODO: get from database
+    silence_data = {}  # TODO: get from database
+    transcript_data = {}  # TODO: get from database
+    return extract_segments(content_data, silence_data, transcript_data, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def video_compilation_task(self, job_id: str) -> dict[str, Any]:
-    """placeholder for video compilation agent."""
-    print(f"JOB RUNNING - Video Compilation - {job_id}")
-    logger.info("JOB RUNNING - Video Compilation", extra={"job_id": job_id})
-    time.sleep(1)
-    return {"job_id": job_id, "agent": "video_compilation", "status": "completed"}
+    """video compilation agent task."""
+    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
+    segments_data = {}  # TODO: get from database
+    layout_data = {}  # TODO: get from database
+    transcript_data = {}  # TODO: get from database
+    return compile_clips(video_path, segments_data, layout_data, transcript_data, job_id)

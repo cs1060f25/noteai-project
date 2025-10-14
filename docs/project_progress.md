@@ -27,18 +27,26 @@ This document tracks the implementation progress of the AI Lecture Highlight Ext
 - **API Routes:** ✅ All core routes complete (5 endpoints)
 - **Testing:** ❌ Not implemented
 
-### Architecture Decision: Polling vs WebSockets
+### Architecture Decision: WebSockets for Real-Time Progress
 
-**Decision:** Using **HTTP polling** instead of WebSockets for progress updates
+**Decision:** Using **WebSockets** for real-time progress updates (Changed from HTTP polling)
 
 **Rationale:**
-- Long-running jobs (8-15 minutes) - 3-5 second delays acceptable
-- Simpler architecture - no Redis pub/sub needed
-- Better for user experience - works when tab closed/reopened
-- Less infrastructure complexity - easier to deploy and debug
-- Frontend polls `/api/v1/jobs/{job_id}` every 3-5 seconds
+- Real-time progress updates provide better UX during long jobs (8-15 minutes)
+- Live progress feedback (percent, stage, ETA) improves user confidence
+- Natural fit with Celery tasks that update progress frequently
+- Redis pub/sub already available (Celery broker)
+- Allows granular progress updates per agent/stage
+- Frontend gets instant updates without polling overhead
 
-**Impact:** Reduced MVP timeline by ~3-4 hours, removed WebSocket complexity
+**Implementation Plan:**
+- WebSocket endpoint: `ws://api/v1/ws/{job_id}`
+- Redis pub/sub channel per job: `job_progress:{job_id}`
+- Celery tasks emit progress events to Redis channel
+- WebSocket server subscribes and broadcasts to connected clients
+- Fallback: Clients can still poll GET `/api/v1/jobs/{job_id}` if WebSocket disconnects
+
+**Impact:** Better UX, more responsive progress tracking, leverages existing Redis infrastructure
 
 ---
 
@@ -207,51 +215,56 @@ This document tracks the implementation progress of the AI Lecture Highlight Ext
 
 ---
 
-### 6. AI Agents (0% Complete)
+### 6. AI Agents (15% Complete) ✅⬆️
 
-All agent modules are missing. Required structure:
+Agent structure and placeholders created. Implementation needed.
 
-#### ❌ Stage 1: Parallel Processing Agents
-- [ ] **Silence Detector Agent** (`/backend/agents/silence_detector.py`)
-  - Audio waveform analysis
-  - Silent gap detection
-  - PyDub + librosa integration
-  - Timestamp mapping
+#### ✅ Stage 1: Parallel Processing Agents (Placeholders Ready)
+- [x] **Silence Detector Agent** (`/backend/agents/silence_detector.py`) ✅ **NEW**
+  - ✅ Placeholder function `detect_silence(video_path, job_id)` created
+  - ✅ Integrated with Celery task
+  - ❌ TODO: Audio waveform analysis (PyDub + librosa)
+  - ❌ TODO: Silent gap detection and timestamp mapping
 
-- [ ] **Transcript Agent** (`/backend/agents/transcript_agent.py`)
-  - Audio extraction from video
-  - OpenAI Whisper API integration
-  - Subtitle file generation (SRT/VTT)
-  - Speaker segment metadata
+- [x] **Transcript Agent** (`/backend/agents/transcript_agent.py`) ✅ **NEW**
+  - ✅ Placeholder function `generate_transcript(video_path, job_id)` created
+  - ✅ Integrated with Celery task
+  - ❌ TODO: OpenAI Whisper API integration
+  - ❌ TODO: Subtitle file generation (SRT/VTT)
 
-- [ ] **Layout Detector Agent** (`/backend/agents/layout_detector.py`)
-  - OpenCV frame analysis
-  - Screen sharing region detection
-  - Camera region identification
-  - Optimal split ratio calculation
+- [x] **Layout Detector Agent** (`/backend/agents/layout_detector.py`) ✅ **NEW**
+  - ✅ Placeholder function `detect_layout(video_path, job_id)` created
+  - ✅ Integrated with Celery task
+  - ❌ TODO: OpenCV frame analysis
+  - ❌ TODO: Screen/camera region detection
 
-#### ❌ Stage 2: Sequential Processing Agents
-- [ ] **Content Analyzer Agent** (`/backend/agents/content_analyzer.py`)
-  - Google Gemini API integration
-  - Transcript analysis and topic segmentation
-  - Importance scoring
-  - Topic-based chunking (20s-2min)
+#### ✅ Stage 2: Sequential Processing Agents (Placeholders Ready)
+- [x] **Content Analyzer Agent** (`/backend/agents/content_analyzer.py`) ✅ **NEW**
+  - ✅ Placeholder function `analyze_content(transcript_data, job_id)` created
+  - ✅ Integrated with Celery task
+  - ❌ TODO: Google Gemini API integration
+  - ❌ TODO: Topic segmentation and importance scoring
 
-- [ ] **Segment Extractor Agent** (`/backend/agents/segment_extractor.py`)
-  - Multi-data source combination
-  - Silence removal from segments
-  - Narrative coherence validation
-  - Segment scoring and selection
+- [x] **Segment Extractor Agent** (`/backend/agents/segment_extractor.py`) ✅ **NEW**
+  - ✅ Placeholder function `extract_segments(...)` created
+  - ✅ Integrated with Celery task
+  - ❌ TODO: Multi-data source combination
+  - ❌ TODO: Segment scoring and selection logic
 
-- [ ] **Video Compiler Agent** (`/backend/agents/video_compiler.py`)
-  - MoviePy video processing
-  - Screen split layout application
-  - Subtitle overlay with styling
-  - Multi-segment rendering
-  - Video encoding optimization
+- [x] **Video Compiler Agent** (`/backend/agents/video_compiler.py`) ✅ **NEW**
+  - ✅ Placeholder function `compile_clips(...)` created
+  - ✅ Integrated with Celery task
+  - ❌ TODO: MoviePy video processing
+  - ❌ TODO: Screen split layout and subtitle overlay
 
-**Missing Directory:**
-- `/backend/agents/` - Entire directory missing
+**Files Present:**
+- `/backend/agents/__init__.py` - Package init ✅ **NEW**
+- `/backend/agents/silence_detector.py` - Placeholder (30 lines) ✅ **NEW**
+- `/backend/agents/transcript_agent.py` - Placeholder (30 lines) ✅ **NEW**
+- `/backend/agents/layout_detector.py` - Placeholder (35 lines) ✅ **NEW**
+- `/backend/agents/content_analyzer.py` - Placeholder (30 lines) ✅ **NEW**
+- `/backend/agents/segment_extractor.py` - Placeholder (40 lines) ✅ **NEW**
+- `/backend/agents/video_compiler.py` - Placeholder (40 lines) ✅ **NEW**
 
 ---
 
@@ -493,7 +506,7 @@ services:
 
 ## File Inventory
 
-### Existing Files (33+ files) ⬆️⬆️⬆️
+### Existing Files (40+ files) ⬆️⬆️⬆️
 ```
 backend/
 ├── Dockerfile                                    ✅ Complete
@@ -517,8 +530,8 @@ backend/
 │   │   └── routes/
 │   │       ├── videos.py                        🟡 Minimal
 │   │       ├── upload.py                        ✅ Complete (140 lines)
-│   │       ├── jobs.py                          ✅ Complete (145 lines) **NEW**
-│   │       └── results.py                       ✅ Complete (175 lines) **NEW**
+│   │       ├── jobs.py                          ✅ Complete (145 lines)
+│   │       └── results.py                       ✅ Complete (175 lines)
 │   ├── core/
 │   │   ├── __init__.py                          ✅
 │   │   ├── settings.py                          ✅ Complete
@@ -539,10 +552,18 @@ backend/
 │   └── tests/
 │       └── __init__.py                          ❌ Empty
 ├── pipeline/
+│   ├── __init__.py                              ✅ Complete
+│   ├── celery_app.py                            ✅ Complete (90 lines)
+│   ├── tasks.py                                 ✅ Complete (400+ lines)
+│   └── orchestrator.py                          ✅ Complete (105 lines)
+├── agents/
 │   ├── __init__.py                              ✅ Complete **NEW**
-│   ├── celery_app.py                            ✅ Complete (90 lines) **NEW**
-│   ├── tasks.py                                 ✅ Complete (400+ lines) **NEW**
-│   └── orchestrator.py                          ✅ Complete (105 lines) **NEW**
+│   ├── silence_detector.py                       ✅ Placeholder (30 lines) **NEW**
+│   ├── transcript_agent.py                       ✅ Placeholder (30 lines) **NEW**
+│   ├── layout_detector.py                        ✅ Placeholder (35 lines) **NEW**
+│   ├── content_analyzer.py                       ✅ Placeholder (30 lines) **NEW**
+│   ├── segment_extractor.py                      ✅ Placeholder (40 lines) **NEW**
+│   └── video_compiler.py                         ✅ Placeholder (40 lines) **NEW**
 ```
 
 ### Missing Critical Files (9 files) ⬇️⬇️
@@ -631,6 +652,191 @@ backend/
 
 ---
 
+## Observability & Telemetrics Strategy
+
+### Recommendation: Multi-Layered Observability Stack
+
+For a production-ready video processing system, I **strongly recommend** implementing observability from the start. Here's my analysis:
+
+### **Why Observability Matters for This Project:**
+1. **Long-Running Jobs (8-15 min)** - Need to track where time is spent
+2. **Multiple Async Workers** - Need to monitor worker health and task distribution
+3. **AI API Costs** - Track Whisper/Gemini API usage and costs per job
+4. **Resource-Intensive Processing** - Monitor CPU/memory during video compilation
+5. **Failure Debugging** - Understand why jobs fail in production
+
+---
+
+### **Recommended Stack (All Open Source):**
+
+#### **1. Prometheus + Grafana (Metrics & Dashboards) ⭐ RECOMMENDED**
+
+**Pros:**
+- Industry standard for metrics collection
+- Time-series database perfect for tracking job durations, throughput
+- Excellent Celery integration via `celery-prometheus-exporter`
+- FastAPI integration via `prometheus-fastapi-instrumentator`
+- Beautiful pre-built dashboards in Grafana
+- Alerting capabilities (e.g., alert if worker is down > 5 min)
+- Very lightweight (~50MB RAM for Prometheus, ~100MB for Grafana)
+
+**What to Track:**
+```python
+# Metrics examples
+video_processing_duration_seconds{agent="whisper", status="success"}
+celery_task_total{task="transcription_task", status="completed"}
+api_request_duration_seconds{endpoint="/upload", status="200"}
+active_workers_count
+redis_queue_length{queue="processing"}
+```
+
+**Docker Integration:**
+```yaml
+# Add to docker-compose.yml
+prometheus:
+  image: prom/prometheus:latest
+  volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  ports:
+    - "9090:9090"
+
+grafana:
+  image: grafana/grafana:latest
+  ports:
+    - "3001:3000"
+  depends_on:
+    - prometheus
+```
+
+**Effort:** ~4-6 hours setup + 2 hours dashboard config
+
+---
+
+#### **2. OpenTelemetry (Distributed Tracing) ⭐ RECOMMENDED FOR COMPLEX FLOWS**
+
+**Pros:**
+- Trace entire job flow: API → Celery → Agent → Database → S3
+- See exact bottlenecks (e.g., "Whisper API takes 4 min, layout takes 30 sec")
+- OpenTelemetry is vendor-neutral (can export to any backend)
+- Great for debugging multi-stage pipelines
+
+**Integration:**
+```python
+# Add to Celery tasks
+from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
+
+@celery_app.task
+def transcription_task(job_id: str):
+    with tracer.start_as_current_span("transcription") as span:
+        span.set_attribute("job_id", job_id)
+        result = generate_transcript(...)
+        span.set_attribute("duration", result.duration)
+```
+
+**Backend Options:**
+- **Jaeger** (simple, self-hosted, good UI)
+- **Tempo** (Grafana's tracing backend, pairs well with Prometheus)
+- **Zipkin** (older but stable)
+
+**Effort:** ~6-8 hours (more complex than Prometheus)
+
+---
+
+#### **3. Loki (Log Aggregation) ⭐ OPTIONAL BUT RECOMMENDED**
+
+**Pros:**
+- Like Prometheus, but for logs
+- Query logs by job_id: `{job_id="job_abc123"} |= "error"`
+- Integrates perfectly with Grafana (same UI)
+- Much lighter than ELK stack
+
+**Current Logging:**
+- You already have structured JSON logging ✅
+- Just need to ship logs to Loki
+
+**Effort:** ~2-3 hours
+
+---
+
+### **My Recommendation for Your Project:**
+
+**Phase 1 (Immediate - Before First Agent):**
+1. **Prometheus + Grafana** (Priority 1)
+   - Track: API response times, Celery task durations, worker health
+   - Dashboard: Real-time job throughput, average processing times
+   - Alerts: Worker down, queue backed up, high error rate
+
+**Phase 2 (After First Agent Works):**
+2. **OpenTelemetry + Jaeger** (Priority 2)
+   - Trace full job lifecycle
+   - Identify slow agents
+   - Debug failed jobs
+
+**Phase 3 (Production Readiness):**
+3. **Loki** (Priority 3)
+   - Centralized logs
+   - Easy debugging with job_id queries
+
+---
+
+### **Alternative: Simpler Options**
+
+If you want something **lighter weight** for MVP:
+
+#### **Sentry (Error Tracking)**
+- Free tier: 5,000 errors/month
+- Automatic error capture
+- Performance monitoring included
+- Easier than Prometheus for pure error tracking
+- **Effort:** ~1 hour
+```python
+import sentry_sdk
+sentry_sdk.init(dsn="your-dsn", traces_sample_rate=0.1)
+```
+
+#### **Datadog/New Relic (All-in-One, Paid)**
+- Best UX, but costs $$$ at scale
+- Good for MVP, expensive in production
+
+---
+
+### **Cost Analysis:**
+
+| Solution | Setup Time | Infrastructure Cost | Complexity |
+|----------|-----------|---------------------|------------|
+| Prometheus + Grafana | 6 hours | $0 (self-hosted) | Medium |
+| OpenTelemetry + Jaeger | 8 hours | $0 (self-hosted) | High |
+| Loki | 3 hours | $0 (self-hosted) | Low |
+| Sentry (Free) | 1 hour | $0 (5k errors/mo) | Low |
+| Datadog | 2 hours | $15+/host/month | Low |
+
+---
+
+### **My Final Take:**
+
+**For your CS106 project:** Start with **Prometheus + Grafana** now. It will:
+1. Help you understand where processing time goes (critical for optimization)
+2. Give you impressive dashboards to show in demos
+3. Catch issues before they become bugs
+4. Add minimal overhead (~200MB total)
+
+**Implementation Order:**
+1. Add `prometheus-fastapi-instrumentator` to FastAPI (10 min)
+2. Add `celery-prometheus-exporter` to worker (10 min)
+3. Add Prometheus + Grafana to docker-compose (20 min)
+4. Create basic dashboards (2-3 hours)
+5. Set up alerting (1 hour)
+
+**Total effort:** ~4-6 hours spread over a few days
+
+This is a **high-value addition** that separates a student project from a production-ready system. I'd prioritize this right after getting the first agent working.
+
+Want me to implement the Prometheus setup?
+
+---
+
 ## Resources & References
 
 ### Documentation
@@ -659,7 +865,21 @@ export GEMINI_API_KEY="..."
 
 ## Change Log
 
-### October 14, 2025 - Job APIs + Celery Pipeline Complete
+### October 14, 2025 (Evening) - Agent Placeholders + Architecture Update
+- **Agent placeholder functions created (6 files, ~205 lines)**
+  - All 6 agent modules with placeholder functions
+  - Each agent integrated with corresponding Celery task
+  - Logging with job_id tracking
+  - Ready for actual implementation (Whisper, Gemini, MoviePy, etc.)
+- **Architecture decision updated: Polling → WebSockets**
+  - Switched to WebSockets for real-time progress updates
+  - Redis pub/sub integration planned
+  - Better UX with instant progress feedback
+- **Agents progress:** 0% → 15%
+- **Overall progress:** 70% → 72%
+- **Next up:** WebSocket implementation + First agent (Silence Detector)
+
+### October 14, 2025 (Afternoon) - Job APIs + Celery Pipeline Complete
 - **Phases 1 & 2 of critical path 100% complete** 🎉
 - **Job Management APIs implemented (2 files, 320 lines)**
   - `jobs.py` - GET /api/v1/jobs/{job_id} for status tracking
@@ -715,24 +935,25 @@ export GEMINI_API_KEY="..."
 ## Metrics
 
 ### Code Statistics
-- **Lines of Code:** ~3,500+ (excluding dependencies) ⬆️⬆️
-- **Files Created:** 33+ (was 26) ⬆️
+- **Lines of Code:** ~3,700+ (excluding dependencies) ⬆️⬆️
+- **Files Created:** 40+ (was 33) ⬆️
 - **Test Coverage:** 0%
-- **API Endpoints:** 6 (health + presigned-url + upload + jobs + job-list + results) ⬆️⬆️
+- **API Endpoints:** 6 (health + presigned-url + upload + jobs + job-list + results)
 - **Database Tables:** 7 tables + alembic_version
 - **Repository Classes:** 7 (full CRUD operations) ✅
-- **Celery Tasks:** 10 registered ✅ **NEW**
-- **Agents Implemented:** 0/6 (ready for implementation)
+- **Celery Tasks:** 10 registered ✅
+- **Agent Placeholders:** 6/6 created ✅ **NEW**
+- **Agents Fully Implemented:** 0/6 ⬅️ **NEXT**
 
 ### Progress Indicators
-- **Overall Progress:** 70% ⬆️⬆️⬆️ (+22%, was 48%)
+- **Overall Progress:** 72% ⬆️⬆️⬆️ (+2%, was 70%)
 - **Foundation:** 100% ✅
 - **Data Layer:** 100% ✅
-- **API Layer:** 100% ✅⬆️⬆️ (+60%)
+- **API Layer:** 100% ✅
 - **Service Layer:** 85% ✅
-- **Pipeline:** 100% ✅⬆️⬆️⬆️ (+100%)
-- **Agents:** 0% ⬅️ **NEXT**
-- **Infrastructure:** 85% ⬆️ (+25%)
+- **Pipeline:** 100% ✅
+- **Agents:** 15% ⬆️ **NEW** (placeholders created, implementation needed)
+- **Infrastructure:** 85% ✅
 - **Security:** 70% ✅
 - **Tests:** 0% (deferred)
 - **Docs:** 70% ✅

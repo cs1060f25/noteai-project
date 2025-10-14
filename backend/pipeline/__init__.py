@@ -1,1 +1,1 @@
-"""celery pipeline for asynchronous video processing."""
+"""Celery pipeline for video processing orchestration."""
