@@ -84,6 +84,34 @@ class Settings(BaseSettings):
         description="Secret key for encryption and signatures",
     )
 
+    # Authentication - Google OAuth
+    google_client_id: str = Field(
+        default="",
+        description="Google OAuth Client ID",
+    )
+    google_client_secret: str = Field(
+        default="",
+        description="Google OAuth Client Secret",
+    )
+
+    # Authentication - JWT
+    jwt_secret_key: str = Field(
+        default="dev-jwt-secret-key-change-in-production-min-32-chars",
+        description="Secret key for JWT signing and verification",
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT signing algorithm",
+    )
+    access_token_expire_minutes: int = Field(
+        default=60,
+        description="Access token expiration time in minutes",
+    )
+    refresh_token_expire_days: int = Field(
+        default=30,
+        description="Refresh token expiration time in days",
+    )
+
     # Rate Limiting
     rate_limit_per_minute: int = Field(
         default=60,

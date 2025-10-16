@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.api.routes import jobs, results, upload, videos
+from app.api.routes import auth, jobs, results, upload, videos
 from app.core.logging import get_logger, setup_logging
 from app.core.settings import settings
 from app.services.metrics_service import update_job_metrics
@@ -150,6 +150,7 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
     )
 
 
+app.include_router(auth.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["Authentication"])
 app.include_router(videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
 app.include_router(upload.router, prefix=settings.api_v1_prefix, tags=["Upload"])
 app.include_router(jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])

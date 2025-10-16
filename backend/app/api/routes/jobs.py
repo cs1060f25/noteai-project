@@ -3,9 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.models.schemas import JobListResponse, JobProgress, JobResponse, JobStatus
+from app.models.user import User
 from app.services.db_service import DatabaseService
 
 logger = get_logger(__name__)
@@ -31,6 +33,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 )
 def get_job_status(
     job_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> JobResponse:
     """get job status and progress information."""
@@ -46,6 +49,22 @@ def get_job_status(
                 "error": {
                     "code": "JOB_NOT_FOUND",
                     "message": f"Job with ID '{job_id}' not found",
+                }
+            },
+        )
+
+    # verify job belongs to current user
+    if job.user_id != current_user.user_id:
+        logger.warning(
+            "Unauthorized job access attempt",
+            extra={"job_id": job_id, "user_id": current_user.user_id, "job_owner": job.user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to access this job",
                 }
             },
         )
@@ -95,6 +114,7 @@ def get_job_status(
     """,
 )
 def list_jobs(
+    current_user: User = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of jobs to return"),
     offset: int = Query(0, ge=0, description="Number of jobs to skip"),
     db: Session = Depends(get_db),
@@ -102,11 +122,13 @@ def list_jobs(
     """list jobs with pagination."""
     db_service = DatabaseService(db)
 
-    # get paginated jobs
-    jobs = db_service.jobs.list_jobs(limit=limit, offset=offset)
+    # get paginated jobs filtered by user
+    jobs = db_service.jobs.list_jobs_by_user(
+        user_id=current_user.user_id, limit=limit, offset=offset
+    )
 
-    # get total count
-    total = db_service.jobs.count_jobs()
+    # get total count for user
+    total = db_service.jobs.count_jobs_by_user(user_id=current_user.user_id)
 
     # convert to response models
     job_responses = []

@@ -3,10 +3,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.models.schemas import ClipMetadata, ResultsResponse, TranscriptSegment
+from app.models.user import User
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
 
@@ -33,6 +35,7 @@ router = APIRouter(prefix="/results", tags=["results"])
 )
 def get_results(
     job_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ResultsResponse:
     """get processing results for a completed job."""
@@ -49,6 +52,22 @@ def get_results(
                 "error": {
                     "code": "JOB_NOT_FOUND",
                     "message": f"Job with ID '{job_id}' not found",
+                }
+            },
+        )
+
+    # verify job belongs to current user
+    if job.user_id != current_user.user_id:
+        logger.warning(
+            "Unauthorized results access attempt",
+            extra={"job_id": job_id, "user_id": current_user.user_id, "job_owner": job.user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to access this job's results",
                 }
             },
         )

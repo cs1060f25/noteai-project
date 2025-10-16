@@ -70,13 +70,16 @@ class BaseProcessingTask(Task):
         db = get_task_db()
         try:
             db_service = DatabaseService(db)
+            # update status separately if needed
+            if status:
+                db_service.jobs.update_status(job_id=job_id, status=status)
+            # update progress fields
             db_service.jobs.update_progress(
                 job_id=job_id,
-                status=status,
                 current_stage=stage,
                 progress_percent=percent,
                 progress_message=message,
-                estimated_completion_seconds=eta_seconds,
+                eta_seconds=eta_seconds,
             )
             db.commit()
 

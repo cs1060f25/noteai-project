@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { apiClient } from '@/lib/api';
 
 interface VideoPlayerProps {
   videoKey: string;
   poster?: string;
   className?: string;
-  apiBaseUrl?: string;
 }
 
 interface PresignedUrlResponse {
@@ -20,7 +20,6 @@ export const VideoPlayer = ({
   videoKey,
   poster,
   className,
-  apiBaseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000',
 }: VideoPlayerProps) => {
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,16 +31,10 @@ export const VideoPlayer = ({
         setLoading(true);
         setError(null);
 
-        const response = await fetch(
-          `${apiBaseUrl}/videos/presigned-url?key=${encodeURIComponent(videoKey)}`
+        const data = await apiClient.get<PresignedUrlResponse>(
+          `/videos/presigned-url?key=${encodeURIComponent(videoKey)}`
         );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || 'Failed to load video');
-        }
-
-        const data: PresignedUrlResponse = await response.json();
         setPresignedUrl(data.url);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load video';
@@ -53,7 +46,7 @@ export const VideoPlayer = ({
     };
 
     fetchPresignedUrl();
-  }, [videoKey, apiBaseUrl]);
+  }, [videoKey]);
 
   if (loading) {
     return (

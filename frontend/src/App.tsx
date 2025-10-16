@@ -1,13 +1,38 @@
 import { useState } from 'react';
-import { Upload, Video, Settings, FolderOpen, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Video, Settings, FolderOpen, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 import { VideoPlayer } from './components/VideoPlayer';
 import { VideoUpload } from './components/VideoUpload';
+import { LoginForm } from './components/LoginForm';
+import { UserProfile } from './components/UserProfile';
+import { useAuth } from './contexts/AuthContext';
 
 const App = () => {
+  const { isAuthenticated, isLoading } = useAuth();
   const [uploadedJobId, setUploadedJobId] = useState<string | null>(null);
   const [uploadedVideoKey, setUploadedVideoKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'library' | 'settings'>('upload');
+
+  // show loading spinner while checking auth status
+  if (isLoading) {
+    return (
+      <div className="w-screen min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+          <p className="fluent-body text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // show login form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="w-screen min-h-screen bg-background flex items-center justify-center p-4">
+        <LoginForm />
+      </div>
+    );
+  }
 
   const handleUploadComplete = (jobId: string, s3Key: string) => {
     console.log('Upload complete! Job ID:', jobId, 'S3 Key:', s3Key);
@@ -72,17 +97,20 @@ const App = () => {
       <main className="flex-1 flex flex-col">
         {/* Header */}
         <header className="fluent-layer-1 border-b border-border p-6">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="fluent-title text-3xl text-foreground">
-              {activeTab === 'upload' && 'Upload New Lecture'}
-              {activeTab === 'library' && 'Video Library'}
-              {activeTab === 'settings' && 'Settings'}
-            </h1>
-            <p className="fluent-caption mt-1">
-              {activeTab === 'upload' && 'Upload your lecture videos and generate highlight clips with subtitles'}
-              {activeTab === 'library' && 'Browse and manage your uploaded lecture videos'}
-              {activeTab === 'settings' && 'Configure your preferences and account settings'}
-            </p>
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="fluent-title text-3xl text-foreground">
+                {activeTab === 'upload' && 'Upload New Lecture'}
+                {activeTab === 'library' && 'Video Library'}
+                {activeTab === 'settings' && 'Settings'}
+              </h1>
+              <p className="fluent-caption mt-1">
+                {activeTab === 'upload' && 'Upload your lecture videos and generate highlight clips with subtitles'}
+                {activeTab === 'library' && 'Browse and manage your uploaded lecture videos'}
+                {activeTab === 'settings' && 'Configure your preferences and account settings'}
+              </p>
+            </div>
+            <UserProfile />
           </div>
         </header>
 

@@ -18,6 +18,9 @@ class Job(Base):
     id = Column(Integer, primary_key=True, index=True)
     job_id = Column(String(100), unique=True, index=True, nullable=False)
 
+    # user reference
+    user_id = Column(String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True, index=True)
+
     # File information
     filename = Column(String(255), nullable=False)
     file_size = Column(Integer, nullable=False)
@@ -48,6 +51,7 @@ class Job(Base):
     completed_at = Column(DateTime, nullable=True)
 
     # Relationships
+    user = relationship("User", back_populates="jobs")
     transcripts = relationship("Transcript", back_populates="job", cascade="all, delete-orphan")
     silence_regions = relationship(
         "SilenceRegion", back_populates="job", cascade="all, delete-orphan"

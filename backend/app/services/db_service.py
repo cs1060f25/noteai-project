@@ -128,6 +128,39 @@ class JobRepository:
 
         return query.offset(offset).limit(limit).all()
 
+    def list_jobs_by_user(
+        self,
+        user_id: str,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str = "created_at",
+        order_desc: bool = True,
+    ) -> list[Job]:
+        """List jobs for a specific user with optional filtering and pagination.
+
+        Args:
+            user_id: User identifier to filter by
+            status: Filter by status (optional)
+            limit: Maximum number of results
+            offset: Number of results to skip
+            order_by: Field to order by
+            order_desc: Order descending if True
+
+        Returns:
+            List of Job instances
+        """
+        query = self.db.query(Job).filter(Job.user_id == user_id)
+
+        if status:
+            query = query.filter(Job.status == status)
+
+        # apply ordering
+        order_field = getattr(Job, order_by, Job.created_at)
+        query = query.order_by(desc(order_field)) if order_desc else query.order_by(order_field)
+
+        return query.offset(offset).limit(limit).all()
+
     def count_jobs(self, status: str | None = None) -> int:
         """Count total jobs with optional status filter.
 
@@ -138,6 +171,21 @@ class JobRepository:
             Total count of jobs
         """
         query = self.db.query(func.count(Job.id))
+        if status:
+            query = query.filter(Job.status == status)
+        return query.scalar() or 0
+
+    def count_jobs_by_user(self, user_id: str, status: str | None = None) -> int:
+        """Count total jobs for a specific user with optional status filter.
+
+        Args:
+            user_id: User identifier to filter by
+            status: Filter by status (optional)
+
+        Returns:
+            Total count of jobs for the user
+        """
+        query = self.db.query(func.count(Job.id)).filter(Job.user_id == user_id)
         if status:
             query = query.filter(Job.status == status)
         return query.scalar() or 0

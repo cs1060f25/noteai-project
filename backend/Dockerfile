@@ -14,11 +14,14 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Set environment variable to avoid venv in Docker
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
 
-# Install dependencies
-RUN uv pip install --system --no-cache -r pyproject.toml
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies using uv sync (system-wide, no venv)
+RUN uv sync --frozen --no-dev
 
 # Copy application code
 COPY . .
