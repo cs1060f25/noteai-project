@@ -102,7 +102,18 @@ def analyze_audio_silence(video_path: str, job_id: str) -> list[dict]:
         )
 
         # load audio from video using pydub
-        audio = AudioSegment.from_file(video_path)
+        try:
+            audio = AudioSegment.from_file(video_path)
+        except IndexError as e:
+            # this can happen if video has no audio track
+            logger.warning(
+                "No audio track found in video file",
+                exc_info=e,
+                extra={"job_id": job_id, "video_path": video_path},
+            )
+            raise ValueError(
+                f"Video file '{video_path}' has no audio track or audio stream could not be detected"
+            ) from e
 
         logger.info(
             "Audio loaded",

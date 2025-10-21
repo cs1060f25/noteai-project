@@ -68,7 +68,12 @@ def test_silence_detector_local(video_path: str, job_id: str = "manual-test-001"
         print(f"{'='*60}\n")
 
     # step 3: optionally store in database
-    store_choice = input("Do you want to store these results in the database? (y/n): ")
+    try:
+        store_choice = input("Do you want to store these results in the database? (y/n): ")
+    except EOFError:
+        # non-interactive mode, skip database storage
+        print("\nSkipping database storage (non-interactive mode).")
+        store_choice = "n"
 
     if store_choice.lower() == "y":
         print("\nStep 3: Storing silence regions in database...")
