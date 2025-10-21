@@ -117,6 +117,34 @@ class Settings(BaseSettings):
         default=60,
         description="Rate limit per minute per IP",
     )
+    rate_limit_auth_login: str = Field(
+        default="5/minute",
+        description="Rate limit for login endpoint (format: '5/minute' or '10/hour')",
+    )
+    rate_limit_auth_refresh: str = Field(
+        default="10/minute",
+        description="Rate limit for token refresh endpoint",
+    )
+    rate_limit_upload: str = Field(
+        default="3/minute;10/hour",
+        description="Rate limit for upload endpoint (multiple limits separated by ;)",
+    )
+    rate_limit_job_status: str = Field(
+        default="20/minute",
+        description="Rate limit for job status polling endpoint",
+    )
+    rate_limit_results: str = Field(
+        default="10/minute",
+        description="Rate limit for results retrieval endpoint",
+    )
+    rate_limit_presigned_url: str = Field(
+        default="15/minute",
+        description="Rate limit for pre-signed URL generation endpoint",
+    )
+    rate_limit_jobs_list: str = Field(
+        default="30/minute",
+        description="Rate limit for jobs list endpoint",
+    )
 
     @field_validator("log_level")
     @classmethod

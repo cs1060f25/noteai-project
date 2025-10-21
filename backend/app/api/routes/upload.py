@@ -2,12 +2,14 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
 from app.core.logging import get_logger
+from app.core.rate_limit_config import limiter
+from app.core.settings import settings
 from app.models.schemas import UploadRequest, UploadResponse
 from app.models.user import User
 from app.services.db_service import DatabaseService
@@ -38,38 +40,40 @@ router = APIRouter(prefix="/upload", tags=["upload"])
     provided pre-signed URL with a PUT request.
     """,
 )
+@limiter.limit(settings.rate_limit_upload)
 def initiate_upload(
-    request: UploadRequest,
+    request: Request,
+    upload_request: UploadRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
     """initiate video upload and get pre-signed s3 url."""
     try:
         file_validator.validate_upload_request(
-            filename=request.filename,
-            file_size=request.file_size,
-            content_type=request.content_type,
+            filename=upload_request.filename,
+            file_size=upload_request.file_size,
+            content_type=upload_request.content_type,
         )
 
         job_id = f"job_{uuid.uuid4().hex[:12]}"
 
         object_key = s3_service.generate_object_key(
             job_id=job_id,
-            filename=request.filename,
+            filename=upload_request.filename,
         )
 
         upload_data = s3_service.generate_presigned_upload_url(
             object_key=object_key,
-            content_type=request.content_type,
+            content_type=upload_request.content_type,
         )
 
         db_service = DatabaseService(db)
         job = db_service.jobs.create(
             job_id=job_id,
             user_id=current_user.user_id,
-            filename=request.filename,
-            file_size=request.file_size,
-            content_type=request.content_type,
+            filename=upload_request.filename,
+            file_size=upload_request.file_size,
+            content_type=upload_request.content_type,
             original_s3_key=object_key,
             status="queued",
             current_stage="uploading",
