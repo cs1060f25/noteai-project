@@ -90,19 +90,37 @@ export const uploadToS3 = async (
   }
 };
 
+export const confirmUpload = async (jobId: string): Promise<void> => {
+  try {
+    await apiClient.post('/upload/confirm', { job_id: jobId });
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to confirm upload', 'CONFIRM_UPLOAD_FAILED');
+  }
+};
+
 export const uploadVideo = async (
   file: File,
   onProgress?: (progress: number) => void
 ): Promise<{ jobId: string; s3Key: string; uploadResponse: UploadResponse }> => {
+  // step 1: initiate upload (5% progress)
   onProgress?.(5);
   const uploadResponse = await initiateUpload(file);
 
+  // step 2: upload to s3 (10% - 95% progress)
   onProgress?.(10);
-
   await uploadToS3(file, uploadResponse.upload_url, uploadResponse.upload_fields, (s3Progress) => {
-    const overallProgress = 10 + Math.round(s3Progress * 0.9);
+    const overallProgress = 10 + Math.round(s3Progress * 0.85);
     onProgress?.(overallProgress);
   });
+
+  // step 3: confirm upload and trigger processing (95% - 100% progress)
+  onProgress?.(95);
+  await confirmUpload(uploadResponse.job_id);
+  onProgress?.(100);
 
   return { jobId: uploadResponse.job_id, s3Key: uploadResponse.s3_key, uploadResponse };
 };
