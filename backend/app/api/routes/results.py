@@ -1,9 +1,9 @@
 """results api routes for retrieving processed video clips and metadata."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.clerk_auth import get_current_user_clerk
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
@@ -37,8 +37,9 @@ router = APIRouter(prefix="/results", tags=["results"])
 @limiter.limit(settings.rate_limit_results)
 def get_results(
     request: Request,
+    response: Response,
     job_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_clerk),
     db: Session = Depends(get_db),
 ) -> ResultsResponse:
     """get processing results for a completed job."""

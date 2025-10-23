@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import { apiClient } from '../lib/api';
+import { apiClient } from '../lib/clerk-api';
 
 import type { JobResponse, UploadRequest, UploadResponse } from '../types/api';
 

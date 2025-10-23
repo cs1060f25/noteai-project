@@ -1,9 +1,9 @@
 """job management api routes for tracking processing status."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.clerk_auth import get_current_user_clerk
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
@@ -36,8 +36,9 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 @limiter.limit(settings.rate_limit_job_status)
 def get_job_status(
     request: Request,
+    response: Response,
     job_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_clerk),
     db: Session = Depends(get_db),
 ) -> JobResponse:
     """get job status and progress information."""
@@ -120,7 +121,8 @@ def get_job_status(
 @limiter.limit(settings.rate_limit_jobs_list)
 def list_jobs(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    response: Response,
+    current_user: User = Depends(get_current_user_clerk),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of jobs to return"),
     offset: int = Query(0, ge=0, description="Number of jobs to skip"),
     db: Session = Depends(get_db),

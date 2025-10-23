@@ -2,10 +2,10 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.clerk_auth import get_current_user_clerk
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
@@ -43,8 +43,9 @@ router = APIRouter(prefix="/upload", tags=["upload"])
 @limiter.limit(settings.rate_limit_upload)
 def initiate_upload(
     request: Request,
+    response: Response,
     upload_request: UploadRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_clerk),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
     """initiate video upload and get pre-signed s3 url."""
@@ -90,8 +91,8 @@ def initiate_upload(
             "Upload initiated and processing started",
             extra={
                 "job_id": job_id,
-                "file_name": request.filename,
-                "file_size_bytes": request.file_size,
+                "file_name": upload_request.filename,
+                "file_size_bytes": upload_request.file_size,
                 "object_key": object_key,
                 "celery_task_id": task.id,
             },
@@ -109,7 +110,7 @@ def initiate_upload(
         logger.warning(
             "Upload validation failed",
             extra={
-                "file_name": request.filename,
+                "file_name": upload_request.filename,
                 "error": e.message,
                 "field": e.field,
             },
@@ -129,7 +130,7 @@ def initiate_upload(
         logger.error(
             "Upload initiation failed",
             exc_info=e,
-            extra={"file_name": request.filename},
+            extra={"file_name": upload_request.filename},
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

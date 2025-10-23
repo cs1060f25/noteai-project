@@ -19,7 +19,9 @@ class Job(Base):
     job_id = Column(String(100), unique=True, index=True, nullable=False)
 
     # user reference
-    user_id = Column(String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id = Column(
+        String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True, index=True
+    )
 
     # File information
     filename = Column(String(255), nullable=False)

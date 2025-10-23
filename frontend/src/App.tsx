@@ -1,35 +1,26 @@
 import { useState } from 'react';
 import { Upload, Video, Settings, FolderOpen, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { SignedIn, SignedOut, SignIn, useUser } from '@clerk/clerk-react';
 
 import { VideoPlayer } from './components/VideoPlayer';
 import { VideoUpload } from './components/VideoUpload';
-import { LoginForm } from './components/LoginForm';
 import { UserProfile } from './components/UserProfile';
-import { useAuth } from './contexts/AuthContext';
+import { GoogleOneTap } from '@clerk/clerk-react';
 
 const App = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isLoaded } = useUser();
   const [uploadedJobId, setUploadedJobId] = useState<string | null>(null);
   const [uploadedVideoKey, setUploadedVideoKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'library' | 'settings'>('upload');
 
   // show loading spinner while checking auth status
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <div className="w-screen min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
           <p className="fluent-body text-muted-foreground">Loading...</p>
         </div>
-      </div>
-    );
-  }
-
-  // show login form if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="w-screen min-h-screen bg-background flex items-center justify-center p-4">
-        <LoginForm />
       </div>
     );
   }
@@ -51,7 +42,20 @@ const App = () => {
   ];
 
   return (
-    <div className="w-screen min-h-screen bg-background flex">
+    <>
+      {/* Google One Tap */}
+      <GoogleOneTap />
+
+      {/* Show login when signed out */}
+      <SignedOut>
+        <div className="w-screen min-h-screen bg-background flex items-center justify-center p-4">
+          <SignIn routing="hash" />
+        </div>
+      </SignedOut>
+
+      {/* Show app when signed in */}
+      <SignedIn>
+        <div className="w-screen min-h-screen bg-background flex">
       {/* Sidebar */}
       <aside className="w-64 fluent-layer-2 border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
@@ -231,7 +235,9 @@ const App = () => {
           </div>
         </div>
       </main>
-    </div>
+        </div>
+      </SignedIn>
+    </>
   );
 };
 
