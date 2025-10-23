@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { Link } from '@tanstack/react-router';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -105,9 +106,12 @@ export const AuthForm = ({
           <div className="flex items-center">
             <FieldLabel htmlFor="password">Password</FieldLabel>
             {mode === 'signin' && (
-              <a href="#" className="ml-auto text-sm underline-offset-4 hover:underline">
+              <Link
+                to="/forgot-password"
+                className="ml-auto text-sm underline-offset-4 hover:underline"
+              >
                 Forgot your password?
-              </a>
+              </Link>
             )}
           </div>
           <Input
@@ -146,6 +150,7 @@ export const AuthForm = ({
               type="button"
               onClick={() => onOAuthSignIn('oauth_google')}
               disabled={loading}
+              className="cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5">
                 <path
@@ -162,6 +167,7 @@ export const AuthForm = ({
               type="button"
               onClick={() => onOAuthSignIn('oauth_github')}
               disabled={loading}
+              className="cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5">
                 <path
@@ -181,7 +187,7 @@ export const AuthForm = ({
                 <button
                   type="button"
                   onClick={() => onModeChange('signup')}
-                  className="underline underline-offset-4"
+                  className="underline underline-offset-4 cursor-pointer"
                 >
                   Sign up
                 </button>
@@ -192,7 +198,7 @@ export const AuthForm = ({
                 <button
                   type="button"
                   onClick={() => onModeChange('signin')}
-                  className="underline underline-offset-4"
+                  className="underline underline-offset-4 cursor-pointer"
                 >
                   Sign in
                 </button>
