@@ -1,7 +1,7 @@
 import { StrictMode, useEffect } from 'react';
 
-import { createRoot } from 'react-dom/client';
 import { ClerkProvider, useAuth } from '@clerk/clerk-react';
+import { createRoot } from 'react-dom/client';
 
 import './index.css';
 import App from './App.tsx';
@@ -15,6 +15,7 @@ if (!PUBLISHABLE_KEY) {
 }
 
 // wrapper component to set up clerk api integration
+// eslint-disable-next-line react-refresh/only-export-components
 const ClerkApiSetup = ({ children }: { children: React.ReactNode }) => {
   const { getToken } = useAuth();
 

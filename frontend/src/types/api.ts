@@ -5,7 +5,7 @@ export const JobStatus = {
   FAILED: 'failed',
 } as const;
 
-export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
+export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 
 export const ProcessingStage = {
   UPLOADING: 'uploading',
@@ -18,7 +18,7 @@ export const ProcessingStage = {
   COMPLETE: 'complete',
 } as const;
 
-export type ProcessingStage = typeof ProcessingStage[keyof typeof ProcessingStage];
+export type ProcessingStage = (typeof ProcessingStage)[keyof typeof ProcessingStage];
 
 export interface UploadRequest {
   filename: string;

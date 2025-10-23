@@ -10,12 +10,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90 fluent-shadow-sm hover:fluent-shadow',
+        default:
+          'cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 fluent-shadow-sm hover:fluent-shadow',
         destructive:
           'bg-destructive text-white hover:bg-destructive/90 fluent-shadow-sm hover:fluent-shadow focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
         outline:
           'border border-border bg-background fluent-shadow-sm hover:bg-accent hover:text-accent-foreground hover:fluent-shadow',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 fluent-shadow-sm hover:fluent-shadow',
+        secondary:
+          'bg-secondary text-secondary-foreground hover:bg-secondary/80 fluent-shadow-sm hover:fluent-shadow',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
       },
@@ -56,4 +58,5 @@ function Button({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { Button, buttonVariants };

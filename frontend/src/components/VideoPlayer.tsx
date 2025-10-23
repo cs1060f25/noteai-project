@@ -16,11 +16,7 @@ interface PresignedUrlResponse {
   object_key: string;
 }
 
-export const VideoPlayer = ({
-  videoKey,
-  poster,
-  className,
-}: VideoPlayerProps) => {
+export const VideoPlayer = ({ videoKey, poster, className }: VideoPlayerProps) => {
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

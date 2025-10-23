@@ -7,7 +7,8 @@ export const UserProfile = () => {
         appearance={{
           elements: {
             userButtonAvatarBox: 'w-10 h-10',
-            userButtonPopoverCard: 'fluent-layer-3 border border-border rounded-lg fluent-shadow-lg',
+            userButtonPopoverCard:
+              'fluent-layer-3 border border-border rounded-lg fluent-shadow-lg',
             userButtonPopoverActions: 'fluent-layer-3',
           },
         }}

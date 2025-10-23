@@ -138,7 +138,9 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
             onClick={handleBrowseClick}
           >
             <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="fluent-subtitle text-lg text-foreground mb-2">Drag and drop your video here</p>
+            <p className="fluent-subtitle text-lg text-foreground mb-2">
+              Drag and drop your video here
+            </p>
             <p className="fluent-body text-muted-foreground mb-4">or click to browse</p>
             <p className="fluent-caption">Supports MP4, MOV, AVI, MKV, WebM (max 2GB)</p>
           </div>
@@ -156,7 +158,9 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
           <div className="flex items-start gap-4 p-4 border border-border rounded-xl bg-accent/50 fluent-hover-lift">
             <FileVideo className="w-10 h-10 text-primary flex-shrink-0 mt-1" />
             <div className="flex-1 min-w-0">
-              <p className="fluent-body font-medium text-foreground truncate">{selectedFile.name}</p>
+              <p className="fluent-body font-medium text-foreground truncate">
+                {selectedFile.name}
+              </p>
               <p className="fluent-caption">{formatFileSize(selectedFile.size)}</p>
             </div>
             <Button variant="outline" size="sm" onClick={handleReset}>
@@ -197,7 +201,8 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
               <div className="flex-1">
                 <p className="fluent-body font-medium text-foreground">Upload successful!</p>
                 <p className="fluent-caption mt-1">
-                  Your video is now processing. Job ID: <code className="bg-accent px-1 py-0.5 rounded text-xs font-mono">{jobId}</code>
+                  Your video is now processing. Job ID:{' '}
+                  <code className="bg-accent px-1 py-0.5 rounded text-xs font-mono">{jobId}</code>
                 </p>
               </div>
             </div>
