@@ -1,11 +1,13 @@
 """job management api routes for tracking processing status."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
 from app.core.logging import get_logger
+from app.core.rate_limit_config import limiter
+from app.core.settings import settings
 from app.models.schemas import JobListResponse, JobProgress, JobResponse, JobStatus
 from app.models.user import User
 from app.services.db_service import DatabaseService
@@ -31,7 +33,9 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
     Clients should poll this endpoint every 3-5 seconds to track progress.
     """,
 )
+@limiter.limit(settings.rate_limit_job_status)
 def get_job_status(
+    request: Request,
     job_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -113,7 +117,9 @@ def get_job_status(
     Jobs are returned in reverse chronological order (newest first).
     """,
 )
+@limiter.limit(settings.rate_limit_jobs_list)
 def list_jobs(
+    request: Request,
     current_user: User = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of jobs to return"),
     offset: int = Query(0, ge=0, description="Number of jobs to skip"),

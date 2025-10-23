@@ -31,6 +31,7 @@ dependencies = [
     "google-auth>=2.23.0",
     "google-auth-oauthlib>=1.1.0",
     "requests>=2.31.0",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]

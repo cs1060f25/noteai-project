@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -15,6 +15,7 @@ from app.core.auth import (
 )
 from app.core.database import get_db
 from app.core.logging import get_logger
+from app.core.rate_limit_config import limiter
 from app.core.settings import settings
 from app.models.user import User
 from app.schemas.user import (
@@ -31,8 +32,10 @@ router = APIRouter()
 
 
 @router.post("/google", response_model=TokenResponse, status_code=status.HTTP_200_OK)
+@limiter.limit(settings.rate_limit_auth_login)
 async def google_login(
-    request: GoogleLoginRequest,
+    request: Request,
+    credentials: GoogleLoginRequest,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     """authenticate user with google oauth and return jwt tokens.
@@ -49,7 +52,7 @@ async def google_login(
     """
     try:
         # verify google token
-        google_user_info = verify_google_token(request.credential)
+        google_user_info = verify_google_token(credentials.credential)
 
         google_id = google_user_info["sub"]
         email = google_user_info["email"]
@@ -114,8 +117,10 @@ async def google_login(
 
 
 @router.post("/refresh", response_model=TokenRefreshResponse, status_code=status.HTTP_200_OK)
+@limiter.limit(settings.rate_limit_auth_refresh)
 async def refresh_access_token(
-    request: TokenRefreshRequest,
+    request: Request,
+    refresh_request: TokenRefreshRequest,
     db: Session = Depends(get_db),
 ) -> TokenRefreshResponse:
     """refresh access token using refresh token.
@@ -132,7 +137,7 @@ async def refresh_access_token(
     """
     try:
         # verify refresh token
-        payload = verify_token(request.refresh_token, token_type="refresh")
+        payload = verify_token(refresh_request.refresh_token, token_type="refresh")
         user_id: str | None = payload.get("sub")
 
         if user_id is None:

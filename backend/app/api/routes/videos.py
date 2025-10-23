@@ -1,12 +1,14 @@
 """video api routes for pre-signed urls and video management."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
 from app.core.logging import get_logger
+from app.core.rate_limit_config import limiter
+from app.core.settings import settings
 from app.models.user import User
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
@@ -25,7 +27,9 @@ class PresignedUrlResponse(BaseModel):
 
 
 @router.get("/presigned-url", response_model=PresignedUrlResponse)
+@limiter.limit(settings.rate_limit_presigned_url)
 async def get_presigned_url(
+    request: Request,
     key: str = Query(..., description="S3 object key (e.g., 'recording.mov')"),
     expires_in: int = Query(
         default=3600,

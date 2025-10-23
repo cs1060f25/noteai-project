@@ -7,9 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.routes import auth, jobs, results, upload, videos
 from app.core.logging import get_logger, setup_logging
+from app.core.rate_limit_config import limiter
 from app.core.settings import settings
 from app.services.metrics_service import update_job_metrics
 
@@ -78,6 +81,11 @@ app = FastAPI(
     redoc_url="/redoc" if settings.is_development else None,
     lifespan=lifespan,
 )
+
+# add rate limiter state to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+logger.info("Rate limiting configured with Redis backend")
 
 # initialize prometheus metrics (must be before app starts, but after app creation)
 Instrumentator().instrument(app).expose(app)
