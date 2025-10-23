@@ -237,13 +237,10 @@ def process_video(self, job_id: str) -> dict[str, Any]:
             status="running",
         )
 
-        # verify s3 upload is complete (placeholder - will implement with s3 check)
-        time.sleep(1)  # simulate check
-
         # chain the pipeline stages
         pipeline = chain(
             stage_one_parallel.s(job_id),
-            stage_two_sequential.s(job_id),
+            # stage_two_sequential.s(job_id), # TODO: add stage two sequential task
         )
 
         # execute pipeline
@@ -305,8 +302,8 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
         # note: actual agent tasks will be implemented in priority 3
         parallel_tasks = group(
             silence_detection_task.s(job_id),
-            transcription_task.s(job_id),
-            layout_analysis_task.s(job_id),
+            # transcription_task.s(job_id), # TODO: add transcription task
+            # layout_analysis_task.s(job_id), # TODO: add layout analysis task
         )
 
         # execute parallel tasks (they will run in parallel automatically)

@@ -130,7 +130,7 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={cn(
-              'border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer fluent-hover-lift',
+              'border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer',
               isDragging
                 ? 'border-primary bg-primary/5 fluent-shadow-lg'
                 : 'border-border hover:border-primary/50 hover:bg-accent/50'
@@ -155,7 +155,7 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
         />
 
         {selectedFile && uploadState === 'idle' && (
-          <div className="flex items-start gap-4 p-4 border border-border rounded-xl bg-accent/50 fluent-hover-lift">
+          <div className="flex items-start gap-4 p-4 border border-border rounded-xl bg-accent/50">
             <FileVideo className="w-10 h-10 text-primary flex-shrink-0 mt-1" />
             <div className="flex-1 min-w-0">
               <p className="fluent-body font-medium text-foreground truncate">

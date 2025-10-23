@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, HttpUrl
 class JobStatus(str, Enum):
     """Job processing status."""
 
+    PENDING = "pending"
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -38,6 +39,12 @@ class UploadRequest(BaseModel):
     filename: str = Field(..., description="Original filename", min_length=1, max_length=255)
     file_size: int = Field(..., description="File size in bytes", gt=0)
     content_type: str = Field(..., description="MIME type of the file")
+
+
+class UploadConfirmRequest(BaseModel):
+    """Request to confirm S3 upload completion."""
+
+    job_id: str = Field(..., description="Job identifier to confirm")
 
 
 class UploadResponse(BaseModel):

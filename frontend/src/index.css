@@ -66,7 +66,7 @@
     @apply bg-background text-foreground;
   }
 }
-
+/* 
 /* Fluent Design specific utilities */
 @layer utilities {
   /* Acrylic Material Effects - Core Fluent Design */
@@ -263,4 +263,4 @@
     line-height: 1.4;
     color: var(--color-muted-foreground);
   }
-}
+} */

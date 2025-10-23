@@ -58,7 +58,7 @@ const App = () => {
       <SignedOut>
         {/* Google One Tap - only show on login page */}
         <GoogleOneTap />
-        <div className="w-screen min-h-screen bg-background2 flex items-center justify-center p-4">
+        <div className="w-screen min-h-screen bg-background2 flex items-center justify-center">
           <CustomAuthForm />
         </div>
       </SignedOut>
