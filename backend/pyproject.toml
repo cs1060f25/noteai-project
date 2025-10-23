@@ -2,7 +2,7 @@
 name = "lecture-highlight-extractor"
 version = "0.1.0"
 description = "AI-powered lecture video processing pipeline"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
@@ -30,6 +30,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "google-auth>=2.23.0",
     "google-auth-oauthlib>=1.1.0",
+    "requests>=2.31.0",
     "slowapi>=0.1.9",
 ]
 
