@@ -2,7 +2,6 @@ import { StrictMode, useEffect } from 'react';
 
 import { ClerkProvider, useAuth } from '@clerk/clerk-react';
 import { createRoot } from 'react-dom/client';
-import { ClerkProvider, useAuth } from '@clerk/clerk-react';
 
 import './index.css';
 import App from './App.tsx';

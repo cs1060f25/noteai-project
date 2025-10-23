@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { User, LogOut, Settings, ChevronDown, Mail, Calendar, Shield, Loader2 } from 'lucide-react';
 
