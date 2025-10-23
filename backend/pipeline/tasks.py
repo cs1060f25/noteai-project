@@ -33,6 +33,35 @@ def get_task_db():
     return session_local()
 
 
+def get_job_s3_key(job_id: str) -> str:
+    """get S3 key for a job from database.
+
+    Args:
+        job_id: job identifier
+
+    Returns:
+        S3 key for the video file
+
+    Raises:
+        ValueError: if job not found
+    """
+    db = get_task_db()
+    try:
+        db_service = DatabaseService(db)
+        job = db_service.jobs.get_by_id(job_id)
+        if not job:
+            raise ValueError(f"Job not found: {job_id}")
+
+        logger.info(
+            "Retrieved job S3 key",
+            extra={"job_id": job_id, "s3_key": job.original_s3_key},
+        )
+
+        return job.original_s3_key
+    finally:
+        db.close()
+
+
 class BaseProcessingTask(Task):
     """base task with progress tracking and error handling."""
 
@@ -237,8 +266,7 @@ def process_video(self, job_id: str) -> dict[str, Any]:
             exc_info=e,
             extra={"job_id": job_id},
         )
-        self.mark_job_failed(
-            job_id, f"Pipeline initialization failed: {e!s}")
+        self.mark_job_failed(job_id, f"Pipeline initialization failed: {e!s}")
         raise
 
 
@@ -386,22 +414,34 @@ def stage_two_sequential(self, stage_one_result: dict[str, Any], job_id: str) ->
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def silence_detection_task(self, job_id: str) -> dict[str, Any]:
     """silence detection agent task."""
-    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
-    return detect_silence(video_path, job_id)
+    s3_key = get_job_s3_key(job_id)
+    logger.info(
+        "Starting silence detection",
+        extra={"job_id": job_id, "s3_key": s3_key},
+    )
+    return detect_silence(s3_key, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def transcription_task(self, job_id: str) -> dict[str, Any]:
     """transcription agent task."""
-    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
-    return generate_transcript(video_path, job_id)
+    s3_key = get_job_s3_key(job_id)
+    logger.info(
+        "Starting transcription",
+        extra={"job_id": job_id, "s3_key": s3_key},
+    )
+    return generate_transcript(s3_key, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def layout_analysis_task(self, job_id: str) -> dict[str, Any]:
     """layout analysis agent task."""
-    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
-    return detect_layout(video_path, job_id)
+    s3_key = get_job_s3_key(job_id)
+    logger.info(
+        "Starting layout analysis",
+        extra={"job_id": job_id, "s3_key": s3_key},
+    )
+    return detect_layout(s3_key, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
@@ -423,11 +463,18 @@ def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def video_compilation_task(self, job_id: str) -> dict[str, Any]:
     """video compilation agent task."""
-    video_path = f"placeholder_video_path_{job_id}"  # TODO: get from S3
-    segments_data = {}  # TODO: get from database
-    layout_data = {}  # TODO: get from database
-    transcript_data = {}  # TODO: get from database
-    return compile_clips(video_path, segments_data, layout_data, transcript_data, job_id)
+    s3_key = get_job_s3_key(job_id)
+    logger.info(
+        "Starting video compilation",
+        extra={"job_id": job_id, "s3_key": s3_key},
+    )
+
+    # TODO: get segments, layout, and transcript from database
+    segments_data = {}
+    layout_data = {}
+    transcript_data = {}
+
+    return compile_clips(s3_key, segments_data, layout_data, transcript_data, job_id)
 
 
 # start prometheus metrics server when worker is ready
