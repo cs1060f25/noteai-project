@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import { apiClient } from '@/lib/clerk-api';
+import { cn } from '@/lib/utils';
 
 interface VideoPlayerProps {
   videoKey: string;
