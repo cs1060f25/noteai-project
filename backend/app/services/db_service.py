@@ -5,7 +5,7 @@ implementing the repository pattern for each model with comprehensive
 CRUD operations, query builders, and transaction management.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import desc, func
@@ -213,7 +213,7 @@ class JobRepository:
             return None
 
         job.status = status
-        job.updated_at = datetime.utcnow()
+        job.updated_at = datetime.now(timezone.utc)
 
         if error_message is not None:
             job.error_message = error_message
@@ -221,7 +221,7 @@ class JobRepository:
         if completed_at is not None:
             job.completed_at = completed_at
         elif status == "completed":
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(job)
@@ -253,7 +253,7 @@ class JobRepository:
 
         job.current_stage = current_stage
         job.progress_percent = progress_percent
-        job.updated_at = datetime.utcnow()
+        job.updated_at = datetime.now(timezone.utc)
 
         if progress_message is not None:
             job.progress_message = progress_message
@@ -280,7 +280,7 @@ class JobRepository:
             return None
 
         job.celery_task_id = celery_task_id
-        job.updated_at = datetime.utcnow()
+        job.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(job)
         return job
@@ -311,7 +311,7 @@ class JobRepository:
         if video_metadata is not None:
             job.video_metadata = video_metadata
 
-        job.updated_at = datetime.utcnow()
+        job.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(job)
         return job

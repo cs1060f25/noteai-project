@@ -1,6 +1,6 @@
 """s3 service for managing video storage and pre-signed urls."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import boto3
 from botocore.config import Config
@@ -105,7 +105,7 @@ class S3Service:
         if "." in filename:
             extension = filename.rsplit(".", 1)[-1].lower()
 
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         object_key = f"{prefix}/{job_id}/{timestamp}_original.{extension}"
 
         logger.info(

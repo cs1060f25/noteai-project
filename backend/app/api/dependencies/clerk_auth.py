@@ -165,9 +165,9 @@ async def get_current_user_clerk(
         )
 
     # update last login
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc)
     db.commit()
 
     return user

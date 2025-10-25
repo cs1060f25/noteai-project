@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def generate_random_string(length: int = 32) -> str:
@@ -24,7 +24,7 @@ def generate_job_id() -> str:
     Returns:
         Unique job identifier
     """
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     random_part = generate_random_string(8)
     return f"job_{timestamp}_{random_part}"
 
