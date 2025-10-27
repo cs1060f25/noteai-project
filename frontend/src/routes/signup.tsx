@@ -23,7 +23,7 @@ const SignupPage = () => {
             </Link>
           </p>
         </div>
-        <CustomAuthForm />
+        <CustomAuthForm initialMode="signup" />
       </div>
     </div>
   );

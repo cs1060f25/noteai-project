@@ -4,12 +4,11 @@ import { ArrowRight, PlayCircle, Video } from 'lucide-react';
 
 const LandingPage = () => {
   const { isSignedIn, isLoaded } = useUser();
-
-  // Redirect to dashboard if already signed in (in production mode)
-  const isDemoMode = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY === undefined || 
-                     import.meta.env.VITE_CLERK_PUBLISHABLE_KEY === 'pk_test_demo_key_for_development';
   
-  if (isLoaded && isSignedIn && !isDemoMode) {
+  console.log('🔍 Landing Page - Clerk integrated, isLoaded:', isLoaded, 'isSignedIn:', isSignedIn);
+  
+  // Redirect to dashboard if already signed in
+  if (isLoaded && isSignedIn) {
     return <Navigate to="/dashboard" />;
   }
 
@@ -64,7 +63,10 @@ const LandingPage = () => {
               Get Started Free
               <ArrowRight className="w-5 h-5" />
             </Link>
-            <button className="inline-flex items-center gap-2 px-8 py-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 hover:scale-105 text-lg font-medium">
+            <button 
+              onClick={() => alert('🎬 Demo video would play here!\n\nIn full implementation, this would:\n• Open video modal\n• Show sample lecture processing\n• Demonstrate AI capabilities')}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 hover:scale-105 text-lg font-medium"
+            >
               <PlayCircle className="w-5 h-5" />
               Watch Demo
             </button>
