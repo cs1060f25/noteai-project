@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import { setClerkSessionTokenGetter } from './lib/clerk-api';
 import { router } from './router';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // import your publishable key
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -32,7 +33,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
       <ClerkApiSetup>
-        <RouterProvider router={router} />
+        <ThemeProvider>
+          <RouterProvider router={router} />
+        </ThemeProvider>
       </ClerkApiSetup>
     </ClerkProvider>
   </StrictMode>

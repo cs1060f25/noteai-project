@@ -1,13 +1,16 @@
 import { useState } from 'react';
 
 import { useUser, useClerk } from '@clerk/clerk-react';
-import { User, LogOut, Settings, ChevronDown, Mail, Calendar, Shield, Loader2 } from 'lucide-react';
+import { User, LogOut, Settings, ChevronDown, Mail, Calendar, Shield, Loader2, Sun, Moon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export const CustomUserProfile = () => {
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
+  const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -151,6 +154,24 @@ export const CustomUserProfile = () => {
                   <p className="fluent-caption text-xs text-muted-foreground">View your profile</p>
                 </div>
               </button>
+
+              <div className="w-full flex items-center gap-3 px-3 py-2 rounded-md">
+                {theme === 'dark' ? (
+                  <Moon className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <Sun className="w-4 h-4 text-muted-foreground" />
+                )}
+                <div className="flex-1">
+                  <p className="fluent-body text-sm font-medium text-foreground">Theme</p>
+                  <p className="fluent-caption text-xs text-muted-foreground">
+                    {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+                  </p>
+                </div>
+                <Switch
+                  checked={theme === 'dark'}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                />
+              </div>
             </div>
 
             {/* sign out */}

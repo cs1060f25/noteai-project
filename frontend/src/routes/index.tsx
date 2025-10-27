@@ -1,9 +1,11 @@
 import { useUser } from '@clerk/clerk-react';
 import { Link, Navigate, createFileRoute } from '@tanstack/react-router';
-import { ArrowRight, PlayCircle, Sparkles, Video, Zap } from 'lucide-react';
+import { ArrowRight, PlayCircle, Sparkles, Video, Zap, Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const LandingPage = () => {
   const { isSignedIn, isLoaded } = useUser();
+  const { theme, toggleTheme } = useTheme();
 
   // redirect to dashboard if already signed in
   if (isLoaded && isSignedIn) {
@@ -22,7 +24,18 @@ const LandingPage = () => {
             </div>
             <span className="fluent-title text-2xl text-foreground">NoteAI</span>
           </div>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-accent transition-colors fluent-focus"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5 text-foreground" />
+              ) : (
+                <Moon className="w-5 h-5 text-foreground" />
+              )}
+            </button>
             <Link
               to="/login"
               className="px-6 py-2 text-foreground hover:text-primary transition-colors fluent-focus"
