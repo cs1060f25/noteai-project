@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { useState, useEffect } from 'react';
+
 import { useUser } from '@clerk/clerk-react';
 import { Navigate } from '@tanstack/react-router';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 // Import the component directly to avoid router issues
-import { useState, useEffect } from 'react';
+
 import { 
   ArrowRight, 
   PlayCircle, 
@@ -18,6 +19,7 @@ import {
   Scissors,
   FileText
 } from 'lucide-react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock the component since we can't import it directly due to router setup
 const LandingPageComponent = () => {

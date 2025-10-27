@@ -1,5 +1,5 @@
-import { FolderOpen, Home, Settings, Upload, Video } from 'lucide-react';
 import { Link, useRouterState } from '@tanstack/react-router';
+import { FolderOpen, Home, Settings, Upload, Video } from 'lucide-react';
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home, description: 'Overview', to: '/dashboard' },
