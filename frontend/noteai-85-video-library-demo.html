@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOTEAI-85: Video Library Interface Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="space-y-6 max-w-7xl mx-auto p-6">
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">NOTEAI-85: Video Library Interface Demo</h1>
+            <p class="text-gray-600">Browse, search, and manage your lecture video collection</p>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex flex-col lg:flex-row gap-4">
+                <!-- Search -->
+                <div class="flex-1">
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input
+                            id="searchInput"
+                            type="text"
+                            placeholder="Search videos by title, description, or tags..."
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="flex gap-3">
+                    <select id="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Status</option>
+                        <option value="completed">Completed</option>
+                        <option value="processing">Processing</option>
+                        <option value="failed">Failed</option>
+                    </select>
+
+                    <select id="qualityFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Quality</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+
+                    <select id="sortBy" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="uploadDate">Upload Date</option>
+                        <option value="title">Title</option>
+                        <option value="duration">Duration</option>
+                        <option value="views">Views</option>
+                    </select>
+                </div>
+
+                <!-- View Mode -->
+                <div class="flex border border-gray-300 rounded-md">
+                    <button id="gridView" class="px-3 py-2 bg-blue-500 text-white">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                        </svg>
+                    </button>
+                    <button id="listView" class="px-3 py-2 text-gray-600 hover:bg-gray-50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Summary -->
+            <div class="mt-4 flex items-center justify-between text-sm text-gray-600">
+                <span id="resultsCount">6 videos found</span>
+                <div id="selectionInfo" class="hidden flex items-center gap-2">
+                    <span id="selectedCount">0 selected</span>
+                    <button id="clearSelection" class="text-blue-600 hover:text-blue-700">Clear selection</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Grid -->
+        <div id="videoGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Videos will be populated by JavaScript -->
+        </div>
+
+        <!-- Video Preview Modal -->
+        <div id="previewModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex items-center justify-between p-4 border-b">
+                    <h3 id="modalTitle" class="text-lg font-semibold"></h3>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-4">
+                    <img id="modalImage" class="w-full h-64 object-cover rounded mb-4" />
+                    <p id="modalDescription" class="text-gray-600 mb-4"></p>
+                    <div id="modalDetails" class="flex items-center gap-4 text-sm text-gray-500"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Demo -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">NOTEAI-85 Features Demonstrated:</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Real-time search across titles, descriptions, tags</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Advanced filtering by status and quality</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Dynamic sorting by multiple criteria</span>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Grid/List view toggle with responsive design</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Video preview modal with detailed information</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Batch selection with checkboxes and counters</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock video data
+        const videos = [
+            {
+                id: '1',
+                title: 'Introduction to Machine Learning',
+                description: 'Comprehensive overview of ML fundamentals and applications',
+                thumbnail: 'https://via.placeholder.com/320x180/4F46E5/white?text=ML+Intro',
+                duration: '45:23',
+                uploadDate: '2024-01-15',
+                status: 'completed',
+                quality: 'high',
+                views: 234,
+                size: '1.2 GB',
+                tags: ['machine-learning', 'ai', 'fundamentals']
+            },
+            {
+                id: '2',
+                title: 'Advanced React Patterns',
+                description: 'Deep dive into advanced React patterns and best practices',
+                thumbnail: 'https://via.placeholder.com/320x180/059669/white?text=React+Advanced',
+                duration: '38:17',
+                uploadDate: '2024-01-12',
+                status: 'completed',
+                quality: 'high',
+                views: 189,
+                size: '890 MB',
+                tags: ['react', 'javascript', 'frontend']
+            },
+            {
+                id: '3',
+                title: 'Database Design Principles',
+                description: 'Essential principles for designing scalable databases',
+                thumbnail: 'https://via.placeholder.com/320x180/DC2626/white?text=Database+Design',
+                duration: '52:41',
+                uploadDate: '2024-01-10',
+                status: 'processing',
+                quality: 'medium',
+                views: 0,
+                size: '1.5 GB',
+                tags: ['database', 'sql', 'design']
+            },
+            {
+                id: '4',
+                title: 'Python Data Analysis',
+                description: 'Complete guide to data analysis using Python and pandas',
+                thumbnail: 'https://via.placeholder.com/320x180/7C3AED/white?text=Python+Data',
+                duration: '41:55',
+                uploadDate: '2024-01-08',
+                status: 'completed',
+                quality: 'high',
+                views: 156,
+                size: '1.1 GB',
+                tags: ['python', 'data-analysis', 'pandas']
+            },
+            {
+                id: '5',
+                title: 'Web Security Fundamentals',
+                description: 'Understanding common web vulnerabilities and security measures',
+                thumbnail: 'https://via.placeholder.com/320x180/EA580C/white?text=Web+Security',
+                duration: '36:29',
+                uploadDate: '2024-01-05',
+                status: 'failed',
+                quality: 'medium',
+                views: 0,
+                size: '780 MB',
+                tags: ['security', 'web', 'cybersecurity']
+            },
+            {
+                id: '6',
+                title: 'Cloud Architecture Patterns',
+                description: 'Modern cloud architecture patterns and microservices',
+                thumbnail: 'https://via.placeholder.com/320x180/0891B2/white?text=Cloud+Architecture',
+                duration: '49:12',
+                uploadDate: '2024-01-03',
+                status: 'completed',
+                quality: 'high',
+                views: 298,
+                size: '1.3 GB',
+                tags: ['cloud', 'architecture', 'microservices']
+            }
+        ];
+
+        let filteredVideos = [...videos];
+        let selectedVideos = [];
+        let viewMode = 'grid';
+
+        // DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        const qualityFilter = document.getElementById('qualityFilter');
+        const sortBy = document.getElementById('sortBy');
+        const gridView = document.getElementById('gridView');
+        const listView = document.getElementById('listView');
+        const videoGrid = document.getElementById('videoGrid');
+        const resultsCount = document.getElementById('resultsCount');
+        const selectionInfo = document.getElementById('selectionInfo');
+        const selectedCount = document.getElementById('selectedCount');
+        const clearSelection = document.getElementById('clearSelection');
+        const previewModal = document.getElementById('previewModal');
+        const closeModal = document.getElementById('closeModal');
+
+        // Helper functions
+        function getStatusIcon(status) {
+            switch (status) {
+                case 'completed':
+                    return '<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                case 'processing':
+                    return '<div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full spinner"></div>';
+                case 'failed':
+                    return '<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
+            }
+        }
+
+        function getStatusBadge(status) {
+            const colors = {
+                completed: 'bg-green-100 text-green-800',
+                processing: 'bg-blue-100 text-blue-800',
+                failed: 'bg-red-100 text-red-800'
+            };
+            return `<span class="px-2 py-1 rounded-full text-xs font-medium ${colors[status]}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+        }
+
+        function getQualityBadge(quality) {
+            const colors = {
+                high: 'bg-purple-100 text-purple-800',
+                medium: 'bg-yellow-100 text-yellow-800',
+                low: 'bg-gray-100 text-gray-800'
+            };
+            return `<span class="px-2 py-1 rounded-full text-xs font-medium ${colors[quality]}">${quality.toUpperCase()}</span>`;
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function filterAndSortVideos() {
+            const searchQuery = searchInput.value.toLowerCase();
+            const statusValue = statusFilter.value;
+            const qualityValue = qualityFilter.value;
+            const sortValue = sortBy.value;
+
+            // Filter videos
+            filteredVideos = videos.filter(video => {
+                const matchesSearch = video.title.toLowerCase().includes(searchQuery) ||
+                                    video.description.toLowerCase().includes(searchQuery) ||
+                                    video.tags.some(tag => tag.toLowerCase().includes(searchQuery));
+                
+                const matchesStatus = statusValue === 'all' || video.status === statusValue;
+                const matchesQuality = qualityValue === 'all' || video.quality === qualityValue;
+                
+                return matchesSearch && matchesStatus && matchesQuality;
+            });
+
+            // Sort videos
+            filteredVideos.sort((a, b) => {
+                switch (sortValue) {
+                    case 'title':
+                        return a.title.localeCompare(b.title);
+                    case 'duration':
+                        return a.duration.localeCompare(b.duration);
+                    case 'views':
+                        return b.views - a.views;
+                    case 'uploadDate':
+                    default:
+                        return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+                }
+            });
+
+            renderVideos();
+            updateResultsCount();
+        }
+
+        function renderVideos() {
+            const gridClass = viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4';
+            videoGrid.className = gridClass;
+
+            videoGrid.innerHTML = filteredVideos.map(video => `
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow ${viewMode === 'list' ? 'flex' : ''}">
+                    <!-- Thumbnail -->
+                    <div class="relative ${viewMode === 'list' ? 'w-48 flex-shrink-0' : ''}">
+                        <img src="${video.thumbnail}" alt="${video.title}" class="w-full object-cover ${viewMode === 'list' ? 'h-28' : 'h-48'}" />
+                        <div class="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-opacity flex items-center justify-center">
+                            <button onclick="openPreview('${video.id}')" class="opacity-0 hover:opacity-100 transition-opacity bg-white bg-opacity-90 rounded-full p-3">
+                                <svg class="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="absolute top-2 right-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">${video.duration}</div>
+                        <div class="absolute top-2 left-2">
+                            <input type="checkbox" onchange="toggleSelection('${video.id}')" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+                        </div>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="p-4 flex-1">
+                        <div class="flex items-start justify-between mb-2">
+                            <h3 class="font-semibold text-gray-900 line-clamp-2">${video.title}</h3>
+                            <button class="text-gray-400 hover:text-gray-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">${video.description}</p>
+                        
+                        <div class="flex items-center gap-2 mb-3">
+                            ${getStatusIcon(video.status)}
+                            ${getStatusBadge(video.status)}
+                            ${getQualityBadge(video.quality)}
+                        </div>
+
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                            <div class="flex items-center gap-4">
+                                <span class="flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    ${formatDate(video.uploadDate)}
+                                </span>
+                                <span class="flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    ${video.views} views
+                                </span>
+                            </div>
+                            <span>${video.size}</span>
+                        </div>
+
+                        <div class="flex flex-wrap gap-1 mb-3">
+                            ${video.tags.slice(0, 3).map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">${tag}</span>`).join('')}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button class="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
+                                <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Watch
+                            </button>
+                            <button class="px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </button>
+                            <button class="px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateResultsCount() {
+            resultsCount.textContent = `${filteredVideos.length} video${filteredVideos.length !== 1 ? 's' : ''} found`;
+            
+            if (selectedVideos.length > 0) {
+                selectionInfo.classList.remove('hidden');
+                selectedCount.textContent = `${selectedVideos.length} selected`;
+            } else {
+                selectionInfo.classList.add('hidden');
+            }
+        }
+
+        function toggleSelection(videoId) {
+            if (selectedVideos.includes(videoId)) {
+                selectedVideos = selectedVideos.filter(id => id !== videoId);
+            } else {
+                selectedVideos.push(videoId);
+            }
+            updateResultsCount();
+        }
+
+        function openPreview(videoId) {
+            const video = videos.find(v => v.id === videoId);
+            if (video) {
+                document.getElementById('modalTitle').textContent = video.title;
+                document.getElementById('modalImage').src = video.thumbnail;
+                document.getElementById('modalDescription').textContent = video.description;
+                document.getElementById('modalDetails').innerHTML = `
+                    <span>Duration: ${video.duration}</span>
+                    <span>Views: ${video.views}</span>
+                    <span>Size: ${video.size}</span>
+                    <span>Uploaded: ${formatDate(video.uploadDate)}</span>
+                `;
+                previewModal.classList.remove('hidden');
+            }
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', filterAndSortVideos);
+        statusFilter.addEventListener('change', filterAndSortVideos);
+        qualityFilter.addEventListener('change', filterAndSortVideos);
+        sortBy.addEventListener('change', filterAndSortVideos);
+
+        gridView.addEventListener('click', () => {
+            viewMode = 'grid';
+            gridView.classList.add('bg-blue-500', 'text-white');
+            gridView.classList.remove('text-gray-600', 'hover:bg-gray-50');
+            listView.classList.remove('bg-blue-500', 'text-white');
+            listView.classList.add('text-gray-600', 'hover:bg-gray-50');
+            renderVideos();
+        });
+
+        listView.addEventListener('click', () => {
+            viewMode = 'list';
+            listView.classList.add('bg-blue-500', 'text-white');
+            listView.classList.remove('text-gray-600', 'hover:bg-gray-50');
+            gridView.classList.remove('bg-blue-500', 'text-white');
+            gridView.classList.add('text-gray-600', 'hover:bg-gray-50');
+            renderVideos();
+        });
+
+        clearSelection.addEventListener('click', () => {
+            selectedVideos = [];
+            updateResultsCount();
+            renderVideos();
+        });
+
+        closeModal.addEventListener('click', () => {
+            previewModal.classList.add('hidden');
+        });
+
+        // Initialize
+        filterAndSortVideos();
+    </script>
+</body>
+</html>

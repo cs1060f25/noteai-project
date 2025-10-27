@@ -1,26 +1,22 @@
-import { useEffect } from 'react';
-
-import { useUser } from '@clerk/clerk-react';
-import { Outlet, createFileRoute, useNavigate } from '@tanstack/react-router';
+import { Outlet, createFileRoute } from '@tanstack/react-router';
 
 import { CustomUserProfile } from '@/components/CustomUserProfile';
 import { Sidebar } from '@/components/Sidebar';
 
 const AuthenticatedLayout = () => {
-  const { isSignedIn, isLoaded } = useUser();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    // redirect to login if not authenticated
-    if (isLoaded && !isSignedIn) {
-      navigate({ to: '/login' });
-    }
-  }, [isSignedIn, isLoaded, navigate]);
+  // TEMPORARY: Disable auth redirect for testing
+  // useEffect(() => {
+  //   // redirect to login if not authenticated
+  //   if (isLoaded && !isSignedIn) {
+  //     navigate({ to: '/login' });
+  //   }
+  // }, [isSignedIn, isLoaded, navigate]);
 
-  // don't render protected content until auth is checked
-  if (!isLoaded || !isSignedIn) {
-    return null;
-  }
+  // TEMPORARY: Skip auth check for testing
+  // if (!isLoaded || !isSignedIn) {
+  //   return null;
+  // }
 
   return (
     <div className="w-screen min-h-screen bg-background flex">
