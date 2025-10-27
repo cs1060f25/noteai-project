@@ -307,6 +307,50 @@ describe("CSS Theme Integration", () => {
       expect(element).toHaveClass("bg-background");
     });
 
+    it("should apply background2 color class (regression test for missing variable)", () => {
+      const TestComponent = () => {
+        return (
+          <div data-testid="bg2-element" className="bg-background2">
+            Background2
+          </div>
+        );
+      };
+
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+
+      const element = screen.getByTestId("bg2-element");
+      expect(element).toHaveClass("bg-background2");
+    });
+
+    it("should support background2 in gradients", () => {
+      const TestComponent = () => {
+        return (
+          <div
+            data-testid="gradient-element"
+            className="bg-gradient-to-br from-background via-background2 to-background"
+          >
+            Gradient
+          </div>
+        );
+      };
+
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+
+      const element = screen.getByTestId("gradient-element");
+      expect(element).toHaveClass("bg-gradient-to-br");
+      expect(element).toHaveClass("from-background");
+      expect(element).toHaveClass("via-background2");
+      expect(element).toHaveClass("to-background");
+    });
+
     it("should apply foreground text color class", () => {
       const TestComponent = () => {
         return (
