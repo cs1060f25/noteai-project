@@ -1,4 +1,5 @@
 """Silence detector agent for audio/video silence analysis."""
+"""Updated"""
 
 import os
 import tempfile
