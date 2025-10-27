@@ -10,14 +10,19 @@ import {
   Share2,
   Brain,
   Scissors,
-  FileText
+  FileText,
+  Pause,
+  Play
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const LandingPage = () => {
   const { isSignedIn, isLoaded } = useUser();
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [isTestimonialPaused, setIsTestimonialPaused] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const intervalRef = useRef<number | null>(null);
 
   // redirect to dashboard if already signed in
   if (isLoaded && isSignedIn) {
@@ -55,13 +60,40 @@ const LandingPage = () => {
     { label: "Time Saved", value: "85%" }
   ];
 
-  // Auto-rotate testimonials
+  // Check for reduced motion preference
   useEffect(() => {
-    const interval = setInterval(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches);
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Auto-rotate testimonials with accessibility controls
+  useEffect(() => {
+    if (prefersReducedMotion || isTestimonialPaused) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    intervalRef.current = window.setInterval(() => {
       setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
     }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [prefersReducedMotion, isTestimonialPaused, testimonials.length]);
 
   const handleWatchDemo = () => {
     setIsVideoPlaying(true);
@@ -257,7 +289,11 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="fluent-layer-2 rounded-2xl p-8 fluent-reveal">
+          <div 
+            className="fluent-layer-2 rounded-2xl p-8 fluent-reveal"
+            onMouseEnter={() => setIsTestimonialPaused(true)}
+            onMouseLeave={() => setIsTestimonialPaused(false)}
+          >
             <div className="flex flex-col md:flex-row items-center gap-8">
               <div className="flex-1">
                 <div className="flex items-center gap-1 mb-4">
@@ -274,16 +310,35 @@ const LandingPage = () => {
                   <div className="text-sm text-primary">{testimonials[currentTestimonial].university}</div>
                 </div>
               </div>
-              <div className="flex gap-2">
-                {testimonials.map((_, index) => (
+              <div className="flex flex-col gap-4">
+                {/* Pause/Play Control */}
+                {!prefersReducedMotion && (
                   <button
-                    key={index}
-                    onClick={() => setCurrentTestimonial(index)}
-                    className={`w-3 h-3 rounded-full transition-colors ${
-                      index === currentTestimonial ? 'bg-primary' : 'bg-muted-foreground/30'
-                    }`}
-                  />
-                ))}
+                    onClick={() => setIsTestimonialPaused(!isTestimonialPaused)}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                    aria-label={isTestimonialPaused ? 'Resume testimonial rotation' : 'Pause testimonial rotation'}
+                  >
+                    {isTestimonialPaused ? (
+                      <Play className="w-5 h-5 text-primary" />
+                    ) : (
+                      <Pause className="w-5 h-5 text-primary" />
+                    )}
+                  </button>
+                )}
+                
+                {/* Testimonial Navigation Dots */}
+                <div className="flex gap-2">
+                  {testimonials.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentTestimonial(index)}
+                      className={`w-3 h-3 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                        index === currentTestimonial ? 'bg-primary' : 'bg-muted-foreground/30'
+                      }`}
+                      aria-label={`View testimonial ${index + 1} from ${testimonials[index].name}`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
