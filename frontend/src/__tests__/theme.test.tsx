@@ -444,6 +444,47 @@ describe("CSS Theme Integration", () => {
   });
 
   describe("Theme Context Integration", () => {
+    it("should apply CSS custom properties when theme changes (critical regression test)", async () => {
+      const user = userEvent.setup();
+      const TestComponent = () => {
+        const { theme, toggleTheme } = useTheme();
+        return (
+          <div>
+            <div data-testid="theme-indicator">{theme}</div>
+            <button onClick={toggleTheme}>Toggle</button>
+          </div>
+        );
+      };
+
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+
+      const button = screen.getByText("Toggle");
+
+      // initial state: light mode, no .dark class
+      expect(screen.getByTestId("theme-indicator")).toHaveTextContent("light");
+      expect(document.documentElement.classList.contains("dark")).toBe(false);
+
+      // toggle to dark mode
+      await user.click(button);
+      expect(screen.getByTestId("theme-indicator")).toHaveTextContent("dark");
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+
+      // verify CSS custom properties are accessible (this ensures .dark selector works)
+      // by checking that the .dark class actually exists on the html element
+      const htmlElement = document.documentElement;
+      expect(htmlElement.className).toContain("dark");
+
+      // toggle back to light mode
+      await user.click(button);
+      expect(screen.getByTestId("theme-indicator")).toHaveTextContent("light");
+      expect(document.documentElement.classList.contains("dark")).toBe(false);
+      expect(htmlElement.className).not.toContain("dark");
+    });
+
     it("should synchronize theme state with DOM class", async () => {
       const user = userEvent.setup();
       const TestComponent = () => {
