@@ -13,8 +13,7 @@ import {
   Loader2,
   Calendar,
   Eye,
-  X,
-  Upload
+  X
 } from 'lucide-react';
 
 interface Video {
@@ -166,13 +165,13 @@ const LibraryTestComponent = () => {
 
   const getStatusBadge = (status: Video['status']) => {
     const colors = {
-      completed: 'bg-green-100 text-green-800',
-      processing: 'bg-blue-100 text-blue-800',
-      failed: 'bg-red-100 text-red-800'
+      completed: 'bg-green-500/20 text-green-300 border-green-500/30',
+      processing: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      failed: 'bg-red-500/20 text-red-300 border-red-500/30'
     };
     
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status]}`}>
+      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${colors[status]}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -180,13 +179,13 @@ const LibraryTestComponent = () => {
 
   const getQualityBadge = (quality: Video['quality']) => {
     const colors = {
-      high: 'bg-purple-100 text-purple-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      low: 'bg-gray-100 text-gray-800'
+      high: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+      medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      low: 'bg-gray-500/20 text-gray-300 border-gray-500/30'
     };
     
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[quality]}`}>
+      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${colors[quality]}`}>
         {quality.toUpperCase()}
       </span>
     );
@@ -209,29 +208,34 @@ const LibraryTestComponent = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-6">
+      <div className="space-y-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">NOTEAI-85: Video Library Interface Test</h1>
-          <p className="text-gray-600">
-            Browse, search, and manage your lecture video collection
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/20 rounded-full mb-6">
+            <span className="text-sm font-medium text-blue-300">🎬 NOTEAI-85: Video Library Interface</span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            Your Video <span className="text-blue-400">Library</span>
+          </h1>
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Browse, search, and manage your lecture video collection with powerful AI-driven insights
           </p>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-300" />
                 <input
                   type="text"
                   placeholder="Search videos by title, description, or tags..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                 />
               </div>
             </div>
@@ -241,48 +245,48 @@ const LibraryTestComponent = () => {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-                <option value="all">All Status</option>
-                <option value="completed">Completed</option>
-                <option value="processing">Processing</option>
-                <option value="failed">Failed</option>
+                <option value="all" className="text-gray-900">All Status</option>
+                <option value="completed" className="text-gray-900">Completed</option>
+                <option value="processing" className="text-gray-900">Processing</option>
+                <option value="failed" className="text-gray-900">Failed</option>
               </select>
 
               <select
                 value={selectedQuality}
                 onChange={(e) => setSelectedQuality(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-                <option value="all">All Quality</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
+                <option value="all" className="text-gray-900">All Quality</option>
+                <option value="high" className="text-gray-900">High</option>
+                <option value="medium" className="text-gray-900">Medium</option>
+                <option value="low" className="text-gray-900">Low</option>
               </select>
 
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-                <option value="uploadDate">Upload Date</option>
-                <option value="title">Title</option>
-                <option value="duration">Duration</option>
-                <option value="views">Views</option>
+                <option value="uploadDate" className="text-gray-900">Upload Date</option>
+                <option value="title" className="text-gray-900">Title</option>
+                <option value="duration" className="text-gray-900">Duration</option>
+                <option value="views" className="text-gray-900">Views</option>
               </select>
             </div>
 
             {/* View Mode */}
-            <div className="flex border border-gray-300 rounded-md">
+            <div className="flex border border-white/30 rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`px-4 py-3 transition-colors ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-300 hover:bg-white/10'}`}
               >
                 <Grid3X3 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-2 ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`px-4 py-3 transition-colors ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-300 hover:bg-white/10'}`}
               >
                 <List className="w-4 h-4" />
               </button>
@@ -290,14 +294,14 @@ const LibraryTestComponent = () => {
           </div>
 
           {/* Results Summary */}
-          <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-            <span>{filteredVideos.length} video{filteredVideos.length !== 1 ? 's' : ''} found</span>
+          <div className="mt-6 flex items-center justify-between text-sm text-gray-300">
+            <span className="font-medium">{filteredVideos.length} video{filteredVideos.length !== 1 ? 's' : ''} found</span>
             {selectedVideos.length > 0 && (
               <div className="flex items-center gap-2">
-                <span>{selectedVideos.length} selected</span>
+                <span className="text-blue-300 font-medium">{selectedVideos.length} selected</span>
                 <button
                   onClick={() => setSelectedVideos([])}
-                  className="text-blue-600 hover:text-blue-700"
+                  className="text-blue-400 hover:text-blue-300 transition-colors"
                 >
                   Clear selection
                 </button>
@@ -317,7 +321,7 @@ const LibraryTestComponent = () => {
             <div
               key={video.id}
               className={`
-                bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow
+                bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 overflow-hidden hover:scale-105 transition-all duration-300 hover:bg-white/15
                 ${viewMode === 'list' ? 'flex' : ''}
               `}
             >
@@ -350,15 +354,15 @@ const LibraryTestComponent = () => {
               </div>
 
               {/* Content */}
-              <div className="p-4 flex-1">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-gray-900 line-clamp-2">{video.title}</h3>
-                  <button className="text-gray-400 hover:text-gray-600">
+              <div className="p-6 flex-1">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-semibold text-white text-lg line-clamp-2">{video.title}</h3>
+                  <button className="text-gray-300 hover:text-white transition-colors">
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
                 </div>
                 
-                <p className="text-sm text-gray-600 mb-3 line-clamp-2">{video.description}</p>
+                <p className="text-sm text-gray-300 mb-4 line-clamp-2">{video.description}</p>
                 
                 <div className="flex items-center gap-2 mb-3">
                   {getStatusIcon(video.status)}
@@ -366,7 +370,7 @@ const LibraryTestComponent = () => {
                   {getQualityBadge(video.quality)}
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-4">
                   <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
@@ -377,26 +381,26 @@ const LibraryTestComponent = () => {
                       {video.views} views
                     </span>
                   </div>
-                  <span>{video.size}</span>
+                  <span className="text-gray-300">{video.size}</span>
                 </div>
 
-                <div className="flex flex-wrap gap-1 mb-3">
+                <div className="flex flex-wrap gap-2 mb-4">
                   {video.tags.slice(0, 3).map((tag) => (
-                    <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                    <span key={tag} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-medium">
                       {tag}
                     </span>
                   ))}
                 </div>
 
-                <div className="flex gap-2">
-                  <button className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-                    <Play className="w-3 h-3 inline mr-1" />
+                <div className="flex gap-3">
+                  <button className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-all duration-300 hover:scale-105 font-medium">
+                    <Play className="w-3 h-3 inline mr-2" />
                     Watch
                   </button>
-                  <button className="px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">
+                  <button className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-sm hover:bg-white/30 transition-colors text-white">
                     <Download className="w-3 h-3" />
                   </button>
-                  <button className="px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">
+                  <button className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-sm hover:bg-white/30 transition-colors text-white">
                     <Share2 className="w-3 h-3" />
                   </button>
                 </div>
@@ -407,27 +411,33 @@ const LibraryTestComponent = () => {
 
         {/* Video Preview Modal */}
         {previewVideo && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b">
-                <h3 className="text-lg font-semibold">{previewVideo.title}</h3>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-blue-900/90 via-purple-900/90 to-indigo-900/90 backdrop-blur-sm border border-white/20 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-white/20">
+                <h3 className="text-xl font-semibold text-white">{previewVideo.title}</h3>
                 <button
                   onClick={() => setPreviewVideo(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-300 hover:text-white transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-6 h-6" />
                 </button>
               </div>
-              <div className="p-4">
+              <div className="p-6">
                 <img
                   src={previewVideo.thumbnail}
                   alt={previewVideo.title}
-                  className="w-full h-64 object-cover rounded mb-4"
+                  className="w-full h-64 object-cover rounded-lg mb-6"
                 />
-                <p className="text-gray-600 mb-4">{previewVideo.description}</p>
-                <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <span>Duration: {previewVideo.duration}</span>
-                  <span>Views: {previewVideo.views}</span>
+                <p className="text-gray-300 mb-6 text-lg">{previewVideo.description}</p>
+                <div className="flex items-center gap-6 text-sm text-gray-400">
+                  <span className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Duration: {previewVideo.duration}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <Eye className="w-4 h-4" />
+                    Views: {previewVideo.views}
+                  </span>
                   <span>Size: {previewVideo.size}</span>
                   <span>Uploaded: {formatDate(previewVideo.uploadDate)}</span>
                 </div>
@@ -436,40 +446,6 @@ const LibraryTestComponent = () => {
           </div>
         )}
 
-        {/* Features Demo */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">NOTEAI-85 Features Demonstrated:</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Real-time search across titles, descriptions, tags</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Advanced filtering by status and quality</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Dynamic sorting by multiple criteria</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Grid/List view toggle with responsive design</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Video preview modal with detailed information</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Batch selection with checkboxes and counters</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
