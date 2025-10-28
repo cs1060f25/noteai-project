@@ -43,13 +43,60 @@ type Options = {
 export function useJobStatus(jobId: string | null, opts: Options = {}) {
   const { intervalMs = 3000, enabled = true } = opts;
 
+  // Shared state shape
   const [data, setData] = useState<NormalizedStatus | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(Boolean(jobId));
   const [error, setError] = useState<Error | null>(null);
 
-  const timerRef = useRef<number | null>(null);
-  const done = useMemo(() => data?.stage === "complete" || data?.stage === "failed", [data]);
+  // ---- DEV SIMULATION: jobId starts with "dev-" ----
+  const isDevSim = Boolean(jobId && jobId.startsWith("dev-"));
+  useEffect(() => {
+    if (!isDevSim || !enabled) return;
+    setError(null);
+    setIsLoading(true);
 
+    let pct = 0;
+    const timer = window.setInterval(() => {
+      pct = Math.min(100, pct + 5);
+
+      const stage: UiStage =
+        pct < 10 ? "uploading" :
+        pct < 60 ? "preparing" :
+        pct < 100 ? "generating" :
+        "complete";
+
+      setData({
+        percent: pct,
+        stage,
+        message:
+          stage === "uploading" ? "Uploading…" :
+          stage === "preparing" ? "Analyzing audio/layout…" :
+          stage === "generating" ? "Compiling highlights…" :
+          "Done",
+        etaSeconds: Math.max(0, Math.round((100 - pct) / 2)),
+      });
+
+      if (pct >= 100) {
+        window.clearInterval(timer);
+        setIsLoading(false);
+      }
+    }, 300); // quick demo speed
+
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDevSim, enabled, jobId]);
+
+  // If simulating, return immediately (don’t start real polling)
+  const done = useMemo(
+    () => data?.stage === "complete" || data?.stage === "failed",
+    [data]
+  );
+  if (isDevSim) {
+    return { data, isLoading, error, done };
+  }
+
+  // ---- REAL POLLING PATH ----
+  const timerRef = useRef<number | null>(null);
   useEffect(() => {
     if (!jobId || !enabled) return;
 
@@ -58,13 +105,12 @@ export function useJobStatus(jobId: string | null, opts: Options = {}) {
     async function tick() {
       try {
         setIsLoading(true);
-        const res = await getJobStatus(jobId);
+        const res = await getJobStatus(jobId as string);
         if (cancelled) return;
         const norm = normalize(res);
         setData(norm);
         setError(null);
 
-        // stop polling if job finished/failed
         if (norm.stage === "complete" || norm.stage === "failed") {
           if (timerRef.current) window.clearInterval(timerRef.current);
           timerRef.current = null;
@@ -72,19 +118,15 @@ export function useJobStatus(jobId: string | null, opts: Options = {}) {
       } catch (e: any) {
         if (cancelled) return;
         setError(e instanceof Error ? e : new Error(String(e)));
-        // keep polling; transient errors are okay
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     }
 
-    // initial fetch immediately
+    // initial + interval
     tick();
-
-    // set interval for polling
     timerRef.current = window.setInterval(tick, intervalMs);
 
-    // cleanup on unmount or jobId change
     return () => {
       cancelled = true;
       if (timerRef.current) window.clearInterval(timerRef.current);
