@@ -168,18 +168,19 @@ services:
       retries: 3
 
   # Node Exporter for system metrics
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: lecture-extractor-node-exporter
-    command:
-      - '--path.rootfs=/host'
-    ports:
-      - "9100:9100"
-    volumes:
-      - '/:/host:ro,rslave'
-    networks:
-      - lecture-network
-    restart: unless-stopped
+  # Commented out for macOS compatibility - the root mount causes issues on macOS
+  # node-exporter:
+  #   image: prom/node-exporter:latest
+  #   container_name: lecture-extractor-node-exporter
+  #   command:
+  #     - '--path.rootfs=/host'
+  #   ports:
+  #     - "9100:9100"
+  #   volumes:
+  #     - '/:/host:ro,rslave'
+  #   networks:
+  #     - lecture-network
+  #   restart: unless-stopped
 
   # Postgres Exporter for database metrics
   postgres-exporter:
