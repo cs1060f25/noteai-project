@@ -7,8 +7,12 @@ import { useAuth } from '@/hooks/useAuth';
 import type { AuthMode } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
-export const CustomAuthForm = ({ className, ...props }: React.ComponentProps<'div'>) => {
-  const [mode, setMode] = useState<AuthMode>('signin');
+interface CustomAuthFormProps extends React.ComponentProps<'div'> {
+  initialMode?: AuthMode;
+}
+
+export const CustomAuthForm = ({ className, initialMode = 'signin' }: CustomAuthFormProps) => {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [pendingVerification, setPendingVerification] = useState(false);
 

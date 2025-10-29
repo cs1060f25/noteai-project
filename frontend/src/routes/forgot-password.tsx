@@ -5,7 +5,7 @@ import { ArrowLeft, Mail } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Field } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 
 const ForgotPasswordPage = () => {
@@ -47,7 +47,8 @@ const ForgotPasswordPage = () => {
           <CardContent>
             {!submitted ? (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <Field label="Email" required>
+                <Field>
+                  <FieldLabel>Email *</FieldLabel>
                   <Input
                     type="email"
                     placeholder="Enter your email"
