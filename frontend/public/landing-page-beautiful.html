@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOTEAI-74: Enhanced Landing Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hover-scale:hover {
+            transform: scale(1.05);
+        }
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="w-screen min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+    <!-- Header -->
+    <header class="flex items-center justify-between p-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"></path>
+                </svg>
+            </div>
+            <span class="text-2xl font-bold text-white">NoteAI</span>
+        </div>
+        <div class="flex gap-4">
+            <a href="#" class="px-6 py-2 text-white hover:text-blue-300 transition-colors">Log in</a>
+            <a href="#" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors hover-scale">Sign up</a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="container mx-auto px-6 py-16">
+        <div class="max-w-4xl mx-auto text-center">
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/20 rounded-full mb-6">
+                <span class="text-sm font-medium text-blue-300">✨ AI-Powered Lecture Processing</span>
+            </div>
+
+            <h1 class="text-5xl md:text-6xl font-bold text-white mb-6">
+                Transform Your Lectures into
+                <span class="text-blue-400"> Highlight Clips</span>
+            </h1>
+
+            <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+                Upload your lecture videos and let AI automatically generate highlight clips with
+                subtitles. Save time and focus on what matters most.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+                <a href="#" class="inline-flex items-center gap-2 px-8 py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-300 hover-scale text-lg font-medium">
+                    Get Started Free
+                    <span>→</span>
+                </a>
+                <button onclick="alert('🎬 Demo video would play here!')" class="inline-flex items-center gap-2 px-8 py-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 hover-scale text-lg font-medium">
+                    <span>▶</span>
+                    Watch Demo
+                </button>
+            </div>
+
+            <!-- Statistics Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
+                <div class="text-center">
+                    <div class="text-2xl md:text-3xl font-bold text-blue-400 mb-1">10,000+</div>
+                    <div class="text-sm text-gray-400">Hours Processed</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl md:text-3xl font-bold text-blue-400 mb-1">5,000+</div>
+                    <div class="text-sm text-gray-400">Students Helped</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl md:text-3xl font-bold text-blue-400 mb-1">50+</div>
+                    <div class="text-sm text-gray-400">Universities</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl md:text-3xl font-bold text-blue-400 mb-1">85%</div>
+                    <div class="text-sm text-gray-400">Time Saved</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="max-w-7xl mx-auto mt-20">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">
+                    Powerful Features for Modern Learning
+                </h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="glass-morphism p-6 rounded-xl text-center hover-scale transition-all duration-300">
+                    <div class="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-blue-400 text-2xl">📹</span>
+                    </div>
+                    <h3 class="text-lg text-white mb-2 font-semibold">Easy Upload</h3>
+                    <p class="text-gray-300">
+                        Drag and drop your lecture videos. Support for all major video formats.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="glass-morphism p-6 rounded-xl text-center hover-scale transition-all duration-300">
+                    <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-purple-400 text-2xl">🧠</span>
+                    </div>
+                    <h3 class="text-lg text-white mb-2 font-semibold">AI Processing</h3>
+                    <p class="text-gray-300">
+                        Advanced AI analyzes content and generates accurate transcriptions automatically.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="glass-morphism p-6 rounded-xl text-center hover-scale transition-all duration-300">
+                    <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-green-400 text-2xl">✂️</span>
+                    </div>
+                    <h3 class="text-lg text-white mb-2 font-semibold">Smart Clips</h3>
+                    <p class="text-gray-300">
+                        Get perfectly timed clips with accurate subtitles, ready to share immediately.
+                    </p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="glass-morphism p-6 rounded-xl text-center hover-scale transition-all duration-300">
+                    <div class="w-12 h-12 rounded-lg bg-yellow-500/20 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-yellow-400 text-2xl">📝</span>
+                    </div>
+                    <h3 class="text-lg text-white mb-2 font-semibold">Auto Subtitles</h3>
+                    <p class="text-gray-300">
+                        Accurate transcriptions with perfect timing for accessibility and engagement.
+                    </p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="glass-morphism p-6 rounded-xl text-center hover-scale transition-all duration-300">
+                    <div class="w-12 h-12 rounded-lg bg-pink-500/20 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-pink-400 text-2xl">📤</span>
+                    </div>
+                    <h3 class="text-lg text-white mb-2 font-semibold">Easy Sharing</h3>
+                    <p class="text-gray-300">
+                        Share clips directly to social media or embed in your learning management system.
+                    </p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="glass-morphism p-6 rounded-xl text-center hover-scale transition-all duration-300">
+                    <div class="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-orange-400 text-2xl">⚡</span>
+                    </div>
+                    <h3 class="text-lg text-white mb-2 font-semibold">Lightning Fast</h3>
+                    <p class="text-gray-300">
+                        Optimized pipeline processes hours of content in minutes with cloud acceleration.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
