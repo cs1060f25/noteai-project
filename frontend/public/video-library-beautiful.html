@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOTEAI-85: Video Library Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'blue-900': '#1e3a8a',
+                        'purple-900': '#581c87',
+                        'indigo-900': '#312e81'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .hover-scale:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-6">
+    <div class="space-y-8 max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                Your Video <span class="text-blue-400">Library</span>
+            </h1>
+            <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+                Browse, search, and manage your lecture video collection with advanced filtering and organization tools
+            </p>
+        </div>
+
+        <!-- Search and Controls -->
+        <div class="glass-morphism rounded-xl p-6">
+            <div class="flex flex-col lg:flex-row gap-4 mb-6">
+                <!-- Search -->
+                <div class="flex-1">
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Search videos by title, description, or tags..."
+                            class="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                        />
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="flex gap-3">
+                    <select class="px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="all">All Status</option>
+                        <option value="completed">Completed</option>
+                        <option value="processing">Processing</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                    <select class="px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="all">All Quality</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                    <select class="px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="uploadDate">Upload Date</option>
+                        <option value="title">Title</option>
+                        <option value="duration">Duration</option>
+                        <option value="views">Views</option>
+                    </select>
+                </div>
+
+                <!-- View Toggle -->
+                <div class="flex border border-white/20 rounded-lg overflow-hidden">
+                    <button class="px-4 py-3 bg-blue-500 text-white">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                        </svg>
+                    </button>
+                    <button class="px-4 py-3 bg-white/10 text-white">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Summary -->
+            <div class="flex items-center justify-between text-white">
+                <span class="text-lg">6 videos found</span>
+                <span class="text-sm text-gray-300">2 selected</span>
+            </div>
+        </div>
+
+        <!-- Video Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Video 1 -->
+            <div class="glass-morphism rounded-xl overflow-hidden hover-scale transition-all duration-300">
+                <div class="relative">
+                    <img src="https://picsum.photos/320/180?random=1" alt="Machine Learning Lecture" class="w-full h-48 object-cover">
+                    <div class="absolute top-3 left-3">
+                        <input type="checkbox" checked class="w-5 h-5 text-blue-500 rounded">
+                    </div>
+                    <div class="absolute bottom-3 right-3 bg-black/70 text-white text-sm px-2 py-1 rounded">45:23</div>
+                    <div class="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button class="bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600 transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                            Completed
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">HIGH</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Introduction to Machine Learning</h3>
+                    <p class="text-gray-300 text-sm mb-3 line-clamp-2">Comprehensive overview of ML fundamentals and applications</p>
+                    <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
+                        <span>234 views</span>
+                        <span>Jan 14, 2024</span>
+                    </div>
+                    <button class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors hover-scale">
+                        Watch
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video 2 -->
+            <div class="glass-morphism rounded-xl overflow-hidden hover-scale transition-all duration-300">
+                <div class="relative">
+                    <img src="https://picsum.photos/320/180?random=2" alt="React Patterns Lecture" class="w-full h-48 object-cover">
+                    <div class="absolute top-3 left-3">
+                        <input type="checkbox" checked class="w-5 h-5 text-blue-500 rounded">
+                    </div>
+                    <div class="absolute bottom-3 right-3 bg-black/70 text-white text-sm px-2 py-1 rounded">38:17</div>
+                    <div class="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button class="bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600 transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                            Completed
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">HIGH</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Advanced React Patterns</h3>
+                    <p class="text-gray-300 text-sm mb-3 line-clamp-2">Deep dive into advanced React patterns and best practices</p>
+                    <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
+                        <span>189 views</span>
+                        <span>Jan 11, 2024</span>
+                    </div>
+                    <button class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors hover-scale">
+                        Watch
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video 3 -->
+            <div class="glass-morphism rounded-xl overflow-hidden hover-scale transition-all duration-300">
+                <div class="relative">
+                    <img src="https://picsum.photos/320/180?random=3" alt="Database Design Lecture" class="w-full h-48 object-cover">
+                    <div class="absolute top-3 left-3">
+                        <input type="checkbox" class="w-5 h-5 text-blue-500 rounded">
+                    </div>
+                    <div class="absolute bottom-3 right-3 bg-black/70 text-white text-sm px-2 py-1 rounded">52:41</div>
+                    <div class="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button class="bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600 transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                            <svg class="w-3 h-3 mr-1 animate-spin" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                            </svg>
+                            Processing
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400 border border-orange-500/30">MEDIUM</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Database Design Principles</h3>
+                    <p class="text-gray-300 text-sm mb-3 line-clamp-2">Essential principles for designing scalable databases</p>
+                    <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
+                        <span>0 views</span>
+                        <span>Jan 9, 2024</span>
+                    </div>
+                    <button class="w-full bg-gray-600 text-gray-300 py-2 px-4 rounded-lg cursor-not-allowed">
+                        Processing...
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video 4 -->
+            <div class="glass-morphism rounded-xl overflow-hidden hover-scale transition-all duration-300">
+                <div class="relative">
+                    <img src="https://picsum.photos/320/180?random=4" alt="Python Data Analysis Lecture" class="w-full h-48 object-cover">
+                    <div class="absolute top-3 left-3">
+                        <input type="checkbox" class="w-5 h-5 text-blue-500 rounded">
+                    </div>
+                    <div class="absolute bottom-3 right-3 bg-black/70 text-white text-sm px-2 py-1 rounded">41:55</div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                            Completed
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">HIGH</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Python Data Analysis</h3>
+                    <p class="text-gray-300 text-sm mb-3 line-clamp-2">Complete guide to data analysis using Python and pandas</p>
+                    <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
+                        <span>156 views</span>
+                        <span>Jan 8, 2024</span>
+                    </div>
+                    <button class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors hover-scale">
+                        Watch
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video 5 -->
+            <div class="glass-morphism rounded-xl overflow-hidden hover-scale transition-all duration-300">
+                <div class="relative">
+                    <img src="https://picsum.photos/320/180?random=5" alt="Web Security Lecture" class="w-full h-48 object-cover">
+                    <div class="absolute top-3 left-3">
+                        <input type="checkbox" class="w-5 h-5 text-blue-500 rounded">
+                    </div>
+                    <div class="absolute bottom-3 right-3 bg-black/70 text-white text-sm px-2 py-1 rounded">36:29</div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Failed
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400 border border-orange-500/30">MEDIUM</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Web Security Fundamentals</h3>
+                    <p class="text-gray-300 text-sm mb-3 line-clamp-2">Understanding common web vulnerabilities and security measures</p>
+                    <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
+                        <span>0 views</span>
+                        <span>Jan 5, 2024</span>
+                    </div>
+                    <button class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors">
+                        Retry Processing
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video 6 -->
+            <div class="glass-morphism rounded-xl overflow-hidden hover-scale transition-all duration-300">
+                <div class="relative">
+                    <img src="https://picsum.photos/320/180?random=6" alt="Cloud Architecture Lecture" class="w-full h-48 object-cover">
+                    <div class="absolute top-3 left-3">
+                        <input type="checkbox" class="w-5 h-5 text-blue-500 rounded">
+                    </div>
+                    <div class="absolute bottom-3 right-3 bg-black/70 text-white text-sm px-2 py-1 rounded">44:12</div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                            Completed
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">HIGH</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Cloud Architecture Patterns</h3>
+                    <p class="text-gray-300 text-sm mb-3 line-clamp-2">Modern cloud architecture patterns and best practices</p>
+                    <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
+                        <span>298 views</span>
+                        <span>Jan 3, 2024</span>
+                    </div>
+                    <button class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors hover-scale">
+                        Watch
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
