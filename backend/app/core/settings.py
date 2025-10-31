@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     # AI Services
     openai_api_key: str | None = Field(default=None, description="OpenAI API key")
     gemini_api_key: str | None = Field(default=None, description="Google Gemini API key")
+    gemini_model: str = Field(
+        default="gemini-2.5-flash-lite",
+        description="Gemini model to use for content analysis",
+    )
     whisper_model: str = Field(default="whisper-1", description="Whisper model to use")
 
     # Security
