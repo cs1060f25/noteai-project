@@ -29,7 +29,8 @@ logger = get_logger(__name__)
 def get_task_db():
     """create database session for celery tasks."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -73,7 +74,8 @@ class BaseProcessingTask(Task):
         """track successful task completion metrics."""
         if hasattr(self, "_start_time"):
             duration = time.time() - self._start_time
-            task_duration_seconds.labels(task_name=self.name, status="success").observe(duration)
+            task_duration_seconds.labels(
+                task_name=self.name, status="success").observe(duration)
 
         task_counter.labels(task_name=self.name, status="success").inc()
 
@@ -187,7 +189,8 @@ class BaseProcessingTask(Task):
         # track failure metrics
         if hasattr(self, "_start_time"):
             duration = time.time() - self._start_time
-            task_duration_seconds.labels(task_name=self.name, status="failure").observe(duration)
+            task_duration_seconds.labels(
+                task_name=self.name, status="failure").observe(duration)
 
         task_counter.labels(task_name=self.name, status="failure").inc()
 
@@ -215,9 +218,10 @@ class BaseProcessingTask(Task):
 def process_video(self, job_id: str) -> dict[str, Any]:
     """main task to orchestrate video processing pipeline.
 
-    this task chains together the two-stage processing:
-    1. stage one: parallel processing (silence, transcript, layout)
-    2. stage two: sequential processing (content, segment, compiler)
+    runs agents sequentially:
+    1. silence detector
+    2. content analyzer (gemini)
+    3. segment extractor
 
     args:
         job_id: unique job identifier
@@ -225,29 +229,32 @@ def process_video(self, job_id: str) -> dict[str, Any]:
     returns:
         dict with processing results
     """
-    logger.info("Starting video processing pipeline", extra={"job_id": job_id})
+    logger.info("starting video processing pipeline (sequential)",
+                extra={"job_id": job_id})
 
     try:
         # update job status to running
         self.update_job_progress(
             job_id=job_id,
-            stage="uploading",
+            stage="initializing",
             percent=5.0,
-            message="Starting processing pipeline",
+            message="starting processing pipeline",
             status="running",
         )
 
-        # chain the pipeline stages
+        # sequential pipeline: silence → content → segments
+        # use .si() (immutable signature) to ignore previous task results
         pipeline = chain(
-            stage_one_parallel.s(job_id),
-            # stage_two_sequential.s(job_id), # TODO: add stage two sequential task
+            silence_detection_task.si(job_id),
+            content_analysis_task.si(job_id),
+            segment_extraction_task.si(job_id),
         )
 
         # execute pipeline
         result = pipeline.apply_async()
 
         logger.info(
-            "Pipeline started",
+            "sequential pipeline started",
             extra={"job_id": job_id, "chain_id": result.id},
         )
 
@@ -255,15 +262,16 @@ def process_video(self, job_id: str) -> dict[str, Any]:
             "job_id": job_id,
             "status": "started",
             "chain_id": result.id,
+            "pipeline": "sequential",
         }
 
     except Exception as e:
         logger.error(
-            "Failed to start pipeline",
+            "failed to start pipeline",
             exc_info=e,
             extra={"job_id": job_id},
         )
-        self.mark_job_failed(job_id, f"Pipeline initialization failed: {e!s}")
+        self.mark_job_failed(job_id, f"pipeline initialization failed: {e!s}")
         raise
 
 
@@ -286,7 +294,8 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
     returns:
         dict with stage one results
     """
-    logger.info("Starting stage one (sequential processing)", extra={"job_id": job_id})
+    logger.info("Starting stage one (sequential processing)",
+                extra={"job_id": job_id})
 
     try:
         self.update_job_progress(
@@ -332,7 +341,7 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
     base=BaseProcessingTask,
     name="pipeline.tasks.stage_two_sequential",
 )
-def stage_two_sequential(self, stage_one_result: dict[str, Any], job_id: str) -> dict[str, Any]:
+def stage_two_sequential(self, _stage_one_result: dict[str, Any], job_id: str) -> dict[str, Any]:
     """stage two: sequential processing of content, segmentation, and compilation.
 
     runs three agents sequentially:
@@ -409,13 +418,44 @@ def stage_two_sequential(self, stage_one_result: dict[str, Any], job_id: str) ->
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def silence_detection_task(self, job_id: str) -> dict[str, Any]:
-    """silence detection agent task."""
+    """silence detection agent task (step 1 of 3)."""
+
+    # update progress
+    self.update_job_progress(
+        job_id=job_id,
+        stage="silence_detection",
+        percent=10.0,
+        message="detecting silence regions in audio",
+        status="running",
+        eta_seconds=60,
+    )
+
     s3_key = get_job_s3_key(job_id)
     logger.info(
-        "Starting silence detection",
+        "starting silence detection",
         extra={"job_id": job_id, "s3_key": s3_key},
     )
-    return detect_silence(s3_key, job_id)
+
+    result = detect_silence(s3_key, job_id)
+
+    # update progress after completion
+    self.update_job_progress(
+        job_id=job_id,
+        stage="silence_detection",
+        percent=30.0,
+        message="silence detection completed",
+        status="running",
+    )
+
+    logger.info(
+        "silence detection completed",
+        extra={
+            "job_id": job_id,
+            "silence_regions": result.get("silence_count", 0),
+        },
+    )
+
+    return result
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
@@ -485,7 +525,7 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
-def layout_analysis_task(self, job_id: str) -> dict[str, Any]:
+def layout_analysis_task(_self, job_id: str) -> dict[str, Any]:
     """layout analysis agent task."""
     s3_key = get_job_s3_key(job_id)
     logger.info(
@@ -497,22 +537,104 @@ def layout_analysis_task(self, job_id: str) -> dict[str, Any]:
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def content_analysis_task(self, job_id: str) -> dict[str, Any]:
-    """content analysis agent task."""
-    transcript_data = {}  # TODO: get from database
-    return analyze_content(transcript_data, job_id)
+    """content analysis agent task (step 2 of 3).
+
+    analyzes video transcripts using Gemini API to identify key educational segments
+    with importance scores, topics, and concepts.
+
+    note: agent queries database directly for all required data (transcripts).
+    """
+    logger.info("starting content analysis", extra={"job_id": job_id})
+
+    # update progress
+    self.update_job_progress(
+        job_id=job_id,
+        stage="content_analysis",
+        percent=35.0,
+        message="analyzing content with AI (Gemini)",
+        status="running",
+        eta_seconds=30,
+    )
+
+    # agent queries database directly, pass empty dict for legacy signature
+    result = analyze_content({}, job_id)
+
+    # update progress after completion
+    self.update_job_progress(
+        job_id=job_id,
+        stage="content_analysis",
+        percent=60.0,
+        message="content analysis completed",
+        status="running",
+    )
+
+    logger.info(
+        "content analysis completed",
+        extra={
+            "job_id": job_id,
+            "segments_created": result.get("segments_created", 0),
+            "model_used": result.get("model_used"),
+            "processing_time": result.get("processing_time_seconds", 0),
+        },
+    )
+
+    return result
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
-    """segment extraction agent task."""
-    content_data = {}  # TODO: get from database
-    silence_data = {}  # TODO: get from database
-    transcript_data = {}  # TODO: get from database
-    return extract_segments(content_data, silence_data, transcript_data, job_id)
+    """segment extraction agent task (step 3 of 3).
+
+    extracts optimal highlight segments based on content importance scores
+    and optimizes boundaries using silence detection data.
+
+    note: agent queries database directly for all required data
+    (content segments, silence regions, transcripts, layout analysis).
+    """
+    logger.info("starting segment extraction", extra={"job_id": job_id})
+
+    # update progress
+    self.update_job_progress(
+        job_id=job_id,
+        stage="segment_extraction",
+        percent=65.0,
+        message="extracting highlight segments with optimized boundaries",
+        status="running",
+        eta_seconds=10,
+    )
+
+    # agent queries database directly, pass empty dicts for legacy signature
+    result = extract_segments({}, {}, {}, job_id)
+
+    # update progress after completion
+    self.update_job_progress(
+        job_id=job_id,
+        stage="segment_extraction",
+        percent=90.0,
+        message="segment extraction completed",
+        status="running",
+    )
+
+    logger.info(
+        "segment extraction completed",
+        extra={
+            "job_id": job_id,
+            "segments_created": result.get("segments_created", 0),
+            "processing_time": result.get("processing_time_seconds", 0),
+        },
+    )
+
+    # mark job as completed (all 3 steps done)
+    self.mark_job_completed(job_id)
+
+    logger.info("processing pipeline completed successfully",
+                extra={"job_id": job_id})
+
+    return result
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
-def video_compilation_task(self, job_id: str) -> dict[str, Any]:
+def video_compilation_task(_self, job_id: str) -> dict[str, Any]:
     """video compilation agent task."""
     s3_key = get_job_s3_key(job_id)
     logger.info(
@@ -530,7 +652,7 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
 
 # start prometheus metrics server when worker is ready
 @worker_ready.connect
-def start_metrics_server(**kwargs):
+def start_metrics_server(**_kwargs):
     """start prometheus metrics HTTP server on worker startup."""
     try:
         start_http_server(9090)
