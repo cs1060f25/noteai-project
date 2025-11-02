@@ -214,16 +214,27 @@ class FFmpegHelper:
             filter_parts = vf_filters + af_filters
             v_last = "v0"
             a_last = "a0"
+
+            # dynamically compute offsets based on real clip durations
+            offset = 0.0
             for i in range(1, len(segments)):
+                # get duration of previous segment
+                seg_info = self.get_video_info(segments[i - 1])
+                seg_duration = float(seg_info.get("duration", 0)) or 0
+                # update cumulative offset
+                offset += seg_duration - transition_duration
+
                 v_out = f"v{i}" if i < len(segments) - 1 else "vout"
                 a_out = f"a{i}" if i < len(segments) - 1 else "aout"
-                # use simple fade for video, acrossfade for audio
+
+                # apply transitions using accurate offset
                 filter_parts.append(
-                    f"[{v_last}][v{i}]xfade=transition=fade:duration={transition_duration}:offset={i*(30-transition_duration)}[{v_out}]"
+                    f"[{v_last}][v{i}]xfade=transition=fade:duration={transition_duration}:offset={offset:.3f}[{v_out}]"
                 )
                 filter_parts.append(
                     f"[{a_last}][a{i}]acrossfade=d={transition_duration}[{a_out}]"
                 )
+
                 v_last, a_last = v_out, a_out
 
             filter_complex = ";".join(filter_parts)
