@@ -50,11 +50,15 @@ export default function JobProgress({
         />
       </div>
 
-      {message && <p className="text-xs text-gray-600">{message}</p>}
-      {typeof etaSeconds === "number" && etaSeconds >= 0 && (
-        <p className="text-[11px] text-gray-500">
-          ETA ~{Math.ceil(etaSeconds / 60)} min
-        </p>
+      {message && <p className="text-xs text-gray-600">{message}</p>}  // ✅ add this
+
+      {typeof etaSeconds === "number" &&
+        Number.isFinite(etaSeconds) &&
+        etaSeconds > 0 && (
+          <p className="text-[11px] text-gray-500">
+            {/* round up, but never show 0 */}
+            ETA ~{Math.max(1, Math.ceil(etaSeconds / 60))} min
+          </p>
       )}
 
       {stage === "complete" && onViewResults && (
