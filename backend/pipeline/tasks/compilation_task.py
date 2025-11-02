@@ -8,9 +8,24 @@ from celery import Task
 from agents.compiler import CompilationError, compile_video_clips
 from app.core.logging import get_logger
 from app.models.database import Job, ProcessingLog
-from app.services.db import get_db
+
 from pipeline.celery_app import celery_app
 from pipeline.utils.progress import emit_progress
+
+from app.services.db_service import DatabaseService
+from app.core.settings import settings
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+def get_db():
+    """Create a database session (temporary fix until central get_db is added)."""
+    engine = create_engine(settings.database_url)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 logger = get_logger(__name__)
 

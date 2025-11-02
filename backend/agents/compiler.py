@@ -70,7 +70,6 @@ class VideoCompiler:
             .order_by(ContentSegment.importance_score.desc())
             .all()
         )
-
         if not segments:
             raise CompilationError(f"No content segments found for job: {job_id}")
 
@@ -82,7 +81,7 @@ class VideoCompiler:
             .all()
         )
 
-        compiled_clips = []
+        compiled_clips: list[dict[str, Any]] = []
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
@@ -97,7 +96,7 @@ class VideoCompiler:
             video_info = self.ffmpeg.get_video_info(original_video_path)
             logger.info("Original video info", extra={"job_id": job_id, "info": video_info})
 
-            # process each segment
+            # process each segment independently
             for idx, segment in enumerate(segments):
                 try:
                     clip_data = self._process_segment(
@@ -119,6 +118,68 @@ class VideoCompiler:
                     # continue with next segment instead of failing entire job
                     continue
 
+            # if more than one segment, apply smooth transitions
+            transition_output = None
+            if len(compiled_clips) > 1:
+                # export multiple formats (mp4, webm, mov)
+                final_outputs: list[str] = []
+                formats = ["mp4", "webm", "mov"]
+
+                # choose which file to use as the source
+                source_path = (
+                    transition_output if transition_output and transition_output.exists()
+                    else temp_path / f"final_{compiled_clips[0]['clip_id']}.mp4"
+                )
+
+                for fmt in formats:                                   # 👈 this is the export loop
+                    try:
+                        converted_path = temp_path / f"final_{job_id}.{fmt}"
+                        self.ffmpeg.transcode_to_resolution(
+                            input_path=source_path,
+                            output_path=converted_path,
+                            resolution=(
+                                min(video_info["width"], 1920),
+                                min(video_info["height"], 1080),
+                            ),
+                        )
+                        final_outputs.append(str(converted_path))
+                        logger.info("Exported alternate format",
+                                    extra={"job_id": job_id, "format": fmt})
+                    except Exception as e:
+                        logger.warning(f"Failed to export {fmt} format",
+                                    exc_info=e,
+                                    extra={"job_id": job_id})
+
+            # export multiple formats (mp4, webm, mov)
+            final_outputs: list[str] = []
+            formats = ["mp4", "webm", "mov"]
+            source_path = (
+                transition_output if transition_output and transition_output.exists()
+                else temp_path / f"final_{compiled_clips[0]['clip_id']}.mp4"
+            )
+
+            for fmt in formats:
+                try:
+                    converted_path = temp_path / f"final_{job_id}.{fmt}"
+                    self.ffmpeg.transcode_to_resolution(
+                        input_path=source_path,
+                        output_path=converted_path,
+                        resolution=(
+                            min(video_info["width"], 1920),
+                            min(video_info["height"], 1080),
+                        ),
+                    )
+
+                    final_outputs.append(str(converted_path))
+                    logger.info("Exported alternate format", extra={"job_id": job_id, "format": fmt})
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to export {fmt} format",
+                        exc_info=e,
+                        extra={"job_id": job_id},
+                    )
+
+        # commit result summary
         logger.info(
             "Video compilation completed",
             extra={"job_id": job_id, "clips_generated": len(compiled_clips)},
@@ -129,7 +190,9 @@ class VideoCompiler:
             "status": "completed",
             "clips_generated": len(compiled_clips),
             "clips": compiled_clips,
+            "outputs": final_outputs,
         }
+
 
     def _process_segment(
         self,
@@ -185,10 +248,9 @@ class VideoCompiler:
             self.ffmpeg.transcode_to_resolution(
                 input_path=segment_path,
                 output_path=encoded_path,
-                width=output_width,
-                height=output_height,
-                bitrate="4M",
+                resolution=(output_width, output_height),
             )
+
         else:
             # if same resolution, just optimize encoding
             encoded_path = segment_path

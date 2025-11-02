@@ -4,3 +4,10 @@ demo_video.mp4
 test_video.mp4
 test_with_audio.mp4
 Intro_to_ML.mp4
+
+__pycache__/
+*.mov
+*.webm
+*.jpg
+/tmp/
+output_debug/

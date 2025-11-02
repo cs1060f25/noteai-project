@@ -411,66 +411,51 @@ class FFmpegHelper:
 
     def transcode_to_resolution(
         self,
-        input_path: Path,
-        output_path: Path,
-        width: int,
-        height: int,
-        bitrate: str = "2M",
-    ) -> None:
-        """Transcode video to specific resolution.
-
-        Args:
-            input_path: Input video path
-            output_path: Output video path
-            width: Target width
-            height: Target height
-            bitrate: Target video bitrate (e.g., "2M", "4M")
-
-        Raises:
-            FFmpegError: If transcoding fails
-        """
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(input_path),
-            "-vf",
-            f"scale={width}:{height}:force_original_aspect_ratio=decrease",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "medium",
-            "-b:v",
-            bitrate,
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-movflags",
-            "+faststart",
-            str(output_path),
-        ]
-
+        input_path: str,
+        output_path: str,
+        resolution: tuple[int, int] = (854, 480),
+        crf: int = 32,
+        threads: int = 4,
+    ):
+        width, height = resolution
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=1800,
-            )
-            logger.info(
-                "Video transcoded",
-                extra={
-                    "input": str(input_path),
-                    "output": str(output_path),
-                    "resolution": f"{width}x{height}",
-                },
-            )
+            # Choose codecs based on output format
+            output_path = str(output_path)
+            input_path = str(input_path)
+            if output_path.lower().endswith(".webm"):
+
+                cmd = [
+                    "ffmpeg", "-y", "-i", input_path,
+                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+                    "-c:v", "libvpx-vp9",
+                    "-b:v", "0",
+                    "-crf", str(crf),
+                    "-row-mt", "1",
+                    "-pix_fmt", "yuv420p",
+                    "-speed", "2",
+                    "-threads", str(threads),
+                    "-c:a", "libopus",
+                    "-b:a", "96k",
+                    "-ac", "2",
+                    output_path,
+                ]
+            else:
+                # Default for MP4/MOV
+                cmd = [
+                    "ffmpeg", "-y", "-i", input_path,
+                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+                    "-c:v", "libx264",
+                    "-preset", "medium",
+                    "-b:v", "4M",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-movflags", "+faststart",
+                    output_path,
+                ]
+
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            return output_path
+
         except subprocess.CalledProcessError as e:
-            logger.error(
-                "FFmpeg transcoding failed",
-                exc_info=e,
-                extra={"stderr": e.stderr},
-            )
+            print("FFmpeg transcoding failed")
             raise FFmpegError(f"Failed to transcode video: {e.stderr}") from e
