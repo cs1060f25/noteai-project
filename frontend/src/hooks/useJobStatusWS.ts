@@ -36,27 +36,26 @@ function normalize(res: any): NormalizedStatus {
 }
 
 type Options = {
-  /** default true — allows you to toggle off from callers */
-  enabled?: boolean;
-  /**
-   * Optional override for base URL.
-   * Typically leave blank so it derives from window.location.
-   * Example: "http://localhost:8000"
-   */
-  baseUrl?: string;
+  enabled?: boolean;         // default true
+  baseUrl?: string;          // optional http(s) base; derived from window.location if omitted
+  maxBackoffMs?: number;     // default 10000
+  initialBackoffMs?: number; // default 1000
 };
 
 /**
- * WebSocket-based job status hook.
- * Scaffold v1:
- * - Connects once
- * - Streams JSON messages and normalizes them
- * - Exposes connection state
- * - Cleanly closes on unmount or when job completes/fails
- * (Reconnection/backoff comes in Step 2.)
+ * WebSocket-based job status hook with reconnection & backoff.
+ * - Tries to connect once.
+ * - On unclean close/error before completion, reconnects with exponential backoff + jitter.
+ * - Stops reconnecting when stage becomes `complete` or `failed`.
+ * - Callers can fall back to polling if state becomes "error"/"closed" and no data was ever received.
  */
 export function useJobStatusWS(jobId: string | null, opts: Options = {}) {
-  const { enabled = true, baseUrl = "" } = opts;
+  const {
+    enabled = true,
+    baseUrl = "",
+    maxBackoffMs = 10_000,
+    initialBackoffMs = 1_000,
+  } = opts;
 
   const [data, setData] = useState<NormalizedStatus | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -68,61 +67,91 @@ export function useJobStatusWS(jobId: string | null, opts: Options = {}) {
   );
 
   const wsRef = useRef<WebSocket | null>(null);
+  const cancelledRef = useRef(false);
+  const backoffRef = useRef<number>(initialBackoffMs);
+  const reconnectTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!jobId || !enabled || done) return;
 
-    let cancelled = false;
+    function connect() {
+      if (cancelledRef.current) return;
 
-    // Derive ws(s) URL from current origin by default
-    const wsBase = (baseUrl || window.location.origin).replace(/^http/i, "ws");
-    const url = `${wsBase}/api/v1/jobs/${encodeURIComponent(jobId)}/ws`;
+      // Derive ws(s) URL from current origin by default
+      const wsBase = (baseUrl || window.location.origin).replace(/^http/i, "ws");
+      const url = `${wsBase}/api/v1/jobs/${encodeURIComponent(jobId)}/ws`;
 
-    setState("connecting");
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
+      setState("connecting");
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      if (cancelled) return;
-      setState("open");
-    };
-
-    ws.onmessage = (ev) => {
-      if (cancelled) return;
-      try {
-        const json = JSON.parse(ev.data);
-        const norm = normalize(json);
-        setData(norm);
+      ws.onopen = () => {
+        if (cancelledRef.current) return;
+        setState("open");
         setError(null);
-        if (norm.stage === "complete" || norm.stage === "failed") {
-          ws.close();
+        backoffRef.current = initialBackoffMs; // reset backoff on successful open
+      };
+
+      ws.onmessage = (ev) => {
+        if (cancelledRef.current) return;
+        try {
+          const json = JSON.parse(ev.data);
+          const norm = normalize(json);
+          setData(norm);
+          setError(null);
+          if (norm.stage === "complete" || norm.stage === "failed") {
+            ws.close();
+          }
+        } catch (e: any) {
+          setError(e instanceof Error ? e : new Error(String(e)));
         }
-      } catch (e: any) {
-        setError(e instanceof Error ? e : new Error(String(e)));
-      }
-    };
+      };
 
-    ws.onerror = () => {
-      if (cancelled) return;
-      setState("error");
-      // leave socket to onclose; caller can decide on fallback
-    };
+      ws.onerror = () => {
+        if (cancelledRef.current) return;
+        setState("error");
+      };
 
-    ws.onclose = () => {
-      if (cancelled) return;
-      setState("closed");
-    };
+      ws.onclose = () => {
+        if (cancelledRef.current) return;
 
-    return () => {
-      cancelled = true;
-      try {
-        ws.close();
-      } catch {
-        /* noop */
-      }
-      wsRef.current = null;
-    };
-  }, [jobId, enabled, done, baseUrl]);
+        // If job is done, mark closed and stop
+        if (done) {
+          setState("closed");
+          return;
+        }
+
+        // Otherwise schedule a reconnect with backoff + jitter
+        setState("closed");
+
+        const base = Math.min(backoffRef.current, maxBackoffMs);
+        const jitter = Math.floor(Math.random() * (base / 2)); // 0..50% jitter
+        const delay = base + jitter;
+
+        reconnectTimerRef.current = window.setTimeout(() => {
+          // Exponential backoff for next time
+          backoffRef.current = Math.min(base * 2, maxBackoffMs);
+          connect();
+        }, delay);
+      };
+    }
+
+    connect();
+    // re-connect if jobId/baseUrl change
+  }, [jobId, enabled, done, baseUrl, initialBackoffMs, maxBackoffMs]);
 
   const isLoading = state === "connecting" || (state === "open" && !data);
 
