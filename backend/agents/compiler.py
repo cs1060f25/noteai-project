@@ -120,18 +120,36 @@ class VideoCompiler:
 
             # if more than one segment, apply smooth transitions
             transition_output = None
-            if len(compiled_clips) > 1:
-                # export multiple formats (mp4, webm, mov)
-                final_outputs: list[str] = []
-                formats = ["mp4", "webm", "mov"]
+            final_outputs: list[str] = []
+            formats = ["mp4", "webm", "mov"]
 
-                # choose which file to use as the source
-                source_path = (
-                    transition_output if transition_output and transition_output.exists()
-                    else temp_path / f"final_{compiled_clips[0]['clip_id']}.mp4"
-                )
+            try:
+                if len(compiled_clips) > 1:
+                    # Merge all final clips with crossfade transitions
+                    segment_paths = [
+                        temp_path / f"final_{clip['clip_id']}.mp4" for clip in compiled_clips
+                    ]
+                    transition_output = temp_path / f"transition_job_{job_id}.mp4"
 
-                for fmt in formats:                                   # 👈 this is the export loop
+                    self.ffmpeg.concatenate_with_transitions(
+                        segments=segment_paths,
+                        output_path=transition_output,
+                        transition_duration=0.5,
+                        resolution=(
+                            min(video_info["width"], 1920),
+                            min(video_info["height"], 1080),
+                        ),
+                    )
+
+                    source_path = transition_output
+                    logger.info("Applied smooth transitions between clips", extra={"job_id": job_id})
+
+                else:
+                    # Only one clip — no merge needed
+                    source_path = temp_path / f"final_{compiled_clips[0]['clip_id']}.mp4"
+
+                # Export multiple formats from the merged (or single) video
+                for fmt in formats:
                     try:
                         converted_path = temp_path / f"final_{job_id}.{fmt}"
                         self.ffmpeg.transcode_to_resolution(
@@ -149,6 +167,8 @@ class VideoCompiler:
                         logger.warning(f"Failed to export {fmt} format",
                                     exc_info=e,
                                     extra={"job_id": job_id})
+            except Exception as e:
+                logger.error("Transition merge failed", exc_info=e, extra={"job_id": job_id})
 
             # export multiple formats (mp4, webm, mov)
             final_outputs: list[str] = []

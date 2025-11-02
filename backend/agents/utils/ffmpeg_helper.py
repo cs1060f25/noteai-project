@@ -170,87 +170,96 @@ class FFmpegHelper:
         transition_duration: float = 0.5,
         resolution: tuple[int, int] = (1920, 1080),
     ) -> None:
-        """Concatenate video segments with crossfade transitions.
+        """Concatenate video segments with audio/video cross-fades.
 
         Args:
             segments: List of segment file paths
-            output_path: Output video path
+            output_path: Path for the merged output
             transition_duration: Transition duration in seconds
-            resolution: Output resolution (width, height)
-
+            resolution: (width, height) of the output
         Raises:
             FFmpegError: If concatenation fails
         """
-        if not segments:
+        if not segments or len(segments) == 0:
             raise FFmpegError("No segments to concatenate")
 
+        # if only one clip, just copy it
         if len(segments) == 1:
-            # single segment, just copy
             import shutil
-
             shutil.copy2(segments[0], output_path)
             return
 
-        # build complex filter for crossfade
-        filter_complex = self._build_crossfade_filter(
-            len(segments), transition_duration, resolution
-        )
-
-        # build ffmpeg command
-        cmd = ["ffmpeg", "-y"]
-
-        # add all input files
-        for segment in segments:
-            cmd.extend(["-i", str(segment)])
-
-        # add filter complex
-        cmd.extend(
-            [
-                "-filter_complex",
-                filter_complex,
-                "-map",
-                "[outv]",
-                "-map",
-                "[outa]",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "medium",
-                "-crf",
-                "23",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "192k",
-                "-movflags",
-                "+faststart",
-                str(output_path),
-            ]
-        )
-
+        width, height = resolution
         try:
+            # build ffmpeg input list
+            cmd = ["ffmpeg", "-y"]
+            for seg in segments:
+                cmd.extend(["-i", str(seg)])
+
+            # --- build complex filter ---
+            vf_filters = []
+            af_filters = []
+
+            # scale/prepare each stream
+            for i in range(len(segments)):
+                vf_filters.append(
+                    f"[{i}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v{i}]"
+                )
+                af_filters.append(
+                    f"[{i}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a{i}]"
+                )
+
+            # chain crossfades
+            filter_parts = vf_filters + af_filters
+            v_last = "v0"
+            a_last = "a0"
+            for i in range(1, len(segments)):
+                v_out = f"v{i}" if i < len(segments) - 1 else "vout"
+                a_out = f"a{i}" if i < len(segments) - 1 else "aout"
+                # use simple fade for video, acrossfade for audio
+                filter_parts.append(
+                    f"[{v_last}][v{i}]xfade=transition=fade:duration={transition_duration}:offset={i*(30-transition_duration)}[{v_out}]"
+                )
+                filter_parts.append(
+                    f"[{a_last}][a{i}]acrossfade=d={transition_duration}[{a_out}]"
+                )
+                v_last, a_last = v_out, a_out
+
+            filter_complex = ";".join(filter_parts)
+
+            # --- complete ffmpeg command ---
+            cmd.extend([
+                "-filter_complex", filter_complex,
+                "-map", f"[{v_last}]",
+                "-map", f"[{a_last}]",
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-preset", "medium",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+                str(output_path),
+            ])
+
+            # run ffmpeg
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=1800,  # 30 min timeout
+                cmd, capture_output=True, text=True, check=True, timeout=1800
             )
             logger.info(
-                "Videos concatenated with transitions",
-                extra={
-                    "segment_count": len(segments),
-                    "output": str(output_path),
-                    "transition_duration": transition_duration,
-                },
+                "Videos concatenated with transitions (audio+video)",
+                extra={"output": str(output_path), "segments": len(segments)},
             )
+
         except subprocess.CalledProcessError as e:
             logger.error(
                 "FFmpeg concatenation failed",
                 exc_info=e,
-                extra={"stderr": e.stderr},
+                extra={"stderr": e.stderr, "cmd": " ".join(cmd)},
             )
-            raise FFmpegError(f"Failed to concatenate videos: {e.stderr}") from e
+            raise FFmpegError(f"Failed to concatenate with transitions: {e.stderr}") from e
+
 
     def _build_crossfade_filter(
         self,
@@ -423,7 +432,6 @@ class FFmpegHelper:
             output_path = str(output_path)
             input_path = str(input_path)
             if output_path.lower().endswith(".webm"):
-
                 cmd = [
                     "ffmpeg", "-y", "-i", input_path,
                     "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease",
