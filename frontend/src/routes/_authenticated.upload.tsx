@@ -8,6 +8,7 @@ import { VideoUpload } from '@/components/VideoUpload';
 
 import JobProgress from "@/components/JobProgress";
 import { useJobStatus } from "@/hooks/useJobStatus";
+import { useJobStatusWS } from "@/hooks/useJobStatusWS";
 
 const UploadComponent = () => {
   const [uploadedJobId, setUploadedJobId] = useState<string | null>(null);
@@ -101,18 +102,38 @@ const UploadComponent = () => {
 };
 
 function UploadProgressBlock({ jobId }: { jobId: string }) {
-  const { data, isLoading, error } = useJobStatus(jobId);
+  // Keep your dev simulation exactly as before
+  const isDevSim = jobId.startsWith("dev-");
+
+  // 1) Try WebSocket first (unless dev-sim)
+  const ws = useJobStatusWS(isDevSim ? null : jobId, { enabled: !isDevSim });
+
+  // 2) Fall back to polling if WS fails/closes without having produced data
+  const shouldPoll =
+    isDevSim ||
+    (!ws.data && (ws.connectionState === "error" || ws.connectionState === "closed"));
+
+  const poll = useJobStatus(shouldPoll ? jobId : null, {
+    enabled: shouldPoll,
+    intervalMs: 3000,
+  });
+
+  const data = ws.data ?? poll.data;
+  const isLoading = ws.isLoading || poll.isLoading;
+  const error = ws.error ?? poll.error;
 
   if (isLoading && !data) {
     return <p className="text-sm text-muted-foreground">Checking status…</p>;
   }
-  if (error) {
+
+  if (error && !data) {
     return (
       <p className="text-sm text-red-600">
         Couldn’t fetch status. Retrying automatically…
       </p>
     );
   }
+
   if (!data) return null;
 
   return (
