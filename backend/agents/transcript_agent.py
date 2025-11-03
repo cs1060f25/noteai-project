@@ -316,14 +316,22 @@ def extract_and_segment_audio(
             },
         )
 
+        # if file exceeds limit, we'll return the audio object for chunking
+        # otherwise return the path directly
         if file_size_mb > MAX_AUDIO_SIZE_MB:
-            os.unlink(audio_path)  # clean up oversized file
-            raise ValueError(
-                f"Audio file size ({file_size_mb:.2f}MB) exceeds Google Cloud Speech-to-Text API limit ({MAX_AUDIO_SIZE_MB}MB). "
-                f"Consider implementing audio chunking for large files."
+            logger.warning(
+                "Audio file exceeds API limit, will use chunking",
+                extra={
+                    "job_id": job_id,
+                    "file_size_mb": round(file_size_mb, 2),
+                    "limit_mb": MAX_AUDIO_SIZE_MB,
+                },
             )
+            # return audio object for chunking, delete the oversized single file
+            os.unlink(audio_path)
+            return combined_audio, timestamp_mapping, True  # True indicates needs chunking
 
-        return audio_path, timestamp_mapping
+        return audio_path, timestamp_mapping, False  # False indicates no chunking needed
 
     except Exception as e:
         logger.error(
@@ -332,6 +340,147 @@ def extract_and_segment_audio(
             extra={"job_id": job_id},
         )
         raise
+
+
+def chunk_and_transcribe_audio(
+    audio: AudioSegment, job_id: str, chunk_duration_minutes: int = 5
+) -> dict:
+    """split large audio into chunks and transcribe each chunk.
+
+    Args:
+        audio: pydub AudioSegment object
+        job_id: job identifier for logging
+        chunk_duration_minutes: duration of each chunk in minutes
+
+    Returns:
+        combined transcription result dictionary with all segments
+
+    Raises:
+        Exception: if any chunk transcription fails
+    """
+    chunk_duration_ms = chunk_duration_minutes * 60 * 1000  # convert to milliseconds
+    total_duration_ms = len(audio)
+    num_chunks = (
+        total_duration_ms + chunk_duration_ms - 1
+    ) // chunk_duration_ms  # ceiling division
+
+    logger.info(
+        "Starting chunked transcription",
+        extra={
+            "job_id": job_id,
+            "total_duration_s": round(total_duration_ms / 1000.0, 2),
+            "chunk_duration_min": chunk_duration_minutes,
+            "num_chunks": num_chunks,
+        },
+    )
+
+    all_segments = []
+    full_text = ""
+    chunk_files = []
+
+    try:
+        for chunk_idx in range(num_chunks):
+            start_ms = chunk_idx * chunk_duration_ms
+            end_ms = min(start_ms + chunk_duration_ms, total_duration_ms)
+
+            # extract chunk
+            chunk = audio[start_ms:end_ms]
+            chunk_start_seconds = start_ms / 1000.0
+
+            logger.info(
+                f"Processing chunk {chunk_idx + 1}/{num_chunks}",
+                extra={
+                    "job_id": job_id,
+                    "chunk_idx": chunk_idx,
+                    "start_s": round(chunk_start_seconds, 2),
+                    "end_s": round(end_ms / 1000.0, 2),
+                },
+            )
+
+            # export chunk to temporary file
+            with tempfile.NamedTemporaryFile(
+                delete=False, suffix=f"_chunk_{chunk_idx}.mp3", mode="wb"
+            ) as temp_chunk:
+                chunk_path = temp_chunk.name
+
+            chunk.export(chunk_path, format="mp3", bitrate="128k")
+            chunk_files.append(chunk_path)
+
+            # verify chunk size
+            chunk_size_mb = os.path.getsize(chunk_path) / (1024 * 1024)
+            logger.info(
+                f"Chunk {chunk_idx + 1} exported",
+                extra={
+                    "job_id": job_id,
+                    "chunk_path": chunk_path,
+                    "size_mb": round(chunk_size_mb, 2),
+                },
+            )
+
+            if chunk_size_mb > MAX_AUDIO_SIZE_MB:
+                raise ValueError(
+                    f"Chunk {chunk_idx + 1} still exceeds size limit ({chunk_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB). "
+                    f"Try reducing chunk_duration_minutes."
+                )
+
+            # transcribe chunk
+            chunk_result = transcribe_with_google_speech(chunk_path, job_id)
+
+            # adjust timestamps for this chunk's position in the full audio
+            for segment in chunk_result.get("segments", []):
+                adjusted_segment = segment.copy()
+                adjusted_segment["start"] = round(segment["start"] + chunk_start_seconds, 2)
+                adjusted_segment["end"] = round(segment["end"] + chunk_start_seconds, 2)
+                all_segments.append(adjusted_segment)
+
+            full_text += chunk_result.get("text", "") + " "
+
+            logger.info(
+                f"Chunk {chunk_idx + 1}/{num_chunks} transcribed",
+                extra={
+                    "job_id": job_id,
+                    "chunk_segments": len(chunk_result.get("segments", [])),
+                },
+            )
+
+    finally:
+        # clean up chunk files
+        for chunk_file in chunk_files:
+            try:
+                if os.path.exists(chunk_file):
+                    os.unlink(chunk_file)
+                    logger.debug(
+                        f"Cleaned up chunk file: {chunk_file}",
+                        extra={"job_id": job_id},
+                    )
+            except Exception as cleanup_error:
+                logger.warning(
+                    f"Failed to clean up chunk file: {chunk_file}",
+                    exc_info=cleanup_error,
+                    extra={"job_id": job_id},
+                )
+
+    # calculate total duration
+    duration = all_segments[-1]["end"] if all_segments else 0.0
+
+    result = {
+        "text": full_text.strip(),
+        "task": "transcribe",
+        "language": "chunked",  # we don't have a single language from chunks
+        "duration": duration,
+        "segments": all_segments,
+    }
+
+    logger.info(
+        "Chunked transcription complete",
+        extra={
+            "job_id": job_id,
+            "total_segments": len(all_segments),
+            "total_duration": round(duration, 2),
+        },
+    )
+
+    return result
 
 
 def transcribe_with_google_speech(audio_path: str, job_id: str) -> dict:
@@ -756,12 +905,23 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
             }
 
         # Phase 3: extract and segment audio (remove silence)
-        temp_audio_path, timestamp_mapping = extract_and_segment_audio(
+        audio_or_path, timestamp_mapping, needs_chunking = extract_and_segment_audio(
             temp_video_path, non_silent_intervals, job_id
         )
 
         # Phase 4: transcribe audio with Google Cloud Speech-to-Text API
-        transcription_result = transcribe_with_google_speech(temp_audio_path, job_id)
+        if needs_chunking:
+            # audio is too large, use chunking
+            logger.info(
+                "Using chunked transcription for large audio file",
+                extra={"job_id": job_id},
+            )
+            transcription_result = chunk_and_transcribe_audio(audio_or_path, job_id)
+            temp_audio_path = None  # no single file, chunks are handled internally
+        else:
+            # audio fits in single request
+            temp_audio_path = audio_or_path
+            transcription_result = transcribe_with_google_speech(temp_audio_path, job_id)
 
         logger.info(
             "Transcription received from Google Cloud Speech-to-Text",
