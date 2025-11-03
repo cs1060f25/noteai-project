@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { useJobStatusWS } from "@/hooks/useJobStatusWS";
+import { useJobStatusWS } from "../hooks/useJobStatusWS";
 
 // --- Minimal mock WebSocket implementation ---
 class MockWebSocket {
