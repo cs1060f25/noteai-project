@@ -50,7 +50,7 @@ export default function JobProgress({
         />
       </div>
 
-      {message && <p className="text-xs text-gray-600">{message}</p>}  // ✅ add this
+      {message && <p className="text-xs text-gray-600">{message}</p>}
 
       {typeof etaSeconds === "number" &&
         Number.isFinite(etaSeconds) &&
