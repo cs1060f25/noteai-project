@@ -20,7 +20,10 @@ from app.services.s3_service import s3_service
 logger = get_logger(__name__)
 
 # google cloud speech-to-text configuration
-MAX_AUDIO_SIZE_MB = 10  # google cloud speech-to-text synchronous api limit
+MAX_AUDIO_SIZE_MB = 10  # google cloud speech-to-text synchronous api file size limit
+MAX_AUDIO_DURATION_SECONDS = (
+    50  # google cloud speech-to-text synchronous api duration limit (safe margin under 60s)
+)
 
 
 def get_db_session():
@@ -201,7 +204,7 @@ def get_non_silent_intervals(job_id: str, video_duration: float) -> list[dict]:
 
 def extract_and_segment_audio(
     video_path: str, non_silent_intervals: list[dict], job_id: str
-) -> tuple[str, list[dict]]:
+) -> tuple[str | AudioSegment, list[dict], bool]:
     """extract audio from video and remove silent segments.
 
     Args:
@@ -210,12 +213,14 @@ def extract_and_segment_audio(
         job_id: job identifier for logging
 
     Returns:
-        tuple of (audio_file_path, timestamp_mapping)
-        timestamp_mapping: list of dicts mapping compressed time to original time
+        tuple of (audio_or_path, timestamp_mapping, needs_chunking)
+        - audio_or_path: file path if audio is small, AudioSegment if needs chunking
+        - timestamp_mapping: list of dicts mapping compressed time to original time
+        - needs_chunking: True if audio exceeds size or duration limits
 
     Raises:
         Exception: if audio extraction fails
-        ValueError: if resulting audio file exceeds Whisper API size limit
+        ValueError: if no audio segments to process
     """
     try:
         logger.info(
@@ -305,29 +310,42 @@ def extract_and_segment_audio(
 
         combined_audio.export(audio_path, format="mp3", bitrate="128k")
 
-        # check file size against Whisper API limit
+        # check both file size and duration against API limits
         file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+        duration_seconds = len(combined_audio) / 1000.0
+
         logger.info(
             "Audio exported to temporary file",
             extra={
                 "job_id": job_id,
                 "audio_path": audio_path,
                 "file_size_mb": round(file_size_mb, 2),
+                "duration_seconds": round(duration_seconds, 2),
             },
         )
 
-        # if file exceeds limit, we'll return the audio object for chunking
-        # otherwise return the path directly
-        if file_size_mb > MAX_AUDIO_SIZE_MB:
+        # check if chunking is needed based on file size OR duration
+        needs_chunking = (
+            file_size_mb > MAX_AUDIO_SIZE_MB or duration_seconds > MAX_AUDIO_DURATION_SECONDS
+        )
+
+        if needs_chunking:
+            reason = []
+            if file_size_mb > MAX_AUDIO_SIZE_MB:
+                reason.append(f"size {file_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB")
+            if duration_seconds > MAX_AUDIO_DURATION_SECONDS:
+                reason.append(f"duration {duration_seconds:.1f}s > {MAX_AUDIO_DURATION_SECONDS}s")
+
             logger.warning(
-                "Audio file exceeds API limit, will use chunking",
+                "Audio exceeds API limits, will use chunking",
                 extra={
                     "job_id": job_id,
+                    "reason": " and ".join(reason),
                     "file_size_mb": round(file_size_mb, 2),
-                    "limit_mb": MAX_AUDIO_SIZE_MB,
+                    "duration_seconds": round(duration_seconds, 2),
                 },
             )
-            # return audio object for chunking, delete the oversized single file
+            # return audio object for chunking, delete the single file
             os.unlink(audio_path)
             return combined_audio, timestamp_mapping, True  # True indicates needs chunking
 
@@ -343,22 +361,32 @@ def extract_and_segment_audio(
 
 
 def chunk_and_transcribe_audio(
-    audio: AudioSegment, job_id: str, chunk_duration_minutes: int = 5
+    audio: AudioSegment, job_id: str, chunk_duration_seconds: int = 50
 ) -> dict:
     """split large audio into chunks and transcribe each chunk.
+
+    Google Cloud Speech-to-Text synchronous API has a 60-second limit,
+    so we chunk audio into segments shorter than that.
 
     Args:
         audio: pydub AudioSegment object
         job_id: job identifier for logging
-        chunk_duration_minutes: duration of each chunk in minutes
+        chunk_duration_seconds: duration of each chunk in seconds (default: 50s, max: 60s)
 
     Returns:
         combined transcription result dictionary with all segments
 
     Raises:
         Exception: if any chunk transcription fails
+        ValueError: if chunk_duration_seconds exceeds 60 seconds
     """
-    chunk_duration_ms = chunk_duration_minutes * 60 * 1000  # convert to milliseconds
+    # validate chunk duration doesn't exceed API limit
+    if chunk_duration_seconds > 60:
+        raise ValueError(
+            f"chunk_duration_seconds must be <= 60 seconds for synchronous API, got {chunk_duration_seconds}"
+        )
+
+    chunk_duration_ms = chunk_duration_seconds * 1000  # convert to milliseconds
     total_duration_ms = len(audio)
     num_chunks = (
         total_duration_ms + chunk_duration_ms - 1
@@ -369,7 +397,7 @@ def chunk_and_transcribe_audio(
         extra={
             "job_id": job_id,
             "total_duration_s": round(total_duration_ms / 1000.0, 2),
-            "chunk_duration_min": chunk_duration_minutes,
+            "chunk_duration_s": chunk_duration_seconds,
             "num_chunks": num_chunks,
         },
     )
@@ -420,7 +448,7 @@ def chunk_and_transcribe_audio(
             if chunk_size_mb > MAX_AUDIO_SIZE_MB:
                 raise ValueError(
                     f"Chunk {chunk_idx + 1} still exceeds size limit ({chunk_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB). "
-                    f"Try reducing chunk_duration_minutes."
+                    f"Try reducing chunk_duration_seconds."
                 )
 
             # transcribe chunk

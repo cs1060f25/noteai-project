@@ -56,6 +56,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
       - PYTHONPATH=/app
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/google_credentials.json
+      - GOOGLE_CLOUD_CREDENTIALS_PATH=/app/google_credentials.json
     volumes:
       - .:/app
       - api_data:/app/data
@@ -75,6 +77,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: lecture-extractor-worker
     command: celery -A pipeline.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
     environment:
       - ENVIRONMENT=development
       - DEBUG=true
@@ -84,6 +88,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
       - PYTHONPATH=/app
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/google_credentials.json
+      - GOOGLE_CLOUD_CREDENTIALS_PATH=/app/google_credentials.json
     volumes:
       - .:/app
       - worker_data:/app/data

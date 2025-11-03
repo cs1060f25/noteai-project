@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from celery import Task, chain, group
+from celery import Task, chain
 from celery.signals import worker_ready
 from prometheus_client import start_http_server
 from sqlalchemy import create_engine
@@ -273,12 +273,12 @@ def process_video(self, job_id: str) -> dict[str, Any]:
     name="pipeline.tasks.stage_one_parallel",
 )
 def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
-    """stage one: parallel processing of silence, transcript, and layout.
+    """stage one: sequential silence detection followed by transcription.
 
-    runs three agents in parallel:
-    - silence detector
-    - transcript generator (Google Cloud Speech-to-Text)
-    - layout analyzer
+    runs agents in sequence to ensure transcription only processes non-silent segments:
+    1. silence detector (analyzes and stores silence regions)
+    2. transcript generator (retrieves silence regions and transcribes only non-silent parts)
+    3. layout analyzer (runs in parallel, optional)
 
     args:
         job_id: unique job identifier
@@ -286,29 +286,28 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
     returns:
         dict with stage one results
     """
-    logger.info("Starting stage one (parallel)", extra={"job_id": job_id})
+    logger.info("Starting stage one (sequential processing)", extra={"job_id": job_id})
 
     try:
         self.update_job_progress(
             job_id=job_id,
             stage="parallel_processing",
             percent=10.0,
-            message="Running parallel analysis (silence detection, transcription)",
+            message="Running analysis (silence detection, then transcription)",
             status="running",
             eta_seconds=300,
         )
 
-        # create parallel task group
-        # note: actual agent tasks will be implemented in priority 3
-        parallel_tasks = group(
+        # chain silence detection followed by transcription
+        # this ensures silence regions are stored in DB before transcription starts
+        sequential_chain = chain(
             silence_detection_task.s(job_id),
             transcription_task.s(job_id),
-            # layout_analysis_task.s(job_id), # TODO: add layout analysis task
         )
 
-        # execute parallel tasks (they will run in parallel automatically)
-        # note: we don't wait for results here, they update progress directly
-        parallel_tasks.apply_async()
+        # execute sequential chain
+        # layout analysis can be added separately if needed
+        sequential_chain.apply_async()
 
         logger.info("Stage one completed", extra={"job_id": job_id})
 
@@ -420,13 +419,29 @@ def silence_detection_task(self, job_id: str) -> dict[str, Any]:
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
-def transcription_task(self, job_id: str) -> dict[str, Any]:
-    """transcription agent task with progress updates."""
+def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dict[str, Any]:
+    """transcription agent task with progress updates.
+
+    this task is chained after silence detection to ensure transcription
+    only processes non-silent segments.
+
+    args:
+        silence_result: result from silence detection task (passed via chain)
+        job_id: unique job identifier
+
+    returns:
+        dict with transcription results
+    """
     try:
         s3_key = get_job_s3_key(job_id)
+
         logger.info(
-            "Starting transcription",
-            extra={"job_id": job_id, "s3_key": s3_key},
+            "Starting transcription after silence detection",
+            extra={
+                "job_id": job_id,
+                "s3_key": s3_key,
+                "silence_regions_detected": silence_result.get("silence_count", 0),
+            },
         )
 
         # update progress: starting
@@ -434,11 +449,13 @@ def transcription_task(self, job_id: str) -> dict[str, Any]:
             job_id=job_id,
             stage="transcription",
             percent=0.0,
-            message="Starting audio transcription with Google Cloud Speech-to-Text",
+            message="Starting audio transcription (non-silent segments only)",
             status="running",
         )
 
         # run transcription
+        # the transcript agent will automatically retrieve silence regions from DB
+        # and only transcribe non-silent parts
         result = generate_transcript(s3_key, job_id)
 
         # update progress: completed

@@ -4,3 +4,8 @@ demo_video.mp4
 test_video.mp4
 test_with_audio.mp4
 Intro_to_ML.mp4
+
+# Google Cloud credentials (sensitive)
+google_credentials.json
+*-credentials.json
+*.json.key
