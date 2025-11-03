@@ -6,6 +6,10 @@ import { Video } from 'lucide-react';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { VideoUpload } from '@/components/VideoUpload';
 
+import JobProgress from "@/components/JobProgress";
+import { useJobStatus } from "@/hooks/useJobStatus";
+import { useJobStatusWS } from "@/hooks/useJobStatusWS";
+
 const UploadComponent = () => {
   const [uploadedJobId, setUploadedJobId] = useState<string | null>(null);
   const [uploadedVideoKey, setUploadedVideoKey] = useState<string | null>(null);
@@ -37,6 +41,17 @@ const UploadComponent = () => {
         className="fluent-layer-3 fluent-hover-lift fluent-reveal"
       />
 
+      {/* DEV ONLY: simulate WebSocket (non-dev) */}
+      {!uploadedJobId && (
+        <button
+          type="button"
+          onClick={() => setUploadedJobId(`job-${Date.now()}`)}
+          className="text-xs px-3 py-1.5 rounded-md border border-dashed border-emerald-500/40 text-emerald-600 hover:text-emerald-800 ml-3"
+        >
+          ▶ Simulate WS (non-dev)
+        </button>
+      )}
+
       {/* Upload Success Message */}
       {uploadedJobId && (
         <div className="fluent-layer-2 border-l-4 border-l-primary p-6 rounded-xl fluent-reveal">
@@ -60,6 +75,13 @@ const UploadComponent = () => {
         </div>
       )}
 
+      {uploadedJobId && (
+        <section className="mt-6">
+          <h3 className="text-sm font-semibold mb-2">Processing</h3>
+          <UploadProgressBlock jobId={uploadedJobId} />
+        </section>
+      )}
+
       {/* Video Player */}
       {uploadedVideoKey && (
         <div className="space-y-4">
@@ -78,6 +100,65 @@ const UploadComponent = () => {
     </div>
   );
 };
+
+function UploadProgressBlock({ jobId }: { jobId: string }) {
+  // Keep your dev simulation exactly as before
+  const isDevSim = jobId.startsWith("dev-");
+
+  // Optional API base URL for WS (e.g., set in .env.development)
+  const apiBase = import.meta.env?.VITE_API_BASE_URL as string | undefined;
+
+  // 1) Try WebSocket first (unless dev-sim)
+  const ws = useJobStatusWS(isDevSim ? null : jobId, {
+    enabled: !isDevSim,
+    baseUrl: apiBase, // if undefined, hook falls back to window.location
+  });
+
+  // 2) Fall back to polling if WS fails/closes without having produced data
+  const shouldPoll =
+    isDevSim ||
+    (!ws.data && (ws.connectionState === "error" || ws.connectionState === "closed"));
+
+  const poll = useJobStatus(shouldPoll ? jobId : null, {
+    enabled: shouldPoll,
+    intervalMs: 3000,
+  });
+
+  const data = ws.data ?? poll.data;
+  const isLoading = ws.isLoading || poll.isLoading;
+  const error = ws.error ?? poll.error;
+
+  if (isLoading && !data) {
+    return <p className="text-sm text-muted-foreground">Checking status…</p>;
+  }
+
+  if (error && !data) {
+    return (
+      <p className="text-sm text-red-600">
+        Couldn’t fetch status. Retrying automatically…
+      </p>
+    );
+  }
+
+  if (!data) return null;
+
+  return (
+    <JobProgress
+      percent={data.percent}
+      stage={data.stage}
+      message={data.message}
+      etaSeconds={data.etaSeconds}
+      onViewResults={
+        data.stage === "complete"
+          ? () => {
+              // Replace with your actual results route if different
+              window.location.href = "/library";
+            }
+          : undefined
+      }
+    />
+  );
+}
 
 export const Route = createFileRoute('/_authenticated/upload')({
   component: UploadComponent,
