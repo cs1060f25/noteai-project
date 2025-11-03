@@ -6,6 +6,8 @@ from prometheus_client import Counter, Gauge, Histogram
 
 from app.core.logging import get_logger
 from app.core.settings import settings
+from pipeline.tasks.compilation_task import compile_video_task
+
 
 logger = get_logger(__name__)
 
@@ -68,6 +70,7 @@ celery_app.conf.update(
         "pipeline.tasks.process_video": {"queue": "processing"},
         "pipeline.tasks.stage_one_parallel": {"queue": "processing"},
         "pipeline.tasks.stage_two_sequential": {"queue": "processing"},
+        "tasks.compile_video": {"queue": "processing"},  # 👈 ADD THIS LINE
         "pipeline.tasks.*": {"queue": "default"},
     },
     task_queues=(

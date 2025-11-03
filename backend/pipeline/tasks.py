@@ -15,7 +15,7 @@ from agents.layout_detector import detect_layout
 from agents.segment_extractor import extract_segments
 from agents.silence_detector import detect_silence
 from agents.transcript_agent import generate_transcript
-from agents.video_compiler import compile_clips
+from agents.video_compiler import compile_video_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
@@ -466,12 +466,80 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
         extra={"job_id": job_id, "s3_key": s3_key},
     )
 
-    # TODO: get segments, layout, and transcript from database
-    segments_data = {}
-    layout_data = {}
-    transcript_data = {}
+    # load required artifacts from database (content segments, layout, transcript)
+    db = get_task_db()
+    try:
+        db_service = DatabaseService(db)
 
-    return compile_clips(s3_key, segments_data, layout_data, transcript_data, job_id)
+        # content segments (ordered)
+        segments = db_service.content_segments.get_by_job_id(job_id)
+        segments_data = [s.to_dict() for s in segments] if segments else []
+
+        # layout analysis (single record expected)
+        layout = db_service.layout_analysis.get_by_job_id(job_id)
+        layout_data = layout.to_dict() if layout else {}
+
+        # transcripts
+        transcripts = db_service.transcripts.get_by_job_id(job_id)
+        transcript_data = [t.to_dict() for t in transcripts] if transcripts else []
+
+        # update progress before compilation
+        try:
+            self.update_job_progress(
+                job_id=job_id,
+                stage="compilation",
+                percent=90.0,
+                message="Compiling final video clips",
+                status="running",
+                eta_seconds=60,
+            )
+        except Exception:
+            # progress update should never block compilation; log and continue
+            logger.exception("Failed to update job progress before compilation", extra={"job_id": job_id})
+
+    # call agent that performs compilation (uses DB-backed VideoCompiler)
+    result = compile_video_clips(job_id, db)
+
+        # basic post-compile progress update
+        try:
+            self.update_job_progress(
+                job_id=job_id,
+                stage="compilation",
+                percent=100.0,
+                message="Compilation complete",
+                status="completed",
+                eta_seconds=0,
+            )
+        except Exception:
+            logger.exception("Failed to update job progress after compilation", extra={"job_id": job_id})
+
+        # log produced clips if present
+        if isinstance(result, dict) and "clips" in result:
+            try:
+                clips = result.get("clips") or []
+                logger.info(
+                    "Compilation produced clips",
+                    extra={"job_id": job_id, "clips_count": len(clips)},
+                )
+            except Exception:
+                logger.exception("Failed to log compilation clips", extra={"job_id": job_id})
+
+        return result
+
+    except Exception as e:
+        logger.error(
+            "Video compilation failed",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        # mark job as failed in the DB and re-raise to let Celery handle retries
+        try:
+            self.mark_job_failed(job_id, f"Video compilation failed: {e!s}")
+        except Exception:
+            logger.exception("Failed to mark job as failed after compilation error", extra={"job_id": job_id})
+        raise
+    finally:
+        db.close()
 
 
 # start prometheus metrics server when worker is ready

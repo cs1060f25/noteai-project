@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from agents.compiler import CompilationError, VideoCompiler
+from agents.video_compiler import CompilationError, VideoCompiler
 from agents.utils.ffmpeg_helper import FFmpegHelper
 from app.models.database import Base, ContentSegment, Job, Transcript
 
