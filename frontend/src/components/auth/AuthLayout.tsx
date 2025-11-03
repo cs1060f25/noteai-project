@@ -27,7 +27,7 @@ export const AuthLayout = ({ children, className }: AuthLayoutProps) => {
         <img
           src="/auth_background.jpg"
           alt="NoteAI"
-          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.7] dark:grayscale"
         />
       </div>
     </div>

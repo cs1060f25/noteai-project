@@ -1,22 +1,63 @@
+import { useState } from 'react';
+
 import { GoogleOneTap, useUser } from '@clerk/clerk-react';
 import { Navigate, createFileRoute } from '@tanstack/react-router';
 
-import { CustomAuthForm } from '@/components/CustomAuthForm';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { VerificationForm } from '@/components/auth/VerificationForm';
+import { useAuth } from '@/hooks/useAuth';
 
 const LoginPage = () => {
   const { isSignedIn, isLoaded } = useUser();
+  const [email, setEmail] = useState('');
+  const [pendingVerification, setPendingVerification] = useState(false);
+
+  const { loading, error, setError, handleSignIn, handleVerifyEmail, handleOAuthSignIn } =
+    useAuth();
 
   // redirect to dashboard if already signed in
   if (isLoaded && isSignedIn) {
     return <Navigate to="/dashboard" />;
   }
 
+  const onLoginSubmit = async (emailValue: string, password: string) => {
+    setEmail(emailValue);
+    try {
+      await handleSignIn(emailValue, password);
+    } catch {
+      // error is already handled in the hook
+    }
+  };
+
+  const onVerify = async (code: string) => {
+    try {
+      await handleVerifyEmail(code);
+    } catch {
+      // error is already handled in the hook
+    }
+  };
+
+  const onBack = () => {
+    setPendingVerification(false);
+    setError(null);
+  };
+
+  if (pendingVerification) {
+    return <VerificationForm email={email} onVerify={onVerify} onBack={onBack} error={error} />;
+  }
+
   return (
     <>
       <GoogleOneTap />
-      <div className="w-screen min-h-screen bg-background2 flex items-center justify-center">
-        <CustomAuthForm />
-      </div>
+      <AuthLayout>
+        <LoginForm
+          onSubmit={onLoginSubmit}
+          onOAuthSignIn={handleOAuthSignIn}
+          loading={loading}
+          error={error}
+        />
+      </AuthLayout>
     </>
   );
 };

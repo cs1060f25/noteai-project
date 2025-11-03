@@ -1,31 +1,67 @@
-import { useUser } from '@clerk/clerk-react';
-import { Link, Navigate, createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
 
-import { CustomAuthForm } from '@/components/CustomAuthForm';
+import { useUser } from '@clerk/clerk-react';
+import { Navigate, createFileRoute } from '@tanstack/react-router';
+
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { SignUpForm } from '@/components/auth/SignUpForm';
+import { VerificationForm } from '@/components/auth/VerificationForm';
+import { useAuth } from '@/hooks/useAuth';
 
 const SignupPage = () => {
   const { isSignedIn, isLoaded } = useUser();
+  const [email, setEmail] = useState('');
+  const [pendingVerification, setPendingVerification] = useState(false);
+
+  const { loading, error, setError, handleSignUp, handleVerifyEmail, handleOAuthSignIn } =
+    useAuth();
 
   // redirect to dashboard if already signed in
   if (isLoaded && isSignedIn) {
     return <Navigate to="/dashboard" />;
   }
 
+  const onSignUpSubmit = async (
+    emailValue: string,
+    password: string,
+    firstName: string,
+    lastName: string
+  ) => {
+    setEmail(emailValue);
+    try {
+      await handleSignUp(emailValue, password, firstName, lastName);
+      setPendingVerification(true);
+    } catch {
+      // error is already handled in the hook
+    }
+  };
+
+  const onVerify = async (code: string) => {
+    try {
+      await handleVerifyEmail(code);
+    } catch {
+      // error is already handled in the hook
+    }
+  };
+
+  const onBack = () => {
+    setPendingVerification(false);
+    setError(null);
+  };
+
+  if (pendingVerification) {
+    return <VerificationForm email={email} onVerify={onVerify} onBack={onBack} error={error} />;
+  }
+
   return (
-    <div className="w-screen min-h-screen bg-background2 flex items-center justify-center">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="fluent-title text-3xl text-foreground mb-2">Create your account</h1>
-          <p className="fluent-body text-muted-foreground">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:underline">
-              Log in
-            </Link>
-          </p>
-        </div>
-        <CustomAuthForm />
-      </div>
-    </div>
+    <AuthLayout>
+      <SignUpForm
+        onSubmit={onSignUpSubmit}
+        onOAuthSignIn={handleOAuthSignIn}
+        loading={loading}
+        error={error}
+      />
+    </AuthLayout>
   );
 };
 

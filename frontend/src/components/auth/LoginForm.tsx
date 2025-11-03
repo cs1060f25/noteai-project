@@ -12,83 +12,37 @@ import {
   FieldSeparator,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import type { AuthMode } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
-interface AuthFormProps {
-  mode: AuthMode;
-  onModeChange: (mode: AuthMode) => void;
-  onSubmit: (email: string, password: string, firstName?: string, lastName?: string) => void;
+interface LoginFormProps {
+  onSubmit: (email: string, password: string) => void;
   onOAuthSignIn: (provider: 'oauth_google' | 'oauth_github') => void;
   loading: boolean;
   error: string | null;
 }
 
-export const AuthForm = ({
-  mode,
-  onModeChange,
-  onSubmit,
-  onOAuthSignIn,
-  loading,
-  error,
-}: AuthFormProps) => {
+export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginFormProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === 'signup') {
-      onSubmit(email, password, firstName, lastName);
-    } else {
-      onSubmit(email, password);
-    }
+    onSubmit(email, password);
   };
 
   return (
     <form onSubmit={handleSubmit} className={cn('flex flex-col gap-6')}>
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-bold">
-            {mode === 'signin' ? 'Login to your account' : 'Create your account'}
-          </h1>
+          <h1 className="text-2xl font-bold">Login to your account</h1>
           <p className="text-muted-foreground text-sm text-balance">
-            {mode === 'signin'
-              ? 'Enter your email below to login to your account'
-              : 'Enter your information to create an account'}
+            Enter your email below to login to your account
           </p>
         </div>
         {error && (
           <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
             <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
             <p className="text-sm text-destructive">{error}</p>
-          </div>
-        )}
-        {mode === 'signup' && (
-          <div className="grid grid-cols-2 gap-3">
-            <Field>
-              <FieldLabel htmlFor="firstName">First name</FieldLabel>
-              <Input
-                id="firstName"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="John"
-                required
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="lastName">Last name</FieldLabel>
-              <Input
-                id="lastName"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Doe"
-                required
-              />
-            </Field>
           </div>
         )}
         <Field>
@@ -105,14 +59,12 @@ export const AuthForm = ({
         <Field>
           <div className="flex items-center">
             <FieldLabel htmlFor="password">Password</FieldLabel>
-            {mode === 'signin' && (
-              <Link
-                to="/forgot-password"
-                className="ml-auto text-sm underline-offset-4 hover:underline"
-              >
-                Forgot your password?
-              </Link>
-            )}
+            <Link
+              to="/forgot-password"
+              className="ml-auto text-sm underline-offset-4 hover:underline"
+            >
+              Forgot your password?
+            </Link>
           </div>
           <Input
             id="password"
@@ -122,23 +74,15 @@ export const AuthForm = ({
             required
           />
         </Field>
-        {mode === 'signup' && (
-          <div
-            id="clerk-captcha"
-            data-cl-theme="dark"
-            data-cl-size="flexible"
-            data-cl-language="en-US"
-          />
-        )}
         <Field>
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {mode === 'signin' ? 'Signing in...' : 'Creating account...'}
+                Signing in...
               </>
             ) : (
-              <>{mode === 'signin' ? 'Login' : 'Sign up'}</>
+              <>Login</>
             )}
           </Button>
         </Field>
@@ -158,9 +102,7 @@ export const AuthForm = ({
                   fill="currentColor"
                 />
               </svg>
-              <span className="sr-only">
-                {mode === 'signin' ? 'Login with Google' : 'Sign up with Google'}
-              </span>
+              <span className="sr-only">Login with Google</span>
             </Button>
             <Button
               variant="outline"
@@ -175,35 +117,14 @@ export const AuthForm = ({
                   fill="currentColor"
                 />
               </svg>
-              <span className="sr-only">
-                {mode === 'signin' ? 'Login with GitHub' : 'Sign up with GitHub'}
-              </span>
+              <span className="sr-only">Login with GitHub</span>
             </Button>
           </div>
           <FieldDescription className="text-center">
-            {mode === 'signin' ? (
-              <>
-                Don&apos;t have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => onModeChange('signup')}
-                  className="underline underline-offset-4 cursor-pointer"
-                >
-                  Sign up
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => onModeChange('signin')}
-                  className="underline underline-offset-4 cursor-pointer"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
+            Don&apos;t have an account?{' '}
+            <Link to="/signup" className="underline underline-offset-4 cursor-pointer">
+              Sign up
+            </Link>
           </FieldDescription>
         </Field>
       </FieldGroup>
