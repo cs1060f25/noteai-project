@@ -105,8 +105,14 @@ function UploadProgressBlock({ jobId }: { jobId: string }) {
   // Keep your dev simulation exactly as before
   const isDevSim = jobId.startsWith("dev-");
 
+  // Optional API base URL for WS (e.g., set in .env.development)
+  const apiBase = import.meta.env?.VITE_API_BASE_URL as string | undefined;
+
   // 1) Try WebSocket first (unless dev-sim)
-  const ws = useJobStatusWS(isDevSim ? null : jobId, { enabled: !isDevSim });
+  const ws = useJobStatusWS(isDevSim ? null : jobId, {
+    enabled: !isDevSim,
+    baseUrl: apiBase, // if undefined, hook falls back to window.location
+  });
 
   // 2) Fall back to polling if WS fails/closes without having produced data
   const shouldPoll =
