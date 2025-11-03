@@ -41,14 +41,14 @@ const UploadComponent = () => {
         className="fluent-layer-3 fluent-hover-lift fluent-reveal"
       />
 
-      {/* DEV ONLY: simulate processing without backend */}
+      {/* DEV ONLY: simulate WebSocket (non-dev) */}
       {!uploadedJobId && (
         <button
           type="button"
-          onClick={() => setUploadedJobId(`dev-${Date.now()}`)}
-          className="text-xs px-3 py-1.5 rounded-md border border-dashed border-gray-500/40 text-gray-400 hover:text-gray-200"
+          onClick={() => setUploadedJobId(`job-${Date.now()}`)}
+          className="text-xs px-3 py-1.5 rounded-md border border-dashed border-emerald-500/40 text-emerald-600 hover:text-emerald-800 ml-3"
         >
-          ▶ Simulate processing (dev)
+          ▶ Simulate WS (non-dev)
         </button>
       )}
 
