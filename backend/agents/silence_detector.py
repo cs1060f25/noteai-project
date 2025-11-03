@@ -1,4 +1,5 @@
 """Silence detector agent for audio/video silence analysis."""
+
 """Updated"""
 
 import os
@@ -28,8 +29,7 @@ MIN_SILENCE_LEN_MS = 500  # minimum silence duration in milliseconds
 def get_db_session():
     """create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(
-        autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -137,8 +137,7 @@ def analyze_audio_silence(video_path: str, job_id: str) -> list[dict]:
 
         logger.info(
             "Silence detection completed",
-            extra={"job_id": job_id,
-                   "silence_regions_found": len(silence_ranges)},
+            extra={"job_id": job_id, "silence_regions_found": len(silence_ranges)},
         )
 
         # convert to standardized format (seconds)
@@ -249,8 +248,7 @@ def detect_silence(video_path: str, job_id: str) -> dict:
         store_silence_regions(silence_regions, job_id)
 
         # calculate statistics
-        total_silence_duration = sum(
-            region["duration"] for region in silence_regions)
+        total_silence_duration = sum(region["duration"] for region in silence_regions)
         processing_time = time.time() - start_time
 
         result = {
