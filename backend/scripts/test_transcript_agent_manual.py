@@ -17,16 +17,16 @@ from pathlib import Path
 # add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from pydub import AudioSegment
+
 from agents.silence_detector import analyze_audio_silence, store_silence_regions
 from agents.transcript_agent import (
     extract_and_segment_audio,
-    get_non_silent_intervals,
     remap_timestamps_to_original,
     store_transcript_segments,
-    transcribe_with_whisper,
-    validate_openai_config,
+    transcribe_with_google_speech,
+    validate_google_cloud_config,
 )
-from pydub import AudioSegment
 
 
 def test_transcription_with_silence_removal(
@@ -50,13 +50,13 @@ def test_transcription_with_silence_removal(
         print(f"❌ Error: Video file not found: {video_path}")
         return
 
-    # validate openai config
-    print("Step 0: Validating OpenAI configuration...")
+    # validate google cloud config
+    print("Step 0: Validating Google Cloud configuration...")
     try:
-        validate_openai_config()
-        print("✅ OpenAI API key is configured\n")
+        validate_google_cloud_config()
+        print("✅ Google Cloud credentials are configured\n")
     except Exception as e:
-        print(f"❌ OpenAI configuration failed: {e}")
+        print(f"❌ Google Cloud configuration failed: {e}")
         return
 
     # get video duration
@@ -134,7 +134,7 @@ def test_transcription_with_silence_removal(
         audio_path, timestamp_mapping = extract_and_segment_audio(
             video_path, non_silent_intervals, job_id
         )
-        print(f"✅ Audio extracted and segmented")
+        print("✅ Audio extracted and segmented")
         print(f"   Audio file: {audio_path}")
         print(f"   Timestamp mappings: {len(timestamp_mapping)}\n")
     except Exception as e:
@@ -142,12 +142,12 @@ def test_transcription_with_silence_removal(
         return
 
     # step 5: transcribe with whisper
-    print("Step 5: Transcribing with OpenAI Whisper...")
+    print("Step 5: Transcribing with Google Cloud Speech-to-Text...")
     print("   (This may take a while...)\n")
     try:
-        transcription_result = transcribe_with_whisper(audio_path, job_id)
+        transcription_result = transcribe_with_google_speech(audio_path, job_id)
         segments = transcription_result.get("segments", [])
-        print(f"✅ Transcription complete!")
+        print("✅ Transcription complete!")
         print(f"   Language: {transcription_result.get('language', 'unknown')}")
         print(f"   Segments: {len(segments)}")
         print(f"   Duration: {transcription_result.get('duration', 0):.2f}s\n")
@@ -232,13 +232,13 @@ def test_transcription_without_silence(video_path: str, job_id: str = "manual-te
         print(f"❌ Error: Video file not found: {video_path}")
         return
 
-    # validate openai config
-    print("Step 0: Validating OpenAI configuration...")
+    # validate google cloud config
+    print("Step 0: Validating Google Cloud configuration...")
     try:
-        validate_openai_config()
-        print("✅ OpenAI API key is configured\n")
+        validate_google_cloud_config()
+        print("✅ Google Cloud credentials are configured\n")
     except Exception as e:
-        print(f"❌ OpenAI configuration failed: {e}")
+        print(f"❌ Google Cloud configuration failed: {e}")
         return
 
     # get video duration
@@ -253,12 +253,12 @@ def test_transcription_without_silence(video_path: str, job_id: str = "manual-te
 
     # create single interval for entire video
     non_silent_intervals = [{"start_time": 0.0, "end_time": video_duration}]
-    print(f"Transcribing entire video (no silence removal)\n")
+    print("Transcribing entire video (no silence removal)\n")
 
     # extract audio
     print("Step 2: Extracting audio...")
     try:
-        audio_path, timestamp_mapping = extract_and_segment_audio(
+        audio_path, _timestamp_mapping = extract_and_segment_audio(
             video_path, non_silent_intervals, job_id
         )
         print(f"✅ Audio extracted: {audio_path}\n")
@@ -267,12 +267,12 @@ def test_transcription_without_silence(video_path: str, job_id: str = "manual-te
         return
 
     # transcribe
-    print("Step 3: Transcribing with OpenAI Whisper...")
+    print("Step 3: Transcribing with Google Cloud Speech-to-Text...")
     print("   (This may take a while...)\n")
     try:
-        transcription_result = transcribe_with_whisper(audio_path, job_id)
+        transcription_result = transcribe_with_google_speech(audio_path, job_id)
         segments = transcription_result.get("segments", [])
-        print(f"✅ Transcription complete!")
+        print("✅ Transcription complete!")
         print(f"   Language: {transcription_result.get('language', 'unknown')}")
         print(f"   Segments: {len(segments)}\n")
     except Exception as e:

@@ -74,9 +74,27 @@ class Settings(BaseSettings):
     )
 
     # AI Services
-    openai_api_key: str | None = Field(default=None, description="OpenAI API key")
+    google_cloud_credentials_path: str | None = Field(
+        default=None,
+        description="Path to Google Cloud service account JSON key file (if not using default credentials)",
+    )
+    google_cloud_project_id: str | None = Field(
+        default=None,
+        description="Google Cloud project ID",
+    )
+    speech_to_text_language_code: str = Field(
+        default="en-US",
+        description="Language code for Speech-to-Text (e.g., en-US, es-ES)",
+    )
+    speech_to_text_model: str = Field(
+        default="latest_long",
+        description="Speech-to-Text model to use (latest_short, latest_long, video, phone_call)",
+    )
+    speech_to_text_enable_word_time_offsets: bool = Field(
+        default=True,
+        description="Enable word-level timestamps in transcription",
+    )
     gemini_api_key: str | None = Field(default=None, description="Google Gemini API key")
-    whisper_model: str = Field(default="whisper-1", description="Whisper model to use")
 
     # Security
     secret_key: str = Field(

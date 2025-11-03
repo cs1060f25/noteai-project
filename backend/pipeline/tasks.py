@@ -277,7 +277,7 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
 
     runs three agents in parallel:
     - silence detector
-    - transcript generator (whisper)
+    - transcript generator (Google Cloud Speech-to-Text)
     - layout analyzer
 
     args:
@@ -434,7 +434,7 @@ def transcription_task(self, job_id: str) -> dict[str, Any]:
             job_id=job_id,
             stage="transcription",
             percent=0.0,
-            message="Starting audio transcription with Whisper",
+            message="Starting audio transcription with Google Cloud Speech-to-Text",
             status="running",
         )
 

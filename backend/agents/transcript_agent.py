@@ -1,4 +1,4 @@
-"""Transcription agent for speech-to-text using OpenAI Whisper API."""
+"""Transcription agent for speech-to-text using Google Cloud Speech-to-Text API."""
 
 import os
 import tempfile
@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 import requests
-from openai import OpenAI
+from google.cloud import speech_v1
 from pydub import AudioSegment
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -19,9 +19,8 @@ from app.services.s3_service import s3_service
 
 logger = get_logger(__name__)
 
-# whisper configuration
-WHISPER_MODEL = "whisper-1"
-MAX_AUDIO_SIZE_MB = 25  # whisper api limit
+# google cloud speech-to-text configuration
+MAX_AUDIO_SIZE_MB = 10  # google cloud speech-to-text synchronous api limit
 
 
 def get_db_session():
@@ -31,14 +30,29 @@ def get_db_session():
     return session_local()
 
 
-def validate_openai_config() -> None:
-    """validate openai api configuration.
+def validate_google_cloud_config() -> None:
+    """validate google cloud configuration.
 
     Raises:
-        ValueError: if openai api key is not configured
+        ValueError: if google cloud credentials are not configured
     """
-    if not settings.openai_api_key:
-        raise ValueError("OpenAI API key not configured. Set OPENAI_API_KEY environment variable.")
+    # set credentials path if provided
+    if settings.google_cloud_credentials_path:
+        if not os.path.exists(settings.google_cloud_credentials_path):
+            raise ValueError(
+                f"Google Cloud credentials file not found: {settings.google_cloud_credentials_path}"
+            )
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_cloud_credentials_path
+        logger.info(
+            "Using Google Cloud credentials from file",
+            extra={"credentials_path": settings.google_cloud_credentials_path},
+        )
+    else:
+        # check if default credentials are available
+        if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
+            logger.warning(
+                "No Google Cloud credentials configured. Will attempt to use default credentials (e.g., gcloud auth)."
+            )
 
 
 def download_video_from_s3(s3_key: str, job_id: str) -> str:
@@ -305,7 +319,7 @@ def extract_and_segment_audio(
         if file_size_mb > MAX_AUDIO_SIZE_MB:
             os.unlink(audio_path)  # clean up oversized file
             raise ValueError(
-                f"Audio file size ({file_size_mb:.2f}MB) exceeds Whisper API limit ({MAX_AUDIO_SIZE_MB}MB). "
+                f"Audio file size ({file_size_mb:.2f}MB) exceeds Google Cloud Speech-to-Text API limit ({MAX_AUDIO_SIZE_MB}MB). "
                 f"Consider implementing audio chunking for large files."
             )
 
@@ -320,20 +334,20 @@ def extract_and_segment_audio(
         raise
 
 
-def transcribe_with_whisper(audio_path: str, job_id: str) -> dict:
-    """transcribe audio file using OpenAI Whisper API with retry logic.
+def transcribe_with_google_speech(audio_path: str, job_id: str) -> dict:
+    """transcribe audio file using Google Cloud Speech-to-Text API with retry logic.
 
     Args:
         audio_path: path to audio file
         job_id: job identifier for logging
 
     Returns:
-        whisper api response dictionary with segments and metadata
+        speech-to-text api response dictionary with segments and metadata
 
     Raises:
         Exception: if transcription fails after all retries
     """
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = speech_v1.SpeechClient()
 
     max_retries = 3
     base_delay = 2  # seconds
@@ -341,7 +355,7 @@ def transcribe_with_whisper(audio_path: str, job_id: str) -> dict:
     for attempt in range(max_retries):
         try:
             logger.info(
-                "Calling Whisper API",
+                "Calling Google Cloud Speech-to-Text API",
                 extra={
                     "job_id": job_id,
                     "attempt": attempt + 1,
@@ -349,60 +363,145 @@ def transcribe_with_whisper(audio_path: str, job_id: str) -> dict:
                 },
             )
 
+            # read audio file content
             with open(audio_path, "rb") as audio_file:
-                response = client.audio.transcriptions.create(
-                    model=WHISPER_MODEL,
-                    file=audio_file,
-                    response_format="verbose_json",
-                )
+                audio_content = audio_file.read()
+
+            # configure audio and recognition settings
+            audio = speech_v1.RecognitionAudio(content=audio_content)
+
+            config = speech_v1.RecognitionConfig(
+                encoding=speech_v1.RecognitionConfig.AudioEncoding.MP3,
+                language_code=settings.speech_to_text_language_code,
+                model=settings.speech_to_text_model,
+                enable_word_time_offsets=settings.speech_to_text_enable_word_time_offsets,
+                enable_automatic_punctuation=True,
+            )
+
+            # make api call
+            response = client.recognize(config=config, audio=audio)
 
             logger.info(
-                "Whisper API call successful",
+                "Google Cloud Speech-to-Text API call successful",
                 extra={
                     "job_id": job_id,
-                    "language": response.language if hasattr(response, "language") else None,
-                    "duration": response.duration if hasattr(response, "duration") else None,
+                    "results_count": len(response.results),
                 },
             )
 
-            # convert response to dict for easier processing
+            # process response into segments
+            segments = []
+            full_text = ""
+            segment_id = 0
+
+            for result in response.results:
+                # get the best alternative (highest confidence)
+                alternative = result.alternatives[0]
+                full_text += alternative.transcript + " "
+
+                # create segments from words
+                if alternative.words:
+                    # group words into segments (by sentences or fixed intervals)
+                    current_segment_words = []
+                    segment_start = None
+                    segment_end = None
+
+                    for word_info in alternative.words:
+                        if segment_start is None:
+                            segment_start = (
+                                word_info.start_time.seconds
+                                + word_info.start_time.microseconds / 1e6
+                            )
+
+                        current_segment_words.append(word_info.word)
+                        segment_end = (
+                            word_info.end_time.seconds + word_info.end_time.microseconds / 1e6
+                        )
+
+                        # create segment every 10 words or at end of sentence
+                        if len(current_segment_words) >= 10 or word_info.word.rstrip(" ").endswith(
+                            (".", "!", "?")
+                        ):
+                            segments.append(
+                                {
+                                    "id": segment_id,
+                                    "start": round(segment_start, 2),
+                                    "end": round(segment_end, 2),
+                                    "text": " ".join(current_segment_words),
+                                    "confidence": (
+                                        round(alternative.confidence, 3)
+                                        if alternative.confidence > 0
+                                        else None
+                                    ),
+                                }
+                            )
+                            segment_id += 1
+                            current_segment_words = []
+                            segment_start = None
+
+                    # add remaining words as final segment
+                    if current_segment_words and segment_start is not None:
+                        segments.append(
+                            {
+                                "id": segment_id,
+                                "start": round(segment_start, 2),
+                                "end": round(segment_end, 2),
+                                "text": " ".join(current_segment_words),
+                                "confidence": (
+                                    round(alternative.confidence, 3)
+                                    if alternative.confidence > 0
+                                    else None
+                                ),
+                            }
+                        )
+                        segment_id += 1
+                else:
+                    # no word-level timestamps, create single segment
+                    segments.append(
+                        {
+                            "id": segment_id,
+                            "start": 0.0,
+                            "end": 0.0,
+                            "text": alternative.transcript,
+                            "confidence": (
+                                round(alternative.confidence, 3)
+                                if alternative.confidence > 0
+                                else None
+                            ),
+                        }
+                    )
+                    segment_id += 1
+
+            # calculate total duration from last word
+            duration = segments[-1]["end"] if segments else 0.0
+
             response_dict = {
-                "text": response.text,
-                "task": response.task if hasattr(response, "task") else "transcribe",
-                "language": response.language if hasattr(response, "language") else "en",
-                "duration": response.duration if hasattr(response, "duration") else 0.0,
-                "segments": [],
+                "text": full_text.strip(),
+                "task": "transcribe",
+                "language": settings.speech_to_text_language_code,
+                "duration": duration,
+                "segments": segments,
             }
 
-            # extract segments if available
-            if hasattr(response, "segments") and response.segments:
-                for seg in response.segments:
-                    segment_dict = {
-                        "id": seg.id if hasattr(seg, "id") else 0,
-                        "start": seg.start if hasattr(seg, "start") else 0.0,
-                        "end": seg.end if hasattr(seg, "end") else 0.0,
-                        "text": seg.text if hasattr(seg, "text") else "",
-                    }
-
-                    # calculate confidence from avg_logprob if available
-                    if hasattr(seg, "avg_logprob"):
-                        # convert log probability to approximate confidence (0-1 scale)
-                        # avg_logprob typically ranges from -1.0 to 0.0
-                        confidence = max(0.0, min(1.0, (seg.avg_logprob + 1.0)))
-                        segment_dict["confidence"] = round(confidence, 3)
-                    else:
-                        segment_dict["confidence"] = None
-
-                    response_dict["segments"].append(segment_dict)
+            logger.info(
+                "Transcription processing complete",
+                extra={
+                    "job_id": job_id,
+                    "total_segments": len(segments),
+                    "duration": duration,
+                },
+            )
 
             return response_dict
 
         except Exception as e:
             error_msg = str(e)
-            is_rate_limit = "rate_limit" in error_msg.lower() or "429" in error_msg
+            is_rate_limit = (
+                "quota" in error_msg.lower() or "rate" in error_msg.lower() or "429" in error_msg
+            )
 
             logger.warning(
-                "Whisper API call failed",
+                "Google Cloud Speech-to-Text API call failed",
                 exc_info=e,
                 extra={
                     "job_id": job_id,
@@ -415,7 +514,7 @@ def transcribe_with_whisper(audio_path: str, job_id: str) -> dict:
             # if this was the last attempt, raise the exception
             if attempt == max_retries - 1:
                 logger.error(
-                    "Whisper API call failed after all retries",
+                    "Google Cloud Speech-to-Text API call failed after all retries",
                     exc_info=e,
                     extra={"job_id": job_id, "max_retries": max_retries},
                 )
@@ -430,7 +529,7 @@ def transcribe_with_whisper(audio_path: str, job_id: str) -> dict:
             time.sleep(delay)
 
     # this should never be reached, but just in case
-    raise Exception("Whisper API call failed unexpectedly")
+    raise Exception("Google Cloud Speech-to-Text API call failed unexpectedly")
 
 
 def remap_timestamps_to_original(
@@ -582,11 +681,11 @@ def store_transcript_segments(segments: list[dict], job_id: str) -> None:
 
 
 def generate_transcript(video_path: str, job_id: str) -> dict:
-    """generate transcript from video audio using OpenAI Whisper.
+    """generate transcript from video audio using Google Cloud Speech-to-Text.
 
     this function downloads the video from s3, retrieves silence regions,
     extracts and processes audio (removing silence), transcribes using
-    Whisper API, stores results in database, and returns a summary.
+    Google Cloud Speech-to-Text API, stores results in database, and returns a summary.
 
     Args:
         video_path: s3 key for the video file (not local path)
@@ -608,8 +707,8 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
     )
 
     try:
-        # validate openai configuration
-        validate_openai_config()
+        # validate google cloud configuration
+        validate_google_cloud_config()
 
         # download video from s3
         temp_video_path = download_video_from_s3(video_path, job_id)
@@ -661,11 +760,11 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
             temp_video_path, non_silent_intervals, job_id
         )
 
-        # Phase 4: transcribe audio with Whisper API
-        transcription_result = transcribe_with_whisper(temp_audio_path, job_id)
+        # Phase 4: transcribe audio with Google Cloud Speech-to-Text API
+        transcription_result = transcribe_with_google_speech(temp_audio_path, job_id)
 
         logger.info(
-            "Transcription received from Whisper",
+            "Transcription received from Google Cloud Speech-to-Text",
             extra={
                 "job_id": job_id,
                 "segments": len(transcription_result.get("segments", [])),
