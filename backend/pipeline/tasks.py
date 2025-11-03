@@ -247,7 +247,7 @@ def process_video(self, job_id: str) -> dict[str, Any]:
         pipeline = chain(
             silence_detection_task.si(job_id),
             content_analysis_task.si(job_id),
-            segment_extraction_task.si(job_id),
+            # segment_extraction_task.si(job_id),
         )
 
         # execute pipeline
