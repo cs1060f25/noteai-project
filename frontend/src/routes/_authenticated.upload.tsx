@@ -6,6 +6,9 @@ import { Video } from 'lucide-react';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { VideoUpload } from '@/components/VideoUpload';
 
+import JobProgress from "@/components/JobProgress";
+import { useJobStatus } from "@/hooks/useJobStatus";
+
 const UploadComponent = () => {
   const [uploadedJobId, setUploadedJobId] = useState<string | null>(null);
   const [uploadedVideoKey, setUploadedVideoKey] = useState<string | null>(null);
@@ -37,6 +40,17 @@ const UploadComponent = () => {
         className="fluent-layer-3 fluent-hover-lift fluent-reveal"
       />
 
+      {/* DEV ONLY: simulate processing without backend */}
+      {!uploadedJobId && (
+        <button
+          type="button"
+          onClick={() => setUploadedJobId(`dev-${Date.now()}`)}
+          className="text-xs px-3 py-1.5 rounded-md border border-dashed border-gray-500/40 text-gray-400 hover:text-gray-200"
+        >
+          ▶ Simulate processing (dev)
+        </button>
+      )}
+
       {/* Upload Success Message */}
       {uploadedJobId && (
         <div className="fluent-layer-2 border-l-4 border-l-primary p-6 rounded-xl fluent-reveal">
@@ -60,6 +74,13 @@ const UploadComponent = () => {
         </div>
       )}
 
+      {uploadedJobId && (
+        <section className="mt-6">
+          <h3 className="text-sm font-semibold mb-2">Processing</h3>
+          <UploadProgressBlock jobId={uploadedJobId} />
+        </section>
+      )}
+
       {/* Video Player */}
       {uploadedVideoKey && (
         <div className="space-y-4">
@@ -78,6 +99,39 @@ const UploadComponent = () => {
     </div>
   );
 };
+
+function UploadProgressBlock({ jobId }: { jobId: string }) {
+  const { data, isLoading, error } = useJobStatus(jobId);
+
+  if (isLoading && !data) {
+    return <p className="text-sm text-muted-foreground">Checking status…</p>;
+  }
+  if (error) {
+    return (
+      <p className="text-sm text-red-600">
+        Couldn’t fetch status. Retrying automatically…
+      </p>
+    );
+  }
+  if (!data) return null;
+
+  return (
+    <JobProgress
+      percent={data.percent}
+      stage={data.stage}
+      message={data.message}
+      etaSeconds={data.etaSeconds}
+      onViewResults={
+        data.stage === "complete"
+          ? () => {
+              // Replace with your actual results route if different
+              window.location.href = "/library";
+            }
+          : undefined
+      }
+    />
+  );
+}
 
 export const Route = createFileRoute('/_authenticated/upload')({
   component: UploadComponent,
