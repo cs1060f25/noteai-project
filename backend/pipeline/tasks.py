@@ -583,54 +583,11 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
-    """segment extraction agent task (step 3 of 3).
-
-    extracts optimal highlight segments based on content importance scores
-    and optimizes boundaries using silence detection data.
-
-    note: agent queries database directly for all required data
-    (content segments, silence regions, transcripts, layout analysis).
-    """
-    logger.info("starting segment extraction", extra={"job_id": job_id})
-
-    # update progress
-    self.update_job_progress(
-        job_id=job_id,
-        stage="segment_extraction",
-        percent=65.0,
-        message="extracting highlight segments with optimized boundaries",
-        status="running",
-        eta_seconds=10,
-    )
-
-    # agent queries database directly, pass empty dicts for legacy signature
-    result = extract_segments({}, {}, {}, job_id)
-
-    # update progress after completion
-    self.update_job_progress(
-        job_id=job_id,
-        stage="segment_extraction",
-        percent=90.0,
-        message="segment extraction completed",
-        status="running",
-    )
-
-    logger.info(
-        "segment extraction completed",
-        extra={
-            "job_id": job_id,
-            "segments_created": result.get("segments_created", 0),
-            "processing_time": result.get("processing_time_seconds", 0),
-        },
-    )
-
-    # mark job as completed (all 3 steps done)
-    self.mark_job_completed(job_id)
-
-    logger.info("processing pipeline completed successfully",
-                extra={"job_id": job_id})
-
-    return result
+    """segment extraction agent task."""
+    content_data = {}  # TODO: get from database
+    silence_data = {}  # TODO: get from database
+    transcript_data = {}  # TODO: get from database
+    return extract_segments(content_data, silence_data, transcript_data, job_id)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
