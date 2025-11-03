@@ -291,9 +291,9 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
     try:
         self.update_job_progress(
             job_id=job_id,
-            stage="silence_detection",
+            stage="parallel_processing",
             percent=10.0,
-            message="Running parallel analysis (silence, transcript, layout)",
+            message="Running parallel analysis (silence detection, transcription)",
             status="running",
             eta_seconds=300,
         )
@@ -302,7 +302,7 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
         # note: actual agent tasks will be implemented in priority 3
         parallel_tasks = group(
             silence_detection_task.s(job_id),
-            # transcription_task.s(job_id), # TODO: add transcription task
+            transcription_task.s(job_id),
             # layout_analysis_task.s(job_id), # TODO: add layout analysis task
         )
 
@@ -421,13 +421,50 @@ def silence_detection_task(self, job_id: str) -> dict[str, Any]:
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def transcription_task(self, job_id: str) -> dict[str, Any]:
-    """transcription agent task."""
-    s3_key = get_job_s3_key(job_id)
-    logger.info(
-        "Starting transcription",
-        extra={"job_id": job_id, "s3_key": s3_key},
-    )
-    return generate_transcript(s3_key, job_id)
+    """transcription agent task with progress updates."""
+    try:
+        s3_key = get_job_s3_key(job_id)
+        logger.info(
+            "Starting transcription",
+            extra={"job_id": job_id, "s3_key": s3_key},
+        )
+
+        # update progress: starting
+        self.update_job_progress(
+            job_id=job_id,
+            stage="transcription",
+            percent=0.0,
+            message="Starting audio transcription with Whisper",
+            status="running",
+        )
+
+        # run transcription
+        result = generate_transcript(s3_key, job_id)
+
+        # update progress: completed
+        self.update_job_progress(
+            job_id=job_id,
+            stage="transcription",
+            percent=100.0,
+            message=f"Transcription completed ({result.get('total_segments', 0)} segments)",
+            status="running",
+        )
+
+        logger.info(
+            "Transcription completed",
+            extra={"job_id": job_id, "result": result},
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(
+            "Transcription task failed",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        self.mark_job_failed(job_id, f"Transcription failed: {e!s}")
+        raise
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
