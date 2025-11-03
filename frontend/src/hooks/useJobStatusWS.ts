@@ -44,10 +44,7 @@ type Options = {
 
 /**
  * WebSocket-based job status hook with reconnection & backoff.
- * - Tries to connect once.
- * - On unclean close/error before completion, reconnects with exponential backoff + jitter.
- * - Stops reconnecting when stage becomes `complete` or `failed`.
- * - Callers can fall back to polling if state becomes "error"/"closed" and no data was ever received.
+ * Monotonic: percent never decreases; stage never regresses.
  */
 export function useJobStatusWS(jobId: string | null, opts: Options = {}) {
   const {
@@ -70,6 +67,26 @@ export function useJobStatusWS(jobId: string | null, opts: Options = {}) {
   const cancelledRef = useRef(false);
   const backoffRef = useRef<number>(initialBackoffMs);
   const reconnectTimerRef = useRef<number | null>(null);
+
+  // Monotonic trackers
+  const lastPercentRef = useRef<number>(0);
+  const lastStageRef = useRef<UiStage>("uploading");
+  const stageOrder: Record<UiStage, number> = {
+    uploading: 0,
+    preparing: 1,
+    generating: 2,
+    complete: 3,
+    failed: 3, // treat failed as terminal like complete
+  };
+
+  // Reset trackers whenever jobId changes
+  useEffect(() => {
+    lastPercentRef.current = 0;
+    lastStageRef.current = "uploading";
+    setData(null);
+    setError(null);
+    setState("idle");
+  }, [jobId]);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -107,12 +124,44 @@ export function useJobStatusWS(jobId: string | null, opts: Options = {}) {
 
       ws.onmessage = (ev) => {
         if (cancelledRef.current) return;
+
         try {
           const json = JSON.parse(ev.data);
-          const norm = normalize(json);
-          setData(norm);
+          const next = normalize(json);
+
+          // If we've already finished, ignore further frames
+          if (done) return;
+
+          // Enforce monotonic percent
+          const prevPercent = lastPercentRef.current;
+          if (typeof next.percent === "number" && next.percent < prevPercent) {
+            // ignore out-of-order or restarted stream values
+            return;
+          }
+
+          // Enforce non-regressing stage
+          const prevStage = lastStageRef.current;
+          const mergedStage =
+            stageOrder[next.stage] >= stageOrder[prevStage] ? next.stage : prevStage;
+
+          const merged: NormalizedStatus = {
+            ...next,
+            stage: mergedStage,
+            percent: Math.max(prevPercent, next.percent),
+          };
+
+          // Update trackers and state
+          lastPercentRef.current = merged.percent;
+          lastStageRef.current = merged.stage;
+
+          setData(merged);
           setError(null);
-          if (norm.stage === "complete" || norm.stage === "failed") {
+
+          if (
+            merged.stage === "complete" ||
+            merged.stage === "failed" ||
+            merged.percent >= 100
+          ) {
             ws.close();
           }
         } catch (e: any) {
