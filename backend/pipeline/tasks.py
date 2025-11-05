@@ -560,14 +560,9 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
     # agent queries database directly, pass empty dict for legacy signature
     result = analyze_content({}, job_id)
 
-    # update progress after completion
-    self.update_job_progress(
-        job_id=job_id,
-        stage="content_analysis",
-        percent=60.0,
-        message="content analysis completed",
-        status="running",
-    )
+    # temporary: mark job as completed after content analysis
+    # TODO: remove this once segment extraction and compilation are implemented
+    self.mark_job_completed(job_id)
 
     logger.info(
         "content analysis completed",

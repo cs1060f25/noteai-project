@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
 
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import { Outlet, createFileRoute, useNavigate } from '@tanstack/react-router';
 
-import { CustomUserProfile } from '@/components/CustomUserProfile';
-import { Sidebar } from '@/components/Sidebar';
+import { DashboardSidebar } from '@/components/DashboardSidebar';
 
 const AuthenticatedLayout = () => {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded, user } = useUser();
+  const { signOut } = useClerk();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,34 +18,26 @@ const AuthenticatedLayout = () => {
   }, [isSignedIn, isLoaded, navigate]);
 
   // don't render protected content until auth is checked
-  if (!isLoaded || !isSignedIn) {
+  if (!isLoaded || !isSignedIn || !user) {
     return null;
   }
 
+  const handleLogout = () => {
+    signOut();
+    navigate({ to: '/login' });
+  };
+
   return (
-    <div className="w-screen min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="h-screen flex bg-background overflow-hidden">
+      <DashboardSidebar user={user} onLogout={handleLogout} />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="fluent-layer-1 border-b border-border p-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div>
-              <h1 className="fluent-title text-3xl text-foreground">NoteAI Dashboard</h1>
-              <p className="fluent-caption mt-1">
-                Manage your lecture videos and generate highlight clips with subtitles
-              </p>
+      <main className="flex-1 overflow-hidden lg:mt-0 mt-16">
+        <div className="h-full overflow-auto">
+          <div className="px-4 pt-8 pb-4">
+            <div className="max-w-8xl mx-auto">
+              <Outlet />
             </div>
-            <CustomUserProfile />
-          </div>
-        </header>
-
-        {/* Content Area - Protected routes render here */}
-        <div className="flex-1 p-6 overflow-auto">
-          <div className="max-w-7xl mx-auto">
-            <Outlet />
           </div>
         </div>
       </main>

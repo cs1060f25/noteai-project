@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Navigate, createFileRoute } from '@tanstack/react-router';
 
-import { AuthLayout } from '@/components/auth/AuthLayout';
 import { SignUpForm } from '@/components/auth/SignUpForm';
 import { VerificationForm } from '@/components/auth/VerificationForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -54,14 +53,14 @@ const SignupPage = () => {
   }
 
   return (
-    <AuthLayout>
+    <>
       <SignUpForm
         onSubmit={onSignUpSubmit}
         onOAuthSignIn={handleOAuthSignIn}
         loading={loading}
         error={error}
       />
-    </AuthLayout>
+    </>
   );
 };
 

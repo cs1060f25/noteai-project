@@ -5,7 +5,7 @@ import { ArrowLeft, Mail } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Field } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 
 const ForgotPasswordPage = () => {
@@ -47,12 +47,16 @@ const ForgotPasswordPage = () => {
           <CardContent>
             {!submitted ? (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <Field label="Email" required>
+                <Field>
+                  <FieldLabel>
+                    Email <span className="text-destructive">*</span>
+                  </FieldLabel>
                   <Input
                     type="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="border border-border"
                     required
                   />
                 </Field>
@@ -64,8 +68,7 @@ const ForgotPasswordPage = () => {
             ) : (
               <div className="text-center space-y-4">
                 <p className="fluent-body text-foreground">
-                  We've sent a password reset link to{' '}
-                  <span className="font-medium">{email}</span>
+                  We've sent a password reset link to <span className="font-medium">{email}</span>
                 </p>
                 <Link
                   to="/login"

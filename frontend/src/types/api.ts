@@ -51,6 +51,11 @@ export interface JobResponse {
   error_message?: string;
 }
 
+export interface JobListResponse {
+  jobs: JobResponse[];
+  total: number;
+}
+
 export interface APIError {
   error: {
     code: string;
@@ -58,4 +63,55 @@ export interface APIError {
     field?: string;
     details?: unknown;
   };
+}
+
+// agent output types
+
+export interface TranscriptSegment {
+  start_time: number;
+  end_time: number;
+  text: string;
+  confidence?: number;
+}
+
+export interface SilenceRegion {
+  region_id: string;
+  start_time: number;
+  end_time: number;
+  duration: number;
+  silence_type: 'audio_silence' | 'blank_screen' | 'both';
+  amplitude_threshold?: number;
+  created_at: string;
+}
+
+export interface ContentSegment {
+  segment_id: string;
+  start_time: number;
+  end_time: number;
+  duration: number;
+  topic: string;
+  description?: string;
+  importance_score: number;
+  keywords: string[];
+  concepts: string[];
+  segment_order: number;
+  created_at: string;
+}
+
+export interface TranscriptsResponse {
+  job_id: string;
+  segments: TranscriptSegment[];
+  total: number;
+}
+
+export interface SilenceRegionsResponse {
+  job_id: string;
+  regions: SilenceRegion[];
+  total: number;
+}
+
+export interface ContentSegmentsResponse {
+  job_id: string;
+  segments: ContentSegment[];
+  total: number;
 }

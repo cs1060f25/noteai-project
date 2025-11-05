@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import { apiClient } from '../lib/clerk-api';
 
-import type { JobResponse, UploadRequest, UploadResponse } from '../types/api';
+import type { JobListResponse, JobResponse, UploadRequest, UploadResponse } from '../types/api';
 
 export class UploadError extends Error {
   code: string;
@@ -135,6 +135,19 @@ export const getJobStatus = async (jobId: string): Promise<JobResponse> => {
       throw new UploadError(apiError.message, apiError.code, error.response.status);
     }
     throw new UploadError('Failed to get job status', 'JOB_STATUS_FAILED');
+  }
+};
+
+export const getJobs = async (limit = 50, offset = 0): Promise<JobListResponse> => {
+  try {
+    const response = await apiClient.get<JobListResponse>(`/jobs?limit=${limit}&offset=${offset}`);
+    return response;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to get jobs list', 'JOBS_LIST_FAILED');
   }
 };
 
