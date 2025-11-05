@@ -115,3 +115,44 @@ export interface ContentSegmentsResponse {
   segments: ContentSegment[];
   total: number;
 }
+
+export interface Clip {
+  clip_id: string;
+  content_segment_id?: string;
+  title: string;
+  topic?: string;
+  importance_score?: number;
+  start_time: number;
+  end_time: number;
+  duration: number;
+  clip_order?: number;
+  extra_metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface ClipsResponse {
+  job_id: string;
+  clips: Clip[];
+  total: number;
+}
+
+// user types
+
+export interface UserResponse {
+  user_id: string;
+  email: string;
+  name?: string;
+  picture_url?: string;
+  organization?: string;
+  email_notifications: boolean;
+  processing_notifications: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserUpdateRequest {
+  name?: string;
+  organization?: string;
+  email_notifications?: boolean;
+  processing_notifications?: boolean;
+}

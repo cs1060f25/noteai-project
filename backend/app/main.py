@@ -10,7 +10,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.routes import agent_outputs, jobs, results, upload, videos
+from app.api.routes import agent_outputs, jobs, results, upload, users, videos
 from app.core.logging import get_logger, setup_logging
 from app.core.rate_limit_config import limiter
 from app.core.settings import settings
@@ -163,3 +163,4 @@ app.include_router(upload.router, prefix=settings.api_v1_prefix, tags=["Upload"]
 app.include_router(jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
 app.include_router(results.router, prefix=settings.api_v1_prefix, tags=["Results"])
 app.include_router(agent_outputs.router, prefix=settings.api_v1_prefix, tags=["Agent Outputs"])
+app.include_router(users.router, prefix=settings.api_v1_prefix, tags=["Users"])

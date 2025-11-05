@@ -3,6 +3,7 @@ import axios from 'axios';
 import { apiClient } from '../lib/clerk-api';
 
 import type {
+  ClipsResponse,
   ContentSegmentsResponse,
   SilenceRegionsResponse,
   TranscriptsResponse,
@@ -61,5 +62,18 @@ export const getContentSegments = async (jobId: string): Promise<ContentSegments
       'Failed to fetch content segments',
       'CONTENT_SEGMENTS_FETCH_FAILED'
     );
+  }
+};
+
+export const getClips = async (jobId: string): Promise<ClipsResponse> => {
+  try {
+    const response = await apiClient.get<ClipsResponse>(`/jobs/${jobId}/clips`);
+    return response;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new AgentOutputsError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new AgentOutputsError('Failed to fetch clips', 'CLIPS_FETCH_FAILED');
   }
 };

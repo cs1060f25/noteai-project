@@ -10,6 +10,7 @@ import {
   FileText,
   Loader2,
   MessageSquare,
+  Scissors,
   Search,
   Sparkles,
   VolumeX,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import {
+  getClips,
   getContentSegments,
   getSilenceRegions,
   getTranscripts,
@@ -24,6 +26,8 @@ import {
 import { getJobStatus, getJobs } from '../services/uploadService';
 
 import type {
+  Clip,
+  ClipsResponse,
   ContentSegment,
   ContentSegmentsResponse,
   JobListResponse,
@@ -38,15 +42,18 @@ interface AgentOutputsState {
   transcripts: TranscriptsResponse | null;
   silenceRegions: SilenceRegionsResponse | null;
   contentSegments: ContentSegmentsResponse | null;
+  clips: ClipsResponse | null;
   loading: {
     transcripts: boolean;
     silenceRegions: boolean;
     contentSegments: boolean;
+    clips: boolean;
   };
   errors: {
     transcripts: string | null;
     silenceRegions: string | null;
     contentSegments: string | null;
+    clips: string | null;
   };
 }
 
@@ -110,6 +117,7 @@ const JobListView = () => {
     loading: true,
     error: null,
   });
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     getJobs(100, 0)
@@ -169,6 +177,18 @@ const JobListView = () => {
   }
 
   const allJobs = jobListState.jobList.jobs;
+
+  // Filter jobs based on search query
+  const filteredJobs = allJobs.filter((job) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      job.filename.toLowerCase().includes(query) ||
+      job.job_id.toLowerCase().includes(query) ||
+      job.status.toLowerCase().includes(query)
+    );
+  });
+
   const completedCount = allJobs.filter((job) => job.status === 'completed').length;
 
   return (
@@ -178,20 +198,28 @@ const JobListView = () => {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Search jobs..."
+          placeholder="Search jobs by name, ID, or status..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-9 pr-4 py-2 text-sm bg-muted/30 border border-border/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors placeholder:text-muted-foreground"
         />
       </div>
 
       <div className="flex items-center justify-between px-2">
         <p className="text-xs text-muted-foreground">
-          {jobListState.jobList.total} job{jobListState.jobList.total !== 1 ? 's' : ''} ·{' '}
+          {filteredJobs.length} of {jobListState.jobList.total} job{jobListState.jobList.total !== 1 ? 's' : ''} ·{' '}
           {completedCount} completed
         </p>
       </div>
 
       <div className="space-y-1">
-        {allJobs.map((job: JobResponse) => {
+        {filteredJobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+            <Search className="w-8 h-8 text-muted-foreground/60 mb-2" />
+            <p className="text-sm text-muted-foreground">No jobs match your search</p>
+          </div>
+        ) : (
+          filteredJobs.map((job: JobResponse) => {
           return (
             <button
               key={job.job_id}
@@ -213,11 +241,11 @@ const JobListView = () => {
                 </div>
 
                 {job.error_message && (
-                  <p className="text-xs text-destructive truncate">Error: {job.error_message}</p>
+                  <p className="text-xs text-destructive truncate mb-1">Error: {job.error_message}</p>
                 )}
 
                 {job.progress && !job.error_message && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mb-1">
                     <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary transition-all"
@@ -230,15 +258,14 @@ const JobListView = () => {
                   </div>
                 )}
 
-                {!job.error_message && !job.progress && (
-                  <p className="text-xs text-muted-foreground">{formatDate(job.created_at)}</p>
-                )}
+                <p className="text-xs text-muted-foreground">{formatDate(job.created_at)}</p>
               </div>
 
               <ArrowLeft className="w-4 h-4 rotate-180 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </button>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );
@@ -251,15 +278,18 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
     transcripts: null,
     silenceRegions: null,
     contentSegments: null,
+    clips: null,
     loading: {
       transcripts: true,
       silenceRegions: true,
       contentSegments: true,
+      clips: true,
     },
     errors: {
       transcripts: null,
       silenceRegions: null,
       contentSegments: null,
+      clips: null,
     },
   });
 
@@ -333,6 +363,27 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
           ...prev,
           loading: { ...prev.loading, contentSegments: false },
           errors: { ...prev.errors, contentSegments: errorMessage },
+        }));
+      });
+
+    // fetch clips
+    getClips(jobId)
+      .then((data) => {
+        setState((prev) => ({
+          ...prev,
+          clips: data,
+          loading: { ...prev.loading, clips: false },
+        }));
+      })
+      .catch((error) => {
+        const errorMessage =
+          error.statusCode === 400
+            ? 'Not available yet - segment extraction may still be in progress'
+            : error.message;
+        setState((prev) => ({
+          ...prev,
+          loading: { ...prev.loading, clips: false },
+          errors: { ...prev.errors, clips: errorMessage },
         }));
       });
   }, [jobId]);
@@ -572,6 +623,100 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
         ) : (
           !state.loading.contentSegments && (
             <p className="text-sm text-muted-foreground px-1">No content segments available</p>
+          )
+        )}
+      </div>
+
+      {/* clips section */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Scissors className="w-5 h-5 text-muted-foreground" />
+          <h2 className="text-xl font-semibold text-foreground">Extracted Clips</h2>
+          {state.loading.clips && (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+
+        {state.errors.clips ? (
+          <div className="flex items-start gap-2 px-3 py-2 bg-destructive/5 border border-destructive/10 rounded-md">
+            <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-destructive">{state.errors.clips}</p>
+          </div>
+        ) : state.clips ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground px-1">
+              {state.clips.total} clip{state.clips.total !== 1 ? 's' : ''} · Selected by segment
+              extraction agent
+            </p>
+            <div className="space-y-3">
+              {state.clips.clips.map((clip: Clip) => (
+                <div
+                  key={clip.clip_id}
+                  className="px-4 py-3 hover:bg-accent rounded-md transition-colors border border-border/50 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Scissors className="w-4 h-4 text-muted-foreground" />
+                        <h3 className="text-base font-semibold text-foreground">{clip.title}</h3>
+                        {clip.clip_order && (
+                          <span className="px-1.5 py-0.5 text-xs rounded bg-muted text-muted-foreground">
+                            #{clip.clip_order}
+                          </span>
+                        )}
+                      </div>
+                      {clip.topic && (
+                        <p className="text-sm text-muted-foreground leading-relaxed">{clip.topic}</p>
+                      )}
+                    </div>
+                    {clip.importance_score !== undefined && (
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
+                        <span className="text-xs font-medium text-foreground">
+                          {Math.round(clip.importance_score * 100)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium">
+                      {formatTime(clip.start_time)} → {formatTime(clip.end_time)}
+                    </span>
+                    <span>·</span>
+                    <span>{clip.duration.toFixed(2)}s</span>
+                  </div>
+
+                  {clip.extra_metadata?.optimization && (
+                    <div className="flex flex-wrap gap-1.5 text-xs">
+                      {clip.extra_metadata.optimization.start_adjusted && (
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                          Start optimized (
+                          {clip.extra_metadata.optimization.start_adjustment_seconds > 0 ? '+' : ''}
+                          {clip.extra_metadata.optimization.start_adjustment_seconds}s)
+                        </span>
+                      )}
+                      {clip.extra_metadata.optimization.end_adjusted && (
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                          End optimized (
+                          {clip.extra_metadata.optimization.end_adjustment_seconds > 0 ? '+' : ''}
+                          {clip.extra_metadata.optimization.end_adjustment_seconds}s)
+                        </span>
+                      )}
+                      {clip.extra_metadata.quality_assessment?.duration_fit && (
+                        <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 border border-green-500/20">
+                          {clip.extra_metadata.quality_assessment.duration_fit} duration
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          !state.loading.clips && (
+            <p className="text-sm text-muted-foreground px-1">No clips available</p>
           )
         )}
       </div>

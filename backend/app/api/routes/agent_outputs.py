@@ -9,6 +9,8 @@ from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
 from app.core.settings import settings
 from app.models.schemas import (
+    ClipResponse,
+    ClipsResponse,
     ContentSegmentResponse,
     ContentSegmentsResponse,
     SilenceRegionResponse,
@@ -283,4 +285,79 @@ def get_content_segments(
         job_id=job_id,
         segments=segments,
         total=len(segments),
+    )
+
+
+@router.get(
+    "/{job_id}/clips",
+    response_model=ClipsResponse,
+    summary="Get extracted clips",
+    description="""
+    Retrieve all extracted clips for a completed job.
+
+    Returns the final selected highlight clips with:
+    - Timing information (start/end times, duration)
+    - Title and topic
+    - Importance score from content analysis
+    - Clip ordering (ranked by importance)
+    - Optimization metadata (boundary adjustments, silence alignment)
+
+    **Requirements:**
+    - Job must be completed
+    - User must own the job
+
+    Clips are ordered by clip_order (importance ranking).
+    These are the final segments selected by the segment extraction agent.
+    """,
+)
+@limiter.limit(settings.rate_limit_results)
+def get_clips(
+    request: Request,
+    response: Response,
+    job_id: str,
+    current_user: User = Depends(get_current_user_clerk),
+    db: Session = Depends(get_db),
+) -> ClipsResponse:
+    """get extracted clips for a completed job."""
+    # verify access and completion
+    verify_job_access_and_completion(job_id, current_user.user_id, db)
+
+    db_service = DatabaseService(db)
+
+    # get clips ordered by clip_order
+    clips_db = db_service.clips.get_by_job_id(job_id)
+
+    # sort by clip_order (importance ranking)
+    clips_db_sorted = sorted(clips_db, key=lambda c: c.clip_order or 999)
+
+    # convert to response model
+    clips = [
+        ClipResponse(
+            clip_id=c.clip_id,
+            content_segment_id=c.content_segment_id,
+            title=c.title,
+            topic=c.topic,
+            importance_score=c.importance_score,
+            start_time=c.start_time,
+            end_time=c.end_time,
+            duration=c.duration,
+            clip_order=c.clip_order,
+            extra_metadata=c.extra_metadata or {},
+            created_at=c.created_at,
+        )
+        for c in clips_db_sorted
+    ]
+
+    logger.info(
+        "Clips retrieved",
+        extra={
+            "job_id": job_id,
+            "clips_count": len(clips),
+        },
+    )
+
+    return ClipsResponse(
+        job_id=job_id,
+        clips=clips,
+        total=len(clips),
     )

@@ -191,6 +191,36 @@ class ContentSegmentsResponse(BaseModel):
     total: int = Field(..., description="Total number of segments")
 
 
+class ClipResponse(BaseModel):
+    """Individual clip response for agent outputs."""
+
+    clip_id: str = Field(..., description="Unique clip identifier")
+    content_segment_id: str | None = Field(
+        None, description="Associated content segment ID"
+    )
+    title: str = Field(..., description="Clip title")
+    topic: str | None = Field(None, description="Clip topic")
+    importance_score: float | None = Field(
+        None, description="Importance score (0-1)", ge=0, le=1
+    )
+    start_time: float = Field(..., description="Start time in seconds", ge=0)
+    end_time: float = Field(..., description="End time in seconds", ge=0)
+    duration: float = Field(..., description="Clip duration in seconds", ge=0)
+    clip_order: int | None = Field(None, description="Display order (1-based)")
+    extra_metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
+    created_at: datetime = Field(..., description="Creation timestamp")
+
+
+class ClipsResponse(BaseModel):
+    """List of clips response."""
+
+    job_id: str = Field(..., description="Job identifier")
+    clips: list[ClipResponse] = Field(..., description="Generated clips")
+    total: int = Field(..., description="Total number of clips")
+
+
 # WebSocket Models
 
 
@@ -232,4 +262,32 @@ class ErrorResponse(BaseModel):
             "message": "Invalid input data",
             "details": [{"field": "filename", "message": "Field is required"}],
         },
+    )
+
+
+# User Models
+
+
+class UserResponse(BaseModel):
+    """User information response."""
+
+    user_id: str = Field(..., description="Unique user identifier")
+    email: str = Field(..., description="User email address")
+    name: str | None = Field(None, description="User full name")
+    picture_url: str | None = Field(None, description="Profile picture URL")
+    organization: str | None = Field(None, description="User organization")
+    email_notifications: bool = Field(..., description="Email notifications enabled")
+    processing_notifications: bool = Field(..., description="Processing notifications enabled")
+    created_at: datetime = Field(..., description="Account creation timestamp")
+    updated_at: datetime = Field(..., description="Last update timestamp")
+
+
+class UserUpdateRequest(BaseModel):
+    """Request to update user information."""
+
+    name: str | None = Field(None, description="User full name", max_length=255)
+    organization: str | None = Field(None, description="User organization", max_length=255)
+    email_notifications: bool | None = Field(None, description="Email notifications enabled")
+    processing_notifications: bool | None = Field(
+        None, description="Processing notifications enabled"
     )

@@ -246,9 +246,10 @@ def process_video(self, job_id: str) -> dict[str, Any]:
         # use .s() for transcription to receive silence result, .si() for others
         pipeline = chain(
             silence_detection_task.si(job_id),
-            transcription_task.s(job_id=job_id),  # receives silence_result as first arg
+            # receives silence_result as first arg
+            transcription_task.s(job_id=job_id),
             content_analysis_task.si(job_id),
-            # segment_extraction_task.si(job_id),
+            segment_extraction_task.si(job_id),
         )
 
         # execute pipeline
@@ -312,7 +313,8 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
         # this ensures silence regions are stored in DB before transcription starts
         sequential_chain = chain(
             silence_detection_task.s(job_id),
-            transcription_task.s(job_id=job_id),  # receives silence_result as first arg
+            # receives silence_result as first arg
+            transcription_task.s(job_id=job_id),
         )
 
         # execute sequential chain
@@ -579,11 +581,54 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
 def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
-    """segment extraction agent task."""
-    content_data = {}  # TODO: get from database
-    silence_data = {}  # TODO: get from database
-    transcript_data = {}  # TODO: get from database
-    return extract_segments(content_data, silence_data, transcript_data, job_id)
+    """segment extraction agent task (step 3 of 3).
+
+    extracts optimal highlight segments based on content importance scores
+    and optimizes boundaries using silence detection data.
+
+    note: agent queries database directly for all required data
+    (content segments, silence regions, transcripts, layout analysis).
+    """
+    logger.info("starting segment extraction", extra={"job_id": job_id})
+
+    # update progress
+    self.update_job_progress(
+        job_id=job_id,
+        stage="segment_extraction",
+        percent=65.0,
+        message="extracting highlight segments with optimized boundaries",
+        status="running",
+        eta_seconds=10,
+    )
+
+    # agent queries database directly, pass empty dicts for legacy signature
+    result = extract_segments({}, {}, {}, job_id)
+
+    # update progress after completion
+    self.update_job_progress(
+        job_id=job_id,
+        stage="segment_extraction",
+        percent=90.0,
+        message="segment extraction completed",
+        status="running",
+    )
+
+    logger.info(
+        "segment extraction completed",
+        extra={
+            "job_id": job_id,
+            "segments_created": result.get("segments_created", 0),
+            "processing_time": result.get("processing_time_seconds", 0),
+        },
+    )
+
+    # mark job as completed (all 3 steps done)
+    self.mark_job_completed(job_id)
+
+    logger.info("processing pipeline completed successfully",
+                extra={"job_id": job_id})
+
+    return result
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)

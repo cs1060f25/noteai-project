@@ -3,7 +3,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { VideoDetailPage } from '@/components/VideoDetailPage';
 
 function VideoDetailComponent() {
-  console.log('HERE');
   const { lectureId } = Route.useParams();
   const navigate = useNavigate();
 

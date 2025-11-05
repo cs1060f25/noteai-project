@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-import { createFileRoute } from '@tanstack/react-router';
+import { useUser, useClerk } from '@clerk/clerk-react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { AnimatePresence, motion } from 'framer-motion';
 import { LogOut, Sun, Moon, User, Bell, Lock, CreditCard } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -10,12 +13,141 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from '@/components/ui/theme-provider';
+import { userService } from '@/services/userService';
+import type { UserResponse } from '@/types/api';
 
 export function SettingsComponent() {
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const { user: clerkUser } = useUser();
+  const { signOut } = useClerk();
+  const navigate = useNavigate();
+
+  const [userProfile, setUserProfile] = useState<UserResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Form state
+  const [name, setName] = useState('');
+  const [organization, setOrganization] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [processingNotifications, setProcessingNotifications] = useState(true);
 
+  // Load user profile
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await userService.getCurrentUser();
+        setUserProfile(profile);
+        setName(profile.name || '');
+        setOrganization(profile.organization || '');
+        setEmailNotifications(profile.email_notifications);
+        setProcessingNotifications(profile.processing_notifications);
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+        toast.error('Failed to load user profile');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
+
+  console.log('ORG', organization);
+
+  // Handle profile save
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const updated = await userService.updateCurrentUser({
+        name: name || undefined,
+        organization: organization || undefined,
+      });
+      setUserProfile(updated);
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error('Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle notification settings save
+  const handleSaveNotifications = async (field: string, value: boolean) => {
+    try {
+      const updated = await userService.updateCurrentUser({
+        [field]: value,
+      });
+      setUserProfile(updated);
+      toast.success('Notification settings updated');
+    } catch (error) {
+      console.error('Failed to update notification settings:', error);
+      toast.error('Failed to update notification settings');
+      // Revert on error
+      if (field === 'email_notifications') {
+        setEmailNotifications(!value);
+      } else if (field === 'processing_notifications') {
+        setProcessingNotifications(!value);
+      }
+    }
+  };
+
+  // Handle theme toggle
+  const handleThemeToggle = (checked: boolean) => {
+    setTheme(checked ? 'dark' : 'light');
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    signOut();
+    navigate({ to: '/login' });
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (clerkUser?.firstName && clerkUser?.lastName) {
+      return `${clerkUser.firstName[0]}${clerkUser.lastName[0]}`.toUpperCase();
+    }
+    if (clerkUser?.emailAddresses?.[0]?.emailAddress) {
+      return clerkUser.emailAddresses[0].emailAddress[0].toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Check if user is using OAuth (external accounts like Google, GitHub, etc.)
+  const isOAuthUser = () => {
+    // Clerk stores external accounts for OAuth providers
+    return (
+      clerkUser?.externalAccounts && clerkUser.externalAccounts.length > 0
+    );
+  };
+
+  // Get OAuth provider name
+  const getOAuthProvider = () => {
+    if (!clerkUser?.externalAccounts || clerkUser.externalAccounts.length === 0) {
+      return null;
+    }
+    const provider = clerkUser.externalAccounts[0]?.provider;
+    // Capitalize first letter
+    return provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : null;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  const changeTheme = (t: string) => {
+    if (t == 'light') {
+      setTheme('dark');
+    } else {
+      setTheme('light');
+    }
+  };
   return (
     <div className="h-full overflow-auto p-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -33,40 +165,60 @@ export function SettingsComponent() {
           <Separator />
           <div className="flex items-center gap-6">
             <Avatar className="w-20 h-20">
-              <AvatarImage src="" />
-              <AvatarFallback className="text-2xl">JD</AvatarFallback>
+              <AvatarImage src={clerkUser?.imageUrl} />
+              <AvatarFallback className="text-2xl">{getUserInitials()}</AvatarFallback>
             </Avatar>
             <div className="space-y-2">
-              <Button variant="outline" size="sm" className="glass-card">
-                Change Avatar
-              </Button>
-              <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 2MB.</p>
+              <p className="text-sm text-muted-foreground">
+                Profile photo managed through your account provider
+              </p>
             </div>
           </div>
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Full Name</Label>
-              <Input id="name" defaultValue="John Doe" className="glass-card border-border/50" />
+              <Input
+                id="name"
+                name="user-fullname"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="glass-card border-border/50"
+                autoComplete="off"
+                data-lpignore="true"
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="user-email-display"
                 type="email"
-                defaultValue="john.doe@example.com"
-                className="glass-card border-border/50"
+                value={userProfile?.email || ''}
+                disabled
+                className="glass-card border-border/50 opacity-60"
+                autoComplete="off"
+                data-lpignore="true"
               />
+              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="organization">Organization</Label>
-              <Input
-                id="organization"
-                defaultValue="University of Technology"
-                className="glass-card border-border/50"
-              />
+              <form autoComplete="off">
+                <Label htmlFor="organization">Organization</Label>
+                <Input
+                  id="organization"
+                  name="organization-name"
+                  value={organization}
+                  onChange={(e) => setOrganization(e.target.value)}
+                  className="glass-card border-border/50"
+                  data-lpignore="true"
+                  data-form-type="other"
+                />
+              </form>
             </div>
           </div>
-          <Button className="glass-button">Save Changes</Button>
+          <Button onClick={handleSaveProfile} disabled={isSaving} className="glass-button">
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
         </div>
 
         {/* Appearance Section */}
@@ -78,22 +230,39 @@ export function SettingsComponent() {
           <Separator />
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h4>Theme</h4>
+              <h4>Theme</h4>
+              <p className="text-sm text-muted-foreground">Choose between light and dark mode</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => changeTheme(theme)}
+              className="glass-card overflow-hidden cursor-pointer"
+            >
+              <AnimatePresence mode="wait">
                 {theme === 'dark' ? (
-                  <Moon className="w-4 h-4 text-muted-foreground" />
+                  <motion.div
+                    key="sun"
+                    initial={{ rotate: -90, scale: 0 }}
+                    animate={{ rotate: 0, scale: 1 }}
+                    exit={{ rotate: 90, scale: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Sun className="w-4 h-4" />
+                  </motion.div>
                 ) : (
-                  <Sun className="w-4 h-4 text-muted-foreground" />
+                  <motion.div
+                    key="moon"
+                    initial={{ rotate: 90, scale: 0 }}
+                    animate={{ rotate: 0, scale: 1 }}
+                    exit={{ rotate: -90, scale: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Moon className="w-4 h-4" />
+                  </motion.div>
                 )}
-              </div>
-              <p className="text-sm text-muted-foreground">Switch between light and dark mode</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
-                {theme === 'light' ? 'Light' : 'Dark'}
-              </span>
-              <Switch checked={theme === 'dark'} className="data-[state=checked]:bg-primary" />
-            </div>
+              </AnimatePresence>
+            </Button>
           </div>
         </div>
 
@@ -112,7 +281,13 @@ export function SettingsComponent() {
                   Receive email updates about your videos
                 </p>
               </div>
-              <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
+              <Switch
+                checked={emailNotifications}
+                onCheckedChange={(checked) => {
+                  setEmailNotifications(checked);
+                  handleSaveNotifications('email_notifications', checked);
+                }}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -123,7 +298,10 @@ export function SettingsComponent() {
               </div>
               <Switch
                 checked={processingNotifications}
-                onCheckedChange={setProcessingNotifications}
+                onCheckedChange={(checked) => {
+                  setProcessingNotifications(checked);
+                  handleSaveNotifications('processing_notifications', checked);
+                }}
               />
             </div>
           </div>
@@ -136,31 +314,80 @@ export function SettingsComponent() {
             <h2>Security</h2>
           </div>
           <Separator />
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="current-password">Current Password</Label>
-              <Input
-                id="current-password"
-                type="password"
-                className="glass-card border-border/50"
-              />
+          {isOAuthUser() ? (
+            // OAuth user - cannot change password
+            <div className="space-y-4">
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-blue-100 dark:bg-blue-900/50 p-2">
+                    <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="mb-1 font-medium text-blue-900 dark:text-blue-100">
+                      OAuth Authentication
+                    </h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      You're signed in with {getOAuthProvider() || 'an external provider'}. Your
+                      password is managed by your authentication provider and cannot be changed
+                      here.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p className="mb-2">
+                  To manage your account security, please visit your {getOAuthProvider() || 'OAuth provider'}'s
+                  account settings.
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Two-factor authentication</li>
+                  <li>Password changes</li>
+                  <li>Security alerts</li>
+                  <li>Connected devices</li>
+                </ul>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input id="new-password" type="password" className="glass-card border-border/50" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="confirm-password">Confirm New Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                className="glass-card border-border/50"
-              />
-            </div>
-          </div>
-          <Button variant="outline" className="glass-card">
-            Update Password
-          </Button>
+          ) : (
+            // Email/password user - can change password
+            <>
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    className="glass-card border-border/50"
+                    autoComplete="current-password"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    className="glass-card border-border/50"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    className="glass-card border-border/50"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+              <Button variant="outline" className="glass-card" disabled>
+                Update Password
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Password changes are currently disabled. Please contact support if you need to
+                reset your password.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Billing Section */}
@@ -214,6 +441,7 @@ export function SettingsComponent() {
                 <p className="text-sm text-muted-foreground">Sign out of your account</p>
               </div>
               <Button
+                onClick={handleLogout}
                 variant="outline"
                 className="border-destructive/50 text-destructive hover:bg-destructive/10"
               >
@@ -231,6 +459,7 @@ export function SettingsComponent() {
               </div>
               <Button
                 variant="destructive"
+                disabled
                 className="bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground"
               >
                 Delete Account

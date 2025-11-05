@@ -138,24 +138,47 @@ async def get_current_user_clerk(
                 detail="Failed to fetch user details from authentication service",
             ) from e
 
-        # create new user
-        from uuid import uuid4
+        # check if user with this email already exists
+        # this can happen if user previously logged in with a different clerk account
+        # or if their clerk account was recreated
+        existing_user = db.query(User).filter(User.email == primary_email).first()
 
-        user = User(
-            user_id=str(uuid4()),
-            clerk_user_id=clerk_user_id,
-            email=primary_email,
-            name=name,
-            picture_url=picture_url,
-            is_active=True,
-            is_verified=True,
-        )
+        if existing_user:
+            # update existing user's clerk_user_id
+            logger.info(
+                "User with email exists, updating clerk_user_id",
+                extra={
+                    "user_id": existing_user.user_id,
+                    "email": primary_email,
+                    "old_clerk_user_id": existing_user.clerk_user_id,
+                    "new_clerk_user_id": clerk_user_id,
+                },
+            )
+            existing_user.clerk_user_id = clerk_user_id
+            existing_user.name = name
+            existing_user.picture_url = picture_url
+            db.commit()
+            db.refresh(existing_user)
+            user = existing_user
+        else:
+            # create new user
+            from uuid import uuid4
 
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+            user = User(
+                user_id=str(uuid4()),
+                clerk_user_id=clerk_user_id,
+                email=primary_email,
+                name=name,
+                picture_url=picture_url,
+                is_active=True,
+                is_verified=True,
+            )
 
-        logger.info("New user created", extra={"user_id": user.user_id, "email": primary_email})
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            logger.info("New user created", extra={"user_id": user.user_id, "email": primary_email})
 
     if not user.is_active:
         logger.warning("Inactive user attempted access", extra={"user_id": user.user_id})
