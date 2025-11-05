@@ -1,27 +1,26 @@
 """Silence detector agent for audio/video silence analysis."""
 """Updated"""
 
-import os
 import tempfile
+import os
 import time
 import uuid
 from pathlib import Path
-
 import requests
 from pydub import AudioSegment
 from pydub.silence import detect_silence as pydub_detect_silence
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from app.core.logging import get_logger
 from app.core.settings import settings
-from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
+from app.services.db_service import DatabaseService
+
 
 logger = get_logger(__name__)
 
 # silence detection parameters
-SILENCE_THRESH_DBFS = -40  # decibels relative to full scale
+SILENCE_THRESH_DBFS = -35  # decibels relative to full scale
 MIN_SILENCE_LEN_MS = 500  # minimum silence duration in milliseconds
 
 

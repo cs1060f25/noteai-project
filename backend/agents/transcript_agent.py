@@ -23,6 +23,8 @@ logger = get_logger(__name__)
 MAX_AUDIO_SIZE_MB = 10  # chunk size for large files
 # 5 minutes per chunk (gemini can handle longer audio)
 MAX_AUDIO_DURATION_SECONDS = 300
+# minimum non-silent audio duration to proceed with transcription
+MIN_AUDIO_DURATION_SECONDS = 3
 
 
 def get_db_session():
@@ -876,6 +878,31 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
                 "total_segments": 0,
                 "message": "No non-silent audio to transcribe",
                 "processing_time_seconds": round(processing_time, 2),
+            }
+
+        # calculate total non-silent audio duration
+        total_non_silent_duration = sum(
+            interval["end_time"] - interval["start_time"] for interval in non_silent_intervals
+        )
+
+        # check if non-silent audio duration meets minimum threshold
+        if total_non_silent_duration < MIN_AUDIO_DURATION_SECONDS:
+            logger.warning(
+                "Non-silent audio duration below minimum threshold, skipping transcription",
+                extra={
+                    "job_id": job_id,
+                    "non_silent_duration": round(total_non_silent_duration, 2),
+                    "min_threshold": MIN_AUDIO_DURATION_SECONDS,
+                },
+            )
+            processing_time = time.time() - start_time
+            return {
+                "job_id": job_id,
+                "status": "completed",
+                "total_segments": 0,
+                "message": f"Non-silent audio duration ({round(total_non_silent_duration, 2)}s) below minimum threshold ({MIN_AUDIO_DURATION_SECONDS}s)",
+                "processing_time_seconds": round(processing_time, 2),
+                "non_silent_duration": round(total_non_silent_duration, 2),
             }
 
         # Phase 3: extract and segment audio (remove silence)
