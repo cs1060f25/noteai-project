@@ -242,7 +242,7 @@ def process_video(self, job_id: str) -> dict[str, Any]:
             status="running",
         )
 
-        # sequential pipeline: silence → transcription → content → segments
+        # sequential pipeline: silence → transcription → content → segments → compilation
         # use .s() for transcription to receive silence result, .si() for others
         pipeline = chain(
             silence_detection_task.si(job_id),
@@ -250,6 +250,7 @@ def process_video(self, job_id: str) -> dict[str, Any]:
             transcription_task.s(job_id=job_id),
             content_analysis_task.si(job_id),
             segment_extraction_task.si(job_id),
+            video_compilation_task.si(job_id),
         )
 
         # execute pipeline
@@ -562,10 +563,6 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
     # agent queries database directly, pass empty dict for legacy signature
     result = analyze_content({}, job_id)
 
-    # temporary: mark job as completed after content analysis
-    # TODO: remove this once segment extraction and compilation are implemented
-    self.mark_job_completed(job_id)
-
     logger.info(
         "content analysis completed",
         extra={
@@ -622,30 +619,68 @@ def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
         },
     )
 
-    # mark job as completed (all 3 steps done)
-    self.mark_job_completed(job_id)
-
-    logger.info("processing pipeline completed successfully",
-                extra={"job_id": job_id})
-
     return result
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
-def video_compilation_task(_self, job_id: str) -> dict[str, Any]:
-    """video compilation agent task."""
-    s3_key = get_job_s3_key(job_id)
+def video_compilation_task(self, job_id: str) -> dict[str, Any]:
+    """video compilation agent task.
+
+    compiles video clips from content segments with transitions, multiple formats,
+    subtitles, and thumbnails.
+
+    args:
+        job_id: unique job identifier
+
+    returns:
+        dict with compilation results including generated clips
+    """
     logger.info(
         "Starting video compilation",
-        extra={"job_id": job_id, "s3_key": s3_key},
+        extra={"job_id": job_id},
     )
 
-    # TODO: get segments, layout, and transcript from database
-    segments_data = {}
-    layout_data = {}
-    transcript_data = {}
+    # update progress
+    self.update_job_progress(
+        job_id=job_id,
+        stage="compilation",
+        percent=85.0,
+        message="compiling final video clips with transitions",
+        status="running",
+        eta_seconds=120,
+    )
 
-    return compile_clips(s3_key, segments_data, layout_data, transcript_data, job_id)
+    # get database session and compile clips
+    db = get_task_db()
+    try:
+        result = compile_clips(job_id, db)
+
+        # update progress after completion
+        self.update_job_progress(
+            job_id=job_id,
+            stage="compilation",
+            percent=100.0,
+            message=f"compilation completed ({result.get('clips_generated', 0)} clips)",
+            status="running",
+        )
+
+        logger.info(
+            "video compilation completed",
+            extra={
+                "job_id": job_id,
+                "clips_generated": result.get("clips_generated", 0),
+            },
+        )
+
+        # mark job as completed (final step)
+        self.mark_job_completed(job_id)
+
+        logger.info("processing pipeline completed successfully",
+                    extra={"job_id": job_id})
+
+        return result
+    finally:
+        db.close()
 
 
 # start prometheus metrics server when worker is ready

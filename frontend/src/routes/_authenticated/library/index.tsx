@@ -151,7 +151,7 @@ export function LibraryPage() {
   return (
     <div className="h-full flex flex-col p-8">
       <div className="mb-8">
-        <h1 className="mb-2">Library</h1>
+        <h1 className="mb-2 font-bold">Library</h1>
         <p className="text-muted-foreground">Manage your uploaded lectures and generated clips</p>
       </div>
 

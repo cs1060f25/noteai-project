@@ -181,7 +181,7 @@ export const UploadIntegrated = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1>Upload Your Lecture</h1>
+          <h1 className="font-bold">Upload Your Lecture</h1>
           <p className="text-muted-foreground">
             Drop your video file or paste a YouTube link to get started
           </p>

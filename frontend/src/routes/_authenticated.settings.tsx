@@ -118,9 +118,7 @@ export function SettingsComponent() {
   // Check if user is using OAuth (external accounts like Google, GitHub, etc.)
   const isOAuthUser = () => {
     // Clerk stores external accounts for OAuth providers
-    return (
-      clerkUser?.externalAccounts && clerkUser.externalAccounts.length > 0
-    );
+    return clerkUser?.externalAccounts && clerkUser.externalAccounts.length > 0;
   };
 
   // Get OAuth provider name
@@ -152,7 +150,7 @@ export function SettingsComponent() {
     <div className="h-full overflow-auto p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <div>
-          <h1 className="mb-2">Settings</h1>
+          <h1 className="mb-2 font-bold">Settings</h1>
           <p className="text-muted-foreground">Manage your account settings and preferences</p>
         </div>
 
@@ -336,8 +334,8 @@ export function SettingsComponent() {
               </div>
               <div className="text-sm text-muted-foreground">
                 <p className="mb-2">
-                  To manage your account security, please visit your {getOAuthProvider() || 'OAuth provider'}'s
-                  account settings.
+                  To manage your account security, please visit your{' '}
+                  {getOAuthProvider() || 'OAuth provider'}'s account settings.
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Two-factor authentication</li>
@@ -383,8 +381,8 @@ export function SettingsComponent() {
                 Update Password
               </Button>
               <p className="text-xs text-muted-foreground">
-                Password changes are currently disabled. Please contact support if you need to
-                reset your password.
+                Password changes are currently disabled. Please contact support if you need to reset
+                your password.
               </p>
             </>
           )}
