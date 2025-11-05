@@ -1,25 +1,14 @@
 import { useUser } from '@clerk/clerk-react';
-import { createFileRoute, Link, Navigate } from '@tanstack/react-router';
-import {
-  Video,
-  Scissors,
-  Subtitles,
-  Clock,
-  Share2,
-  Sparkles,
-  ChevronRight,
-  Sun,
-  Moon,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { createFileRoute, Navigate } from '@tanstack/react-router';
+import { Video, Scissors, Subtitles, Clock, Share2, Sparkles, ChevronRight } from 'lucide-react';
+import { motion } from 'motion/react';
 
 import { ImageWithFallback } from '@/components/ImageWithFallback';
+import { LandingNavbar } from '@/components/LandingNavbar';
 import { Button } from '@/components/ui/button';
-import { useTheme } from '@/components/ui/theme-provider';
 
 const LandingPage = () => {
   const { isSignedIn, isLoaded } = useUser();
-  const { theme, toggleTheme } = useTheme();
 
   // redirect to dashboard if already signed in
   if (isLoaded && isSignedIn) {
@@ -28,64 +17,7 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 glass-header sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Scissors className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="text-foreground">NoteAI</span>
-          </div>
-          <nav className="flex items-center gap-4">
-            <a
-              href="#features"
-              className="hidden md:inline text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Features
-            </a>
-            <a
-              href="#how-it-works"
-              className="hidden md:inline text-muted-foreground hover:text-foreground transition-colors"
-            >
-              How It Works
-            </a>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="glass-card overflow-hidden"
-            >
-              <AnimatePresence mode="wait">
-                {theme === 'dark' ? (
-                  <motion.div
-                    key="sun"
-                    initial={{ rotate: -90, scale: 0 }}
-                    animate={{ rotate: 0, scale: 1 }}
-                    exit={{ rotate: 90, scale: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Sun className="w-4 h-4" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="moon"
-                    initial={{ rotate: 90, scale: 0 }}
-                    animate={{ rotate: 0, scale: 1 }}
-                    exit={{ rotate: -90, scale: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Moon className="w-4 h-4" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Button>
-            <Button variant="ghost">
-              <Link to="/login">Sign In</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <LandingNavbar />
 
       {/* Hero Section */}
       <section className="pt-20 pb-32 px-6 lg:px-8">
@@ -112,7 +44,10 @@ const LandingPage = () => {
                 professional subtitles in seconds. Save hours of manual editing time.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="glass-button bg-red-500  shadow-lg">
+                <Button
+                  size="lg"
+                  className="bg-black hover:bg-black/90 text-white dark:bg-white dark:hover:bg-white/90 dark:text-black shadow-lg"
+                >
                   Start Generating Clips
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
@@ -291,7 +226,10 @@ const LandingPage = () => {
               Join thousands of educators and content creators who are transforming their lectures
               into engaging highlight clips.
             </p>
-            <Button size="lg" className="glass-button bg-primary hover:bg-primary/90 shadow-lg">
+            <Button
+              size="lg"
+              className="bg-black hover:bg-black/90 text-white dark:bg-white dark:hover:bg-white/90 dark:text-black shadow-lg"
+            >
               Start Generating Clips Now
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Link } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowRight, Lock, Mail, Scissors, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Lock, Mail, Scissors, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,6 +28,24 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
+      {/* back to home button */}
+      <motion.div
+        className="absolute top-6 left-6 z-20"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+      >
+        <Link to="/">
+          <Button
+            variant="ghost"
+            className="glass-card border-border/50 hover:bg-background/50 group cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+            Back to Home
+          </Button>
+        </Link>
+      </motion.div>
+
       {/* animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -188,7 +206,7 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button
                     variant="outline"
-                    className="w-full glass-card border-border/50"
+                    className="w-full glass-card border-border/50 cursor-pointer"
                     onClick={() => onOAuthSignIn('oauth_google')}
                     disabled={loading}
                   >
@@ -208,7 +226,7 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button
                     variant="outline"
-                    className="w-full glass-card border-border/50"
+                    className="w-full glass-card border-border/50 cursor-pointer"
                     onClick={() => onOAuthSignIn('oauth_github')}
                     disabled={loading}
                   >
@@ -250,7 +268,7 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/70" />
                     <Input
                       id="email"
                       type="email"
@@ -258,6 +276,7 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10 glass-input border-border/50"
+                      autoComplete="off"
                       required
                       disabled={loading}
                     />
@@ -272,7 +291,7 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                     </Link>
                   </div>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/70" />
                     <Input
                       id="password"
                       type="password"
@@ -280,6 +299,7 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10 glass-input border-border/50"
+                      autoComplete="new-password"
                       required
                       disabled={loading}
                     />
@@ -299,12 +319,12 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button
                     type="submit"
-                    className="w-full glass-button bg-primary hover:bg-primary/90 group"
+                    className="w-full bg-black hover:bg-black/90 text-white dark:bg-white dark:hover:bg-white/90 dark:text-black group"
                     disabled={loading}
                   >
                     {loading ? (
                       <motion.div
-                        className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
+                        className="w-5 h-5 border-2 border-white/30 border-t-white dark:border-black/30 dark:border-t-black rounded-full"
                         animate={{ rotate: 360 }}
                         transition={{
                           duration: 1,
@@ -334,12 +354,6 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
                   <Link to="/signup" className="text-primary hover:underline">
                     Sign up
                   </Link>
-                </div>
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <kbd className="px-2 py-1 bg-muted rounded text-xs border border-border/50">
-                    Enter
-                  </kbd>
-                  <span>to sign in</span>
                 </div>
               </motion.div>
             </motion.div>
