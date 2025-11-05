@@ -242,10 +242,11 @@ def process_video(self, job_id: str) -> dict[str, Any]:
             status="running",
         )
 
-        # sequential pipeline: silence → content → segments
-        # use .si() (immutable signature) to ignore previous task results
+        # sequential pipeline: silence → transcription → content → segments
+        # use .s() for transcription to receive silence result, .si() for others
         pipeline = chain(
             silence_detection_task.si(job_id),
+            transcription_task.s(job_id=job_id),  # receives silence_result as first arg
             content_analysis_task.si(job_id),
             # segment_extraction_task.si(job_id),
         )
@@ -311,7 +312,7 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
         # this ensures silence regions are stored in DB before transcription starts
         sequential_chain = chain(
             silence_detection_task.s(job_id),
-            transcription_task.s(job_id),
+            transcription_task.s(job_id=job_id),  # receives silence_result as first arg
         )
 
         # execute sequential chain

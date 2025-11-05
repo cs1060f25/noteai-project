@@ -1,4 +1,4 @@
-"""Transcription agent for speech-to-text using Google Cloud Speech-to-Text API."""
+"""Transcription agent for speech-to-text using Google Gemini API."""
 
 import os
 import tempfile
@@ -6,8 +6,8 @@ import time
 import uuid
 from pathlib import Path
 
+import google.generativeai as genai
 import requests
-from google.cloud import speech_v1
 from pydub import AudioSegment
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -19,43 +19,38 @@ from app.services.s3_service import s3_service
 
 logger = get_logger(__name__)
 
-# google cloud speech-to-text configuration
-MAX_AUDIO_SIZE_MB = 10  # google cloud speech-to-text synchronous api file size limit
-MAX_AUDIO_DURATION_SECONDS = (
-    50  # google cloud speech-to-text synchronous api duration limit (safe margin under 60s)
-)
+# gemini api configuration for audio transcription
+MAX_AUDIO_SIZE_MB = 10  # chunk size for large files
+# 5 minutes per chunk (gemini can handle longer audio)
+MAX_AUDIO_DURATION_SECONDS = 300
 
 
 def get_db_session():
     """create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
-def validate_google_cloud_config() -> None:
-    """validate google cloud configuration.
+def validate_gemini_config() -> None:
+    """validate gemini api configuration.
 
     Raises:
-        ValueError: if google cloud credentials are not configured
+        ValueError: if gemini api key is not configured
     """
-    # set credentials path if provided
-    if settings.google_cloud_credentials_path:
-        if not os.path.exists(settings.google_cloud_credentials_path):
-            raise ValueError(
-                f"Google Cloud credentials file not found: {settings.google_cloud_credentials_path}"
-            )
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_cloud_credentials_path
-        logger.info(
-            "Using Google Cloud credentials from file",
-            extra={"credentials_path": settings.google_cloud_credentials_path},
+    if not settings.gemini_api_key:
+        raise ValueError(
+            "GEMINI_API_KEY not configured. Please add it to your .env file."
         )
-    else:
-        # check if default credentials are available
-        if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
-            logger.warning(
-                "No Google Cloud credentials configured. Will attempt to use default credentials (e.g., gcloud auth)."
-            )
+
+    # configure gemini
+    genai.configure(api_key=settings.gemini_api_key)
+
+    logger.info(
+        "Gemini API configured successfully",
+        extra={"model": "gemini-2.5-flash"},
+    )
 
 
 def download_video_from_s3(s3_key: str, job_id: str) -> str:
@@ -127,7 +122,8 @@ def get_non_silent_intervals(job_id: str, video_duration: float) -> list[dict]:
         db_service = DatabaseService(db)
 
         # retrieve all silence regions for this job, sorted by start_time
-        silence_regions = db_service.silence_regions.get_by_job_id(job_id, order_by_time=True)
+        silence_regions = db_service.silence_regions.get_by_job_id(
+            job_id, order_by_time=True)
 
         logger.info(
             "Retrieved silence regions from database",
@@ -158,7 +154,8 @@ def get_non_silent_intervals(job_id: str, video_duration: float) -> list[dict]:
 
         # handle remaining time after last silence region
         if current_time < video_duration:
-            non_silent_intervals.append({"start_time": current_time, "end_time": video_duration})
+            non_silent_intervals.append(
+                {"start_time": current_time, "end_time": video_duration})
 
         # calculate statistics
         total_non_silent_duration = sum(
@@ -332,9 +329,11 @@ def extract_and_segment_audio(
         if needs_chunking:
             reason = []
             if file_size_mb > MAX_AUDIO_SIZE_MB:
-                reason.append(f"size {file_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB")
+                reason.append(
+                    f"size {file_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB")
             if duration_seconds > MAX_AUDIO_DURATION_SECONDS:
-                reason.append(f"duration {duration_seconds:.1f}s > {MAX_AUDIO_DURATION_SECONDS}s")
+                reason.append(
+                    f"duration {duration_seconds:.1f}s > {MAX_AUDIO_DURATION_SECONDS}s")
 
             logger.warning(
                 "Audio exceeds API limits, will use chunking",
@@ -349,7 +348,8 @@ def extract_and_segment_audio(
             os.unlink(audio_path)
             return combined_audio, timestamp_mapping, True  # True indicates needs chunking
 
-        return audio_path, timestamp_mapping, False  # False indicates no chunking needed
+        # False indicates no chunking needed
+        return audio_path, timestamp_mapping, False
 
     except Exception as e:
         logger.error(
@@ -361,30 +361,24 @@ def extract_and_segment_audio(
 
 
 def chunk_and_transcribe_audio(
-    audio: AudioSegment, job_id: str, chunk_duration_seconds: int = 50
+    audio: AudioSegment, job_id: str, chunk_duration_seconds: int = 300
 ) -> dict:
     """split large audio into chunks and transcribe each chunk.
 
-    Google Cloud Speech-to-Text synchronous API has a 60-second limit,
-    so we chunk audio into segments shorter than that.
+    Gemini API can handle longer audio segments, so we chunk into
+    5-minute segments for better accuracy.
 
     Args:
         audio: pydub AudioSegment object
         job_id: job identifier for logging
-        chunk_duration_seconds: duration of each chunk in seconds (default: 50s, max: 60s)
+        chunk_duration_seconds: duration of each chunk in seconds (default: 300s/5min)
 
     Returns:
         combined transcription result dictionary with all segments
 
     Raises:
         Exception: if any chunk transcription fails
-        ValueError: if chunk_duration_seconds exceeds 60 seconds
     """
-    # validate chunk duration doesn't exceed API limit
-    if chunk_duration_seconds > 60:
-        raise ValueError(
-            f"chunk_duration_seconds must be <= 60 seconds for synchronous API, got {chunk_duration_seconds}"
-        )
 
     chunk_duration_ms = chunk_duration_seconds * 1000  # convert to milliseconds
     total_duration_ms = len(audio)
@@ -452,13 +446,15 @@ def chunk_and_transcribe_audio(
                 )
 
             # transcribe chunk
-            chunk_result = transcribe_with_google_speech(chunk_path, job_id)
+            chunk_result = transcribe_with_gemini(chunk_path, job_id)
 
             # adjust timestamps for this chunk's position in the full audio
             for segment in chunk_result.get("segments", []):
                 adjusted_segment = segment.copy()
-                adjusted_segment["start"] = round(segment["start"] + chunk_start_seconds, 2)
-                adjusted_segment["end"] = round(segment["end"] + chunk_start_seconds, 2)
+                adjusted_segment["start"] = round(
+                    segment["start"] + chunk_start_seconds, 2)
+                adjusted_segment["end"] = round(
+                    segment["end"] + chunk_start_seconds, 2)
                 all_segments.append(adjusted_segment)
 
             full_text += chunk_result.get("text", "") + " "
@@ -511,28 +507,26 @@ def chunk_and_transcribe_audio(
     return result
 
 
-def transcribe_with_google_speech(audio_path: str, job_id: str) -> dict:
-    """transcribe audio file using Google Cloud Speech-to-Text API with retry logic.
+def transcribe_with_gemini(audio_path: str, job_id: str) -> dict:
+    """transcribe audio file using Google Gemini API.
 
     Args:
         audio_path: path to audio file
         job_id: job identifier for logging
 
     Returns:
-        speech-to-text api response dictionary with segments and metadata
+        transcription response dictionary with segments and metadata
 
     Raises:
         Exception: if transcription fails after all retries
     """
-    client = speech_v1.SpeechClient()
-
     max_retries = 3
     base_delay = 2  # seconds
 
     for attempt in range(max_retries):
         try:
             logger.info(
-                "Calling Google Cloud Speech-to-Text API",
+                "Calling Gemini API for transcription",
                 extra={
                     "job_id": job_id,
                     "attempt": attempt + 1,
@@ -540,136 +534,85 @@ def transcribe_with_google_speech(audio_path: str, job_id: str) -> dict:
                 },
             )
 
-            # read audio file content
-            with open(audio_path, "rb") as audio_file:
-                audio_content = audio_file.read()
+            # upload audio file to gemini
+            audio_file = genai.upload_file(path=audio_path)
 
-            # configure audio and recognition settings
-            audio = speech_v1.RecognitionAudio(content=audio_content)
+            # use gemini 2.5 flash for audio transcription
+            model = genai.GenerativeModel("gemini-2.5-flash")
 
-            config = speech_v1.RecognitionConfig(
-                encoding=speech_v1.RecognitionConfig.AudioEncoding.MP3,
-                language_code=settings.speech_to_text_language_code,
-                model=settings.speech_to_text_model,
-                enable_word_time_offsets=settings.speech_to_text_enable_word_time_offsets,
-                enable_automatic_punctuation=True,
-            )
+            # prompt for transcription
+            prompt = """Transcribe this audio file. Provide the transcription as plain text only,
+without any formatting, timestamps, or additional commentary. Just return the spoken words."""
 
-            # make api call
-            response = client.recognize(config=config, audio=audio)
+            # generate transcription
+            response = model.generate_content([audio_file, prompt])
+
+            # get audio duration using pydub
+            audio = AudioSegment.from_file(audio_path)
+            duration_seconds = len(audio) / 1000.0
+
+            # extract text from response
+            full_text = response.text.strip()
+
+            # create simple segments (split by sentences)
+            sentences = []
+            current_sentence = ""
+            for char in full_text:
+                current_sentence += char
+                if char in ".!?":
+                    sentences.append(current_sentence.strip())
+                    current_sentence = ""
+
+            if current_sentence.strip():
+                sentences.append(current_sentence.strip())
+
+            # estimate timestamps based on text length
+            segments = []
+            total_chars = len(full_text)
+            current_time = 0.0
+
+            for segment_id, sentence in enumerate(sentences):
+                sentence_duration = (len(sentence) / total_chars) * \
+                    duration_seconds if total_chars > 0 else duration_seconds
+                end_time = min(current_time + sentence_duration,
+                               duration_seconds)
+
+                segments.append({
+                    "id": segment_id,
+                    "start": round(current_time, 2),
+                    "end": round(end_time, 2),
+                    "text": sentence,
+                    "confidence": None,  # gemini doesn't provide confidence scores
+                })
+
+                current_time = end_time
 
             logger.info(
-                "Google Cloud Speech-to-Text API call successful",
+                "Gemini transcription successful",
                 extra={
                     "job_id": job_id,
-                    "results_count": len(response.results),
+                    "segments": len(segments),
+                    "duration": duration_seconds,
                 },
             )
 
-            # process response into segments
-            segments = []
-            full_text = ""
-            segment_id = 0
+            # delete uploaded file from gemini
+            try:
+                genai.delete_file(audio_file.name)
+            except Exception as delete_error:
+                logger.warning(
+                    "Failed to delete uploaded audio file from Gemini",
+                    exc_info=delete_error,
+                    extra={"job_id": job_id},
+                )
 
-            for result in response.results:
-                # get the best alternative (highest confidence)
-                alternative = result.alternatives[0]
-                full_text += alternative.transcript + " "
-
-                # create segments from words
-                if alternative.words:
-                    # group words into segments (by sentences or fixed intervals)
-                    current_segment_words = []
-                    segment_start = None
-                    segment_end = None
-
-                    for word_info in alternative.words:
-                        if segment_start is None:
-                            segment_start = (
-                                word_info.start_time.seconds
-                                + word_info.start_time.microseconds / 1e6
-                            )
-
-                        current_segment_words.append(word_info.word)
-                        segment_end = (
-                            word_info.end_time.seconds + word_info.end_time.microseconds / 1e6
-                        )
-
-                        # create segment every 10 words or at end of sentence
-                        if len(current_segment_words) >= 10 or word_info.word.rstrip(" ").endswith(
-                            (".", "!", "?")
-                        ):
-                            segments.append(
-                                {
-                                    "id": segment_id,
-                                    "start": round(segment_start, 2),
-                                    "end": round(segment_end, 2),
-                                    "text": " ".join(current_segment_words),
-                                    "confidence": (
-                                        round(alternative.confidence, 3)
-                                        if alternative.confidence > 0
-                                        else None
-                                    ),
-                                }
-                            )
-                            segment_id += 1
-                            current_segment_words = []
-                            segment_start = None
-
-                    # add remaining words as final segment
-                    if current_segment_words and segment_start is not None:
-                        segments.append(
-                            {
-                                "id": segment_id,
-                                "start": round(segment_start, 2),
-                                "end": round(segment_end, 2),
-                                "text": " ".join(current_segment_words),
-                                "confidence": (
-                                    round(alternative.confidence, 3)
-                                    if alternative.confidence > 0
-                                    else None
-                                ),
-                            }
-                        )
-                        segment_id += 1
-                else:
-                    # no word-level timestamps, create single segment
-                    segments.append(
-                        {
-                            "id": segment_id,
-                            "start": 0.0,
-                            "end": 0.0,
-                            "text": alternative.transcript,
-                            "confidence": (
-                                round(alternative.confidence, 3)
-                                if alternative.confidence > 0
-                                else None
-                            ),
-                        }
-                    )
-                    segment_id += 1
-
-            # calculate total duration from last word
-            duration = segments[-1]["end"] if segments else 0.0
-
-            response_dict = {
-                "text": full_text.strip(),
+            return {
+                "text": full_text,
                 "task": "transcribe",
-                "language": settings.speech_to_text_language_code,
-                "duration": duration,
+                "language": "en",  # gemini auto-detects language
+                "duration": duration_seconds,
                 "segments": segments,
             }
-
-            logger.info(
-                "Transcription processing complete",
-                extra={
-                    "job_id": job_id,
-                    "total_segments": len(segments),
-                    "duration": duration,
-                },
-            )
-
-            return response_dict
 
         except Exception as e:
             error_msg = str(e)
@@ -678,7 +621,7 @@ def transcribe_with_google_speech(audio_path: str, job_id: str) -> dict:
             )
 
             logger.warning(
-                "Google Cloud Speech-to-Text API call failed",
+                "Gemini API call failed",
                 exc_info=e,
                 extra={
                     "job_id": job_id,
@@ -691,7 +634,7 @@ def transcribe_with_google_speech(audio_path: str, job_id: str) -> dict:
             # if this was the last attempt, raise the exception
             if attempt == max_retries - 1:
                 logger.error(
-                    "Google Cloud Speech-to-Text API call failed after all retries",
+                    "Gemini API call failed after all retries",
                     exc_info=e,
                     extra={"job_id": job_id, "max_retries": max_retries},
                 )
@@ -706,7 +649,7 @@ def transcribe_with_google_speech(audio_path: str, job_id: str) -> dict:
             time.sleep(delay)
 
     # this should never be reached, but just in case
-    raise Exception("Google Cloud Speech-to-Text API call failed unexpectedly")
+    raise Exception("Gemini API call failed unexpectedly")
 
 
 def remap_timestamps_to_original(
@@ -755,7 +698,8 @@ def remap_timestamps_to_original(
                 proportion = (
                     offset_from_start / compressed_duration if compressed_duration > 0 else 0
                 )
-                original_start = map_orig_start + (proportion * original_duration)
+                original_start = map_orig_start + \
+                    (proportion * original_duration)
 
             # check if segment end falls within this mapping interval
             if map_comp_start <= compressed_end <= map_comp_end:
@@ -763,7 +707,8 @@ def remap_timestamps_to_original(
                 proportion = (
                     offset_from_start / compressed_duration if compressed_duration > 0 else 0
                 )
-                original_end = map_orig_start + (proportion * original_duration)
+                original_end = map_orig_start + \
+                    (proportion * original_duration)
 
             # if we found both timestamps, we can stop searching
             if original_start is not None and original_end is not None:
@@ -815,7 +760,8 @@ def store_transcript_segments(segments: list[dict], job_id: str) -> None:
         Exception: if database operation fails
     """
     if not segments:
-        logger.info("No transcript segments to store", extra={"job_id": job_id})
+        logger.info("No transcript segments to store",
+                    extra={"job_id": job_id})
         return
 
     db = get_db_session()
@@ -858,11 +804,11 @@ def store_transcript_segments(segments: list[dict], job_id: str) -> None:
 
 
 def generate_transcript(video_path: str, job_id: str) -> dict:
-    """generate transcript from video audio using Google Cloud Speech-to-Text.
+    """generate transcript from video audio using Google Gemini API.
 
     this function downloads the video from s3, retrieves silence regions,
     extracts and processes audio (removing silence), transcribes using
-    Google Cloud Speech-to-Text API, stores results in database, and returns a summary.
+    Gemini API, stores results in database, and returns a summary.
 
     Args:
         video_path: s3 key for the video file (not local path)
@@ -884,8 +830,8 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
     )
 
     try:
-        # validate google cloud configuration
-        validate_google_cloud_config()
+        # validate gemini api configuration
+        validate_gemini_config()
 
         # download video from s3
         temp_video_path = download_video_from_s3(video_path, job_id)
@@ -944,15 +890,17 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
                 "Using chunked transcription for large audio file",
                 extra={"job_id": job_id},
             )
-            transcription_result = chunk_and_transcribe_audio(audio_or_path, job_id)
+            transcription_result = chunk_and_transcribe_audio(
+                audio_or_path, job_id)
             temp_audio_path = None  # no single file, chunks are handled internally
         else:
             # audio fits in single request
             temp_audio_path = audio_or_path
-            transcription_result = transcribe_with_google_speech(temp_audio_path, job_id)
+            transcription_result = transcribe_with_gemini(
+                temp_audio_path, job_id)
 
         logger.info(
-            "Transcription received from Google Cloud Speech-to-Text",
+            "Transcription received from Gemini API",
             extra={
                 "job_id": job_id,
                 "segments": len(transcription_result.get("segments", [])),
@@ -974,7 +922,8 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
             seg["end_time"] - seg["start_time"] for seg in remapped_segments
         )
         avg_confidence = (
-            sum(seg["confidence"] for seg in remapped_segments if seg["confidence"] is not None)
+            sum(seg["confidence"]
+                for seg in remapped_segments if seg["confidence"] is not None)
             / len([seg for seg in remapped_segments if seg["confidence"] is not None])
             if any(seg["confidence"] is not None for seg in remapped_segments)
             else None

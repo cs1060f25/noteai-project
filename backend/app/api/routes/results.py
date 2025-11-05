@@ -46,7 +46,7 @@ def get_results(
     db_service = DatabaseService(db)
 
     # get job
-    job = db_service.jobs.get_by_job_id(job_id)
+    job = db_service.jobs.get_by_id(job_id)
 
     if not job:
         logger.warning("Job not found for results", extra={"job_id": job_id})
@@ -103,7 +103,7 @@ def get_results(
             try:
                 clip_url = s3_service.generate_presigned_url(
                     object_key=clip.s3_key,
-                    expires_in=settings.S3_PRESIGNED_URL_EXPIRY,
+                    expires_in=settings.s3_presigned_url_expiry,
                 )
             except Exception as e:
                 logger.warning(
@@ -118,7 +118,7 @@ def get_results(
             try:
                 thumbnail_url = s3_service.generate_presigned_url(
                     object_key=clip.thumbnail_s3_key,
-                    expires_in=settings.S3_PRESIGNED_URL_EXPIRY,
+                    expires_in=settings.s3_presigned_url_expiry,
                 )
             except Exception as e:
                 logger.warning(
@@ -130,7 +130,7 @@ def get_results(
         clips.append(
             ClipMetadata(
                 clip_id=clip.clip_id,
-                title=clip.title or f"Clip {clip.sequence_number}",
+                title=clip.title or f"Clip {clip.clip_order or len(clips) + 1}",
                 start_time=clip.start_time,
                 end_time=clip.end_time,
                 duration=clip.duration,
@@ -161,10 +161,10 @@ def get_results(
     metadata = {}
     if layout:
         metadata["layout"] = {
-            "has_screen_share": layout.has_screen_share,
-            "has_camera": layout.has_camera,
-            "screen_ratio": layout.screen_ratio,
-            "camera_ratio": layout.camera_ratio,
+            "layout_type": layout.layout_type,
+            "split_ratio": layout.split_ratio,
+            "screen_region": layout.screen_region,
+            "camera_region": layout.camera_region,
         }
 
     # add job completion time
