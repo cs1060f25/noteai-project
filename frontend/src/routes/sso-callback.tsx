@@ -7,9 +7,7 @@ const SSOCallbackComponent = () => {
     <div className="w-screen min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-        <p className="fluent-body text-muted-foreground">
-          Completing sign in...
-        </p>
+        <p className="fluent-body text-muted-foreground">Completing sign in...</p>
       </div>
       <AuthenticateWithRedirectCallback />
     </div>

@@ -1,5 +1,7 @@
-import { FolderOpen, Home, Settings, Upload, Video } from 'lucide-react';
 import { Link, useRouterState } from '@tanstack/react-router';
+import { Brain, FolderOpen, Home, Settings, Upload, Video } from 'lucide-react';
+
+import { CustomUserProfile } from './CustomUserProfile';
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home, description: 'Overview', to: '/dashboard' },
@@ -10,6 +12,13 @@ const sidebarItems = [
     icon: FolderOpen,
     description: 'Browse videos',
     to: '/library',
+  },
+  {
+    id: 'agent-outputs',
+    label: 'Agent Outputs',
+    icon: Brain,
+    description: 'Debug agent results',
+    to: '/agent-outputs',
   },
   {
     id: 'settings',
@@ -65,6 +74,11 @@ export const Sidebar = () => {
           })}
         </ul>
       </nav>
+
+      {/* user profile at bottom */}
+      <div className="p-4 border-t border-border">
+        <CustomUserProfile />
+      </div>
     </aside>
   );
 };

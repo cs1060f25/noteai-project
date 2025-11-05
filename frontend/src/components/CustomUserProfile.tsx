@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { User, LogOut, Settings, ChevronDown, Mail, Calendar, Shield, Loader2 } from 'lucide-react';
@@ -10,6 +10,7 @@ export const CustomUserProfile = () => {
   const { signOut } = useClerk();
   const [isOpen, setIsOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -38,8 +39,9 @@ export const CustomUserProfile = () => {
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-4 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors fluent-focus fluent-hover-lift"
+        className="flex items-center gap-3 px-4 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors fluent-focus fluent-hover-lift w-full"
       >
         <div className="flex items-center gap-3">
           {avatarUrl ? (
@@ -59,18 +61,24 @@ export const CustomUserProfile = () => {
           </div>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? '' : 'rotate-180'}`}
         />
       </button>
 
       {/* Dropdown Menu */}
-      {isOpen && (
+      {isOpen && buttonRef.current && (
         <>
           {/* backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 
-          {/* dropdown */}
-          <div className="absolute right-0 mt-2 w-80 fluent-layer-3 border border-border rounded-lg fluent-shadow-lg z-50 overflow-hidden">
+          {/* dropdown - opens upward when at bottom */}
+          <div
+            className="fixed w-80 max-h-[calc(100vh-120px)] fluent-layer-3 border border-border rounded-lg fluent-shadow-lg z-50 overflow-y-auto overflow-x-hidden"
+            style={{
+              left: buttonRef.current.getBoundingClientRect().left,
+              bottom: window.innerHeight - buttonRef.current.getBoundingClientRect().top + 8,
+            }}
+          >
             {/* user info section */}
             <div className="p-4 border-b border-border bg-accent/50">
               <div className="flex items-start gap-3">

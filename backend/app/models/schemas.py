@@ -132,6 +132,65 @@ class ResultsResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
+# Agent Output Models
+
+
+class SilenceRegionResponse(BaseModel):
+    """Detected silence region."""
+
+    region_id: str = Field(..., description="Unique region identifier")
+    start_time: float = Field(..., description="Start time in seconds", ge=0)
+    end_time: float = Field(..., description="End time in seconds", ge=0)
+    duration: float = Field(..., description="Duration in seconds", ge=0)
+    silence_type: str = Field(
+        ..., description="Type of silence: 'audio_silence', 'blank_screen', or 'both'"
+    )
+    amplitude_threshold: float | None = Field(
+        None, description="Audio amplitude threshold in dBFS (if audio silence)"
+    )
+    created_at: datetime = Field(..., description="Detection timestamp")
+
+
+class ContentSegmentResponse(BaseModel):
+    """AI-analyzed content segment."""
+
+    segment_id: str = Field(..., description="Unique segment identifier")
+    start_time: float = Field(..., description="Start time in seconds", ge=0)
+    end_time: float = Field(..., description="End time in seconds", ge=0)
+    duration: float = Field(..., description="Duration in seconds", ge=0)
+    topic: str = Field(..., description="Segment topic")
+    description: str | None = Field(None, description="Detailed description")
+    importance_score: float = Field(..., description="Importance score (0-1)", ge=0, le=1)
+    keywords: list[str] = Field(default_factory=list, description="Extracted keywords")
+    concepts: list[str] = Field(default_factory=list, description="Key concepts")
+    segment_order: int = Field(..., description="Order in sequence", ge=0)
+    created_at: datetime = Field(..., description="Analysis timestamp")
+
+
+class TranscriptsResponse(BaseModel):
+    """List of transcript segments response."""
+
+    job_id: str = Field(..., description="Job identifier")
+    segments: list[TranscriptSegment] = Field(..., description="Transcript segments")
+    total: int = Field(..., description="Total number of segments")
+
+
+class SilenceRegionsResponse(BaseModel):
+    """List of silence regions response."""
+
+    job_id: str = Field(..., description="Job identifier")
+    regions: list[SilenceRegionResponse] = Field(..., description="Silence regions")
+    total: int = Field(..., description="Total number of regions")
+
+
+class ContentSegmentsResponse(BaseModel):
+    """List of content segments response."""
+
+    job_id: str = Field(..., description="Job identifier")
+    segments: list[ContentSegmentResponse] = Field(..., description="Content segments")
+    total: int = Field(..., description="Total number of segments")
+
+
 # WebSocket Models
 
 

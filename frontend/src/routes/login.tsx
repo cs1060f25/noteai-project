@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { GoogleOneTap, useUser } from '@clerk/clerk-react';
 import { Navigate, createFileRoute } from '@tanstack/react-router';
 
-import { AuthLayout } from '@/components/auth/AuthLayout';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { VerificationForm } from '@/components/auth/VerificationForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,14 +49,12 @@ const LoginPage = () => {
   return (
     <>
       <GoogleOneTap />
-      <AuthLayout>
-        <LoginForm
-          onSubmit={onLoginSubmit}
-          onOAuthSignIn={handleOAuthSignIn}
-          loading={loading}
-          error={error}
-        />
-      </AuthLayout>
+      <LoginForm
+        onSubmit={onLoginSubmit}
+        onOAuthSignIn={handleOAuthSignIn}
+        loading={loading}
+        error={error}
+      />
     </>
   );
 };

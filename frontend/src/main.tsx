@@ -5,6 +5,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { createRoot } from 'react-dom/client';
 
 import './index.css';
+import { ThemeProvider } from './components/ui/theme-provider';
 import { setClerkSessionTokenGetter } from './lib/clerk-api';
 import { router } from './router';
 
@@ -30,10 +31,12 @@ const ClerkApiSetup = ({ children }: { children: React.ReactNode }) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-      <ClerkApiSetup>
-        <RouterProvider router={router} />
-      </ClerkApiSetup>
-    </ClerkProvider>
+    <ThemeProvider>
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+        <ClerkApiSetup>
+          <RouterProvider router={router} />
+        </ClerkApiSetup>
+      </ClerkProvider>
+    </ThemeProvider>
   </StrictMode>
 );

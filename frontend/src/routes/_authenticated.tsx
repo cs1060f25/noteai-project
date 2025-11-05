@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Outlet, createFileRoute, useNavigate } from '@tanstack/react-router';
 
-import { CustomUserProfile } from '@/components/CustomUserProfile';
 import { Sidebar } from '@/components/Sidebar';
 
 const AuthenticatedLayout = () => {
@@ -29,22 +28,9 @@ const AuthenticatedLayout = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="fluent-layer-1 border-b border-border p-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div>
-              <h1 className="fluent-title text-3xl text-foreground">NoteAI Dashboard</h1>
-              <p className="fluent-caption mt-1">
-                Manage your lecture videos and generate highlight clips with subtitles
-              </p>
-            </div>
-            <CustomUserProfile />
-          </div>
-        </header>
-
         {/* Content Area - Protected routes render here */}
-        <div className="flex-1 p-6 overflow-auto">
-          <div className="max-w-7xl mx-auto">
+        <div className="flex-1 px-4 pt-8 pb-4 overflow-auto">
+          <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>
         </div>

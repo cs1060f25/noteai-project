@@ -64,8 +64,7 @@ const ForgotPasswordPage = () => {
             ) : (
               <div className="text-center space-y-4">
                 <p className="fluent-body text-foreground">
-                  We've sent a password reset link to{' '}
-                  <span className="font-medium">{email}</span>
+                  We've sent a password reset link to <span className="font-medium">{email}</span>
                 </p>
                 <Link
                   to="/login"
