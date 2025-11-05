@@ -17,7 +17,7 @@ import {
   Sun,
   Moon,
   Check,
-  AlignCenter,
+  Sparkle,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
     { id: 'upload', name: 'Upload', icon: Upload, path: '/upload' },
     { id: 'library', name: 'Library', icon: Library, path: '/library' },
     { id: 'settings', name: 'Settings', icon: Settings, path: '/settings' },
-    { id: 'agent-outputs', name: 'Agent Outputs', icon: AlignCenter, path: '/agent-outputs' },
+    { id: 'agent-outputs', name: 'Agent Outputs', icon: Sparkle, path: '/agent-outputs' },
   ];
 
   const isActivePath = (path: string) => {
@@ -112,23 +112,25 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
-          {navigation.map((item) => (
-            <Link key={item.id} to={item.path}>
-              <motion.div
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
-                  isActivePath(item.path)
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-                whileHover={{ x: isActivePath(item.path) ? 0 : 4 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              >
-                <item.icon className="w-5 h-5" />
-                <span>{item.name}</span>
-              </motion.div>
-            </Link>
-          ))}
+          <div className="flex flex-col gap-2">
+            {navigation.map((item) => (
+              <Link key={item.id} to={item.path}>
+                <motion.div
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                    isActivePath(item.path)
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                  whileHover={{ x: isActivePath(item.path) ? 0 : 4 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span>{item.name}</span>
+                </motion.div>
+              </Link>
+            ))}
+          </div>
         </nav>
 
         {/* User Info */}

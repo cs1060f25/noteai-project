@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import {
   Video,
   Scissors,
@@ -121,10 +121,12 @@ export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string)
               Welcome back! Here's what's happening with your videos.
             </p>
           </div>
-          <GlassButton variant="primary" size="md" onClick={() => onNavigate?.('upload')}>
-            <Video className="w-4 h-4" />
-            Upload Video
-          </GlassButton>
+          <Link to="/upload">
+            <GlassButton variant="primary" size="md" onClick={() => onNavigate?.('upload')}>
+              <Video className="w-4 h-4" />
+              Upload Video
+            </GlassButton>
+          </Link>
         </div>
 
         {/* Stats Grid */}
