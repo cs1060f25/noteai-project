@@ -81,7 +81,7 @@ def get_job_status(
             stage=job.current_stage,
             percent=job.progress_percent,
             message=job.progress_message or "",
-            eta_seconds=job.estimated_completion_seconds,
+            eta_seconds=job.eta_seconds,
         )
 
     logger.debug(
@@ -147,7 +147,7 @@ def list_jobs(
                 stage=job.current_stage,
                 percent=job.progress_percent,
                 message=job.progress_message or "",
-                eta_seconds=job.estimated_completion_seconds,
+                eta_seconds=job.eta_seconds,
             )
 
         job_responses.append(
