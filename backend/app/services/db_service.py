@@ -5,7 +5,7 @@ implementing the repository pattern for each model with comprehensive
 CRUD operations, query builders, and transaction management.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import desc, func
@@ -20,6 +20,7 @@ from app.models.database import (
     SilenceRegion,
     Transcript,
 )
+from app.models.user import User
 
 # ============================================================================
 # Job Repository
@@ -315,6 +316,58 @@ class JobRepository:
         self.db.commit()
         self.db.refresh(job)
         return job
+
+    def get_system_metrics(self) -> dict[str, Any]:
+        """Get system-wide job metrics for admin dashboard.
+
+        Returns:
+            Dictionary with various job metrics
+        """
+        total_jobs = self.db.query(func.count(Job.id)).scalar() or 0
+
+        # count by status
+        status_counts = {}
+        for status_value in ["pending", "queued", "running", "completed", "failed"]:
+            count = (
+                self.db.query(func.count(Job.id))
+                .filter(Job.status == status_value)
+                .scalar()
+                or 0
+            )
+            status_counts[status_value] = count
+
+        # total storage used (sum of file sizes)
+        total_storage_bytes = self.db.query(func.sum(Job.file_size)).scalar() or 0
+
+        # recent job counts (last 24 hours, 7 days, 30 days)
+        now = datetime.now(timezone.utc)
+        jobs_last_24h = (
+            self.db.query(func.count(Job.id))
+            .filter(Job.created_at >= now - timedelta(hours=24))
+            .scalar()
+            or 0
+        )
+        jobs_last_7d = (
+            self.db.query(func.count(Job.id))
+            .filter(Job.created_at >= now - timedelta(days=7))
+            .scalar()
+            or 0
+        )
+        jobs_last_30d = (
+            self.db.query(func.count(Job.id))
+            .filter(Job.created_at >= now - timedelta(days=30))
+            .scalar()
+            or 0
+        )
+
+        return {
+            "total_jobs": total_jobs,
+            "jobs_by_status": status_counts,
+            "total_storage_bytes": total_storage_bytes,
+            "jobs_last_24h": jobs_last_24h,
+            "jobs_last_7d": jobs_last_7d,
+            "jobs_last_30d": jobs_last_30d,
+        }
 
     def delete(self, job_id: str) -> bool:
         """Delete a job and all related records (cascades).
@@ -1183,6 +1236,104 @@ class ProcessingLogRepository:
 
 
 # ============================================================================
+# User Repository
+# ============================================================================
+
+
+class UserRepository:
+    """Repository for User model operations."""
+
+    def __init__(self, db: Session):
+        """Initialize repository with database session.
+
+        Args:
+            db: SQLAlchemy database session
+        """
+        self.db = db
+
+    def get_by_id(self, user_id: str) -> User | None:
+        """Get user by user_id.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            User instance or None if not found
+        """
+        return self.db.query(User).filter(User.user_id == user_id).first()
+
+    def get_by_email(self, email: str) -> User | None:
+        """Get user by email.
+
+        Args:
+            email: User email address
+
+        Returns:
+            User instance or None if not found
+        """
+        return self.db.query(User).filter(User.email == email).first()
+
+    def list_all_users(
+        self, limit: int = 50, offset: int = 0, search: str | None = None
+    ) -> list[User]:
+        """List all users with pagination and optional search.
+
+        Args:
+            limit: Maximum number of users to return
+            offset: Number of users to skip
+            search: Optional search query for email or name
+
+        Returns:
+            List of User instances
+        """
+        query = self.db.query(User)
+
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                (User.email.ilike(search_pattern)) | (User.name.ilike(search_pattern))
+            )
+
+        return query.order_by(desc(User.created_at)).limit(limit).offset(offset).all()
+
+    def count_all_users(self, search: str | None = None) -> int:
+        """Count all users with optional search filter.
+
+        Args:
+            search: Optional search query for email or name
+
+        Returns:
+            Total count of users
+        """
+        query = self.db.query(func.count(User.id))
+
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                (User.email.ilike(search_pattern)) | (User.name.ilike(search_pattern))
+            )
+
+        return query.scalar() or 0
+
+    def get_active_user_count(self, days: int = 30) -> int:
+        """Get count of active users within specified days.
+
+        Args:
+            days: Number of days to look back for activity
+
+        Returns:
+            Count of active users
+        """
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        return (
+            self.db.query(func.count(User.id))
+            .filter(User.last_login_at >= cutoff_date)
+            .scalar()
+            or 0
+        )
+
+
+# ============================================================================
 # Database Service Facade
 # ============================================================================
 
@@ -1208,6 +1359,7 @@ class DatabaseService:
         self.content_segments = ContentSegmentRepository(db)
         self.clips = ClipRepository(db)
         self.processing_logs = ProcessingLogRepository(db)
+        self.users = UserRepository(db)
 
     def commit(self) -> None:
         """Commit current transaction."""

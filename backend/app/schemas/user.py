@@ -31,6 +31,7 @@ class UserResponse(UserBase):
 
     user_id: str = Field(..., description="Unique user identifier")
     google_id: str = Field(..., description="Google account ID")
+    role: str = Field(..., description="User role (user, admin)")
     is_active: bool = Field(..., description="Whether user is active")
     is_verified: bool = Field(..., description="Whether user is verified")
     created_at: datetime = Field(..., description="User creation timestamp")

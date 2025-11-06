@@ -12,7 +12,7 @@ from app.core.clerk_auth import (
 )
 from app.core.database import get_db
 from app.core.logging import get_logger
-from app.models.user import User
+from app.models.user import User, UserRole
 
 logger = get_logger(__name__)
 
@@ -131,6 +131,20 @@ async def get_current_user_clerk(
             name = f"{first_name} {last_name}".strip() or None
             picture_url = clerk_user_data.get("image_url")
 
+            # extract role from public metadata
+            public_metadata = clerk_user_data.get("public_metadata", {})
+            role_str = public_metadata.get("role", "user")
+
+            # validate and convert role to enum
+            try:
+                role = UserRole(role_str) if role_str in ["user", "admin"] else UserRole.USER
+            except ValueError:
+                logger.warning(
+                    "Invalid role in Clerk metadata, defaulting to user",
+                    extra={"clerk_user_id": clerk_user_id, "role": role_str},
+                )
+                role = UserRole.USER
+
         except requests.RequestException as e:
             logger.error("Failed to fetch user from Clerk API", exc_info=e)
             raise HTTPException(
@@ -144,7 +158,7 @@ async def get_current_user_clerk(
         existing_user = db.query(User).filter(User.email == primary_email).first()
 
         if existing_user:
-            # update existing user's clerk_user_id
+            # update existing user's clerk_user_id and role
             logger.info(
                 "User with email exists, updating clerk_user_id",
                 extra={
@@ -157,6 +171,7 @@ async def get_current_user_clerk(
             existing_user.clerk_user_id = clerk_user_id
             existing_user.name = name
             existing_user.picture_url = picture_url
+            existing_user.role = role
             db.commit()
             db.refresh(existing_user)
             user = existing_user
@@ -170,6 +185,7 @@ async def get_current_user_clerk(
                 email=primary_email,
                 name=name,
                 picture_url=picture_url,
+                role=role,
                 is_active=True,
                 is_verified=True,
             )
@@ -178,7 +194,57 @@ async def get_current_user_clerk(
             db.commit()
             db.refresh(user)
 
-            logger.info("New user created", extra={"user_id": user.user_id, "email": primary_email})
+            logger.info(
+                "New user created",
+                extra={"user_id": user.user_id, "email": primary_email, "role": role.value},
+            )
+
+    # for existing users (who were not just created), sync role from clerk on each login
+    # this ensures role changes in clerk are reflected in our database
+    if user and user.id:  # user.id exists means it's an existing user from db
+        try:
+            import requests
+
+            from app.core.settings import settings
+
+            clerk_response = requests.get(
+                f"https://api.clerk.com/v1/users/{clerk_user_id}",
+                headers={
+                    "Authorization": f"Bearer {settings.clerk_secret_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=5,
+            )
+
+            if clerk_response.status_code == 200:
+                clerk_user_data = clerk_response.json()
+                public_metadata = clerk_user_data.get("public_metadata", {})
+                role_str = public_metadata.get("role", "user")
+
+                try:
+                    new_role = (
+                        UserRole(role_str) if role_str in ["user", "admin"] else UserRole.USER
+                    )
+                    if user.role != new_role:
+                        logger.info(
+                            "Updating user role from Clerk metadata",
+                            extra={
+                                "user_id": user.user_id,
+                                "old_role": user.role.value if user.role else None,
+                                "new_role": new_role.value,
+                            },
+                        )
+                        user.role = new_role
+                except ValueError:
+                    pass  # keep existing role if invalid
+
+        except Exception as e:
+            # don't fail login if role sync fails, just log the error
+            logger.warning(
+                "Failed to sync role from Clerk, keeping existing role",
+                extra={"user_id": user.user_id},
+                exc_info=e,
+            )
 
     if not user.is_active:
         logger.warning("Inactive user attempted access", extra={"user_id": user.user_id})

@@ -9,7 +9,7 @@ from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
 from app.core.settings import settings
 from app.models.schemas import ClipMetadata, ResultsResponse, TranscriptSegment
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
 
@@ -60,8 +60,8 @@ def get_results(
             },
         )
 
-    # verify job belongs to current user
-    if job.user_id != current_user.user_id:
+    # verify job belongs to current user (or user is admin)
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
         logger.warning(
             "Unauthorized results access attempt",
             extra={"job_id": job_id, "user_id": current_user.user_id, "job_owner": job.user_id},
