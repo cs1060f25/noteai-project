@@ -20,4 +20,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    port: 5173,
+    strictPort: true, // fail instead of auto-incrementing so origin stays stable
+    host: true,
+  },
 });
