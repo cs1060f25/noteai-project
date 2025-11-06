@@ -18,13 +18,6 @@ import {
 import { createJobWebSocket, WebSocketService } from '@/services/websocketService';
 import type { JobProgress } from '@/types/api';
 
-const stageFromProgress = (p: number) => {
-  if (p < 85) return 'uploading' as const;
-  if (p < 95) return 'processing' as const;
-  if (p < 100) return 'analyzing' as const;
-  return 'complete' as const;
-};
-
 export const UploadIntegrated = () => {
   const { getToken } = useAuth();
   const navigate = useNavigate();
@@ -33,13 +26,13 @@ export const UploadIntegrated = () => {
 
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [_uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [fileName, setFileName] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [uploadedJobId, setUploadedJobId] = useState<string | null>(null);
-  const [uploadedVideoKey, setUploadedVideoKey] = useState<string | null>(null);
-  const [uploadStage, setUploadStage] = useState<
+  const [_uploadedVideoKey, setUploadedVideoKey] = useState<string | null>(null);
+  const [_uploadStage, setUploadStage] = useState<
     'uploading' | 'processing' | 'analyzing' | 'complete'
   >('uploading');
   const [youtubeUrl, setYoutubeUrl] = useState<string>('');
@@ -102,25 +95,7 @@ export const UploadIntegrated = () => {
 
       initWebSocket();
     }
-  }, [uploadComplete, uploadedJobId, getToken]);
-
-  const resetState = useCallback(() => {
-    setIsUploading(false);
-    setUploadProgress(0);
-    setUploadComplete(false);
-    setErrorMsg(null);
-    setUploadedJobId(null);
-    setUploadedVideoKey(null);
-    setUploadStage('uploading');
-    setIsProcessing(false);
-    setProcessingProgress(null);
-    setProcessingStartTime(null);
-
-    if (wsRef.current) {
-      wsRef.current.disconnect();
-      wsRef.current = null;
-    }
-  }, []);
+  }, [uploadComplete, uploadedJobId, getToken, navigate]);
 
   const startUpload = useCallback(async (file: File) => {
     setErrorMsg(null);
@@ -403,17 +378,11 @@ export const UploadIntegrated = () => {
             transition={{ duration: 0.5 }}
           >
             <ProcessingProgress
-              jobId={uploadedJobId}
               videoName={fileName}
               currentProgress={processingProgress || undefined}
               onComplete={() => {
                 console.log('[Upload Page] Processing complete - redirecting to library');
                 // Redirect will be handled by WebSocket onComplete callback
-              }}
-              onError={(error) => {
-                console.error('[Upload Page] Processing error:', error);
-                setErrorMsg(error);
-                setIsProcessing(false);
               }}
               startTime={processingStartTime}
             />

@@ -1,4 +1,4 @@
-import type { JobProgress, ProcessingStage } from '../types/api';
+import type { JobProgress } from '../types/api';
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
 
@@ -24,12 +24,12 @@ export class WebSocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 3000;
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private jobId: string;
   private callbacks: WebSocketCallbacks;
   private status: WebSocketStatus = 'disconnected';
   private sessionToken: string | null = null;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private isIntentionallyClosed = false;
 
   constructor(jobId: string, callbacks: WebSocketCallbacks, sessionToken: string | null = null) {
