@@ -1,131 +1,250 @@
-ROLE
-You are a senior backend engineer. Build a clean, production-ready FastAPI + Celery backend, containerized with Docker, conforming to Clean Code and PEP 8, enforced by Ruff and Black.
+# Backend Engineering Guide
 
-PROJECT CONTEXT
+**Role**: Senior backend engineer maintaining a production-ready FastAPI + Celery backend for AI-powered lecture video processing.
 
-- Goal: Turn long lecture videos into multiple short highlight clips with subtitles and screen-split layout.
-- Flow: React uploads → FastAPI issues S3 pre-signed URL → Direct S3 upload → Celery pipeline runs agents (silence/transcript/layout → content/segment/compiler) → Results in S3 → WebSocket progress.
-- Infra: Python 3.9+, FastAPI, Celery, Redis, Pydantic, PostgreSQL (dev SQLite), AWS S3/CloudFront, Docker/Compose.
+---
 
-TECH & TOOLS
+## Project Overview
 
-- API: FastAPI with type hints, Pydantic v2+ models.
-- Workers: Celery (Redis broker + backend).
-- Runtime: Uvicorn (uv) ASGI server.
-- Lint/Format: Ruff + Black (CI-quality).
-- Containers: Docker + docker-compose for API, worker, Redis, DB.
-- Video/AI: Whisper API, Gemini, MoviePy, OpenCV, librosa, PyDub.
-- Storage: S3 pre-signed URLs; do not store raw media locally beyond temp.
-- Realtime: Redis-powered WebSocket updates.1
+Transform long lecture videos into short, AI-curated highlight clips with subtitles.
 
-REPO STRUCTURE (honor these paths)
+**Flow**: React uploads → S3 pre-signed URL → Celery pipeline (silence → transcript → content analysis → segmentation → compilation) → WebSocket progress → Results in S3
 
-- backend/app/main.py (entrypoint)
-- backend/app/api/routes/ (upload, jobs, results, websocket)
-- backend/app/models/ (request/response schemas)
-- backend/app/services/ (s3, db, auth, websocket)
-- backend/app/core/ (settings, logging, security)
-- backend/pipeline/ (celery app, tasks, orchestration)
-- backend/agents/ (silence, transcript, layout, content, segment, compiler)
+**Stack**: FastAPI, Celery, Redis, PostgreSQL/SQLite, AWS S3, Docker, Google Gemini AI, FFmpeg, PyDub, MoviePy
 
-CLEAN CODE & STYLE
+---
 
-- Prefer small, cohesive modules and pure functions.
-- Strong typing everywhere; no Any unless justified.
-- Pydantic models for all I/O boundaries; validate and sanitize inputs.
-- Separation of concerns: routes thin → services do work → agents isolated.
-- Descriptive names, single responsibility, fail fast with actionable errors.
-- No dead code, no incidental complexity, no hidden side effects.
-- Add docstrings to public functions/classes; keep comments high-signal.
-- Comments should be lower-cased and only be used when needed.
+## Repository Structure
 
-API DESIGN
+```
+backend/
+├── app/
+│   ├── main.py                      # FastAPI entrypoint
+│   ├── api/routes/                  # 8 route modules (upload, jobs, results, websocket, admin)
+│   ├── api/dependencies/            # Auth (Clerk JWT), authorization (admin)
+│   ├── models/                      # SQLAlchemy ORM + Pydantic schemas
+│   ├── services/                    # Repository pattern, S3, WebSocket, validation, metrics
+│   └── core/                        # Settings, database, logging, security, rate limiting
+├── pipeline/
+│   ├── celery_app.py                # Celery config with Prometheus
+│   ├── tasks.py                     # Task definitions (BaseProcessingTask, agent tasks)
+│   └── orchestrator.py              # Pipeline startup
+├── agents/                          # 6 processing agents
+│   ├── silence_detector.py          # PyDub audio silence detection
+│   ├── transcript_agent.py          # Google Gemini transcription (chunking, timestamp remapping)
+│   ├── layout_detector.py           # OpenCV layout analysis (placeholder)
+│   ├── content_analyzer.py          # Gemini AI content analysis
+│   ├── segment_extractor.py         # Highlight selection with silence optimization
+│   ├── video_compiler.py            # FFmpeg video rendering
+│   └── utils/ffmpeg_helper.py       # FFmpeg wrapper
+├── tests/                           # Pytest unit/integration tests
+├── scripts/                         # Dev utilities (check-all.sh, test.sh, lint.sh, format.sh)
+├── docs/                            # Detailed docs (DATABASE, DOCKER, OBSERVABILITY, etc.)
+├── Dockerfile                       # Multi-stage production build
+├── Dockerfile.dev                   # Dev build with hot-reload
+├── docker-compose.yml               # 8-service stack (API, worker, DBs, monitoring)
+└── pyproject.toml                   # uv config (deps, ruff, black, mypy)
+```
 
-- RESTful endpoints under `/api/v1`.
-- Upload: issue S3 pre-signed PUT URL and register job.
-- Jobs: create/GET status (queued, running, failed, done) + progress logs.
-- Results: list/retrieve generated clips, timelines, metadata.
-- WebSocket: send structured progress events (stage, percent, eta).
-- Consistent error model: `{error: {code, message, details?}}`, use HTTPException.
+---
 
-TASKS & PIPELINE
+## Architecture Patterns
 
-- Celery app in `backend/pipeline/celery_app.py`.
-- Define idempotent tasks for each agent; make steps retryable and small.
-- Use Redis as broker and result backend; include timeouts & backoff.
-- Orchestrate: parallel stage (silence, transcript, layout) → sequential stage (content, segment, compiler).
-- Emit progress events via Redis channel for WebSocket consumers.
+1. **Repository Pattern**: All database access via typed repositories in `DatabaseService`
+2. **Service Layer**: Business logic separated from routes
+3. **Dependency Injection**: FastAPI `Depends()` for sessions, auth
+4. **Task Queue**: Long-running ops offloaded to Celery
+5. **Pub/Sub**: Redis for WebSocket real-time updates
+6. **Pre-signed URLs**: Direct client-S3 uploads (no proxy)
+7. **Sequential Pipeline**: Chain of Celery tasks (silence → transcript → content → segment → compile)
 
-SECURITY
+---
 
-- Use pre-signed URLs with expiry for all S3 access.
-- Validate content-type, file size, and extensions.
-- Rate-limit sensitive endpoints; configure CORS explicitly.
-- Never log secrets or raw media; scrub PII.
-- Load secrets via environment variables only.
+## Database Models
 
-DATA & STORAGE
+**8 SQLAlchemy Models**:
 
-- Dev: SQLite; Prod: PostgreSQL. Abstract via repository/service layer.
-- Persist jobs, statuses, artifacts metadata, and timelines.
-- S3 keys must be deterministic and namespaced by job.
+- `Job`: Master record (status, progress, metadata)
+- `Transcript`: Speech-to-text segments with timestamps
+- `SilenceRegion`: Detected silence intervals
+- `LayoutAnalysis`: Video layout detection (screen/camera regions)
+- `ContentSegment`: AI-analyzed educational segments (importance scores, topics)
+- `Clip`: Generated highlights with S3 keys
+- `ProcessingLog`: Audit trail
+- `User`: Clerk integration with roles
 
-OBSERVABILITY
+**Strategy**: Dev uses SQLite, prod uses PostgreSQL with Alembic migrations.
 
-- Structured JSON logging; include job_id, stage, duration, error codes.
-- Add metrics hooks for task duration and failure counts.
-- Clear error messages for users; detailed logs for operators.
+---
 
-PERFORMANCE & RESILIENCE
+## Processing Pipeline
 
-- Async FastAPI for I/O paths; avoid blocking in request handlers.
-- Offload heavy CPU/video work to Celery workers.
-- Stream results when possible; chunk large I/O.
-- Avoid N+1 DB access; use indexes; add caching where safe.
+**Sequential Chain** (Celery):
 
-DOCKER & RUN
+1. **Silence Detection**: PyDub detects silence regions, stores in DB
+2. **Transcription**: Gemini transcribes non-silent segments only (queries silence from DB), remaps timestamps
+3. **Content Analysis**: Gemini identifies 5-15 educational segments with importance scores
+4. **Segment Extraction**: Selects top 5 highlights, optimizes boundaries using silence
+5. **Video Compilation**: FFmpeg generates clips, uploads to S3, marks job complete
 
-- Provide Dockerfile(s) and docker-compose with services: api, worker, redis, db.
-- Uvicorn (uv) for API with proper lifespans and health endpoints.
-- Volume-map only what’s needed; no secret bake-in.
-- Support `.env` and sane defaults.
+**BaseProcessingTask**: All tasks inherit this for progress tracking, error handling, WebSocket updates, Prometheus metrics.
 
-QUALITY GATES (Ruff/Black)
+---
 
-- Enforce before commit:
-  - ruff check backend --fix
-  - black backend
-  - ruff format backend (if configured) or rely on Black for formatting
-- Add pre-commit config or npm/yarn script equivalents if applicable.
+## Clean Code Standards
 
-TESTING
+- **Type hints everywhere**: No `Any` unless justified
+- **Pydantic models**: All I/O boundaries validated
+- **Small functions**: Single responsibility
+- **Docstrings**: Google-style on all public functions/classes
+- **Separation of concerns**: Routes thin → services do work → agents isolated
+- **Descriptive names**: No abbreviations
+- **Fail fast**: Validate inputs early
+- **Comments**: Lower-case, high-signal only (explain "why", not "what")
 
-- Unit tests for services, models, and tasks.
-- Integration tests for API routes and minimal pipeline path.
-- Use factories and temp S3 mocks; do not hit real services in tests.
+**Style**: 100 char line length, Black formatting, Ruff linting, Mypy strict mode
 
-OUTPUT REQUIREMENTS (when generating changes)
+---
 
-- Only modify/create files under `backend/` respecting the structure.
-- Include all imports at file top; code must run immediately.
-- Provide config/env examples; no real secrets.
-- Keep PR-sized changes cohesive; include brief README updates if needed.
-- Add minimal smoke tests for new modules.
+## Testing Instructions
 
-REVIEW CHECKLIST (self-verify before finalizing)
+### Running Tests
 
-- Types complete, docstrings present, errors actionable.
-- Endpoints authenticated/authorized if needed, inputs validated.
-- Tasks idempotent, retriable, progress emitted.
-- Docker and compose up successfully; health checks pass.
-- Ruff/Black clean; tests pass locally.
+```bash
+# Run all tests
+./scripts/test.sh
+# or
+uv run pytest tests/ -v
 
-NON-GOALS
+# Run with coverage
+./scripts/test-cov.sh
 
-- Do not implement frontend.
-- Do not store or expose raw media beyond intended lifecycle.
+# Run specific test
+uv run pytest tests/test_silence_detector.py -v
+```
 
-DELIVERABLES
+### Running Linters
 
-- Updated/added backend files, ready to run with docker-compose up.
-- Short summary of changes and how to run locally.
+```bash
+# Run all quality checks (lint + format + mypy)
+./scripts/check-all.sh
+
+# Auto-fix linting issues
+./scripts/lint-fix.sh
+
+# Auto-fix formatting
+./scripts/format.sh
+```
+
+**Quality Gates**:
+
+1. Ruff linting must pass
+2. Black formatting must pass
+3. Mypy type checking must pass (strict)
+4. All tests must pass
+
+### When to Update Tests
+
+**MUST update tests when**:
+
+- Adding new API endpoints or agent functionality
+- Modifying database models or business logic
+- User explicitly requests test updates
+
+**DO NOT update tests unless**:
+
+- User explicitly requests it
+- Tests fail due to your code changes (fix your code first, not the tests)
+- Adding new functionality that requires new coverage
+
+**Coverage Goal**: >80% on new code
+
+### Continuous Integration
+
+**Current State**: No CI configured (no `.github/workflows/` yet)
+
+**Recommended CI Pipeline** (GitHub Actions):
+
+- Lint with Ruff
+- Check formatting with Black
+- Type check with Mypy
+- Run tests with coverage
+- Fail if coverage <80%
+
+**Pre-commit Hooks**: Install with `pre-commit install` (runs ruff + black + mypy before each commit)
+
+---
+
+## Security
+
+- **Auth**: Clerk JWT tokens on all routes, admin role checks
+- **Validation**: Whitelist file types, size limits, content-type checks
+- **Rate Limiting**: SlowAPI with Redis (3/min on upload confirm)
+- **Secrets**: Environment variables only (`.env`), never log secrets
+- **S3**: Pre-signed URLs with expiry (1 hour default)
+- **CORS**: Explicit origins, no `*` in prod
+
+---
+
+## Docker Setup
+
+**8 Services** in `docker-compose.yml`:
+
+- `db`: PostgreSQL 15
+- `redis`: Redis 7
+- `api`: FastAPI (port 8000)
+- `worker`: Celery worker (concurrency=2)
+- `prometheus`: Metrics (port 9090)
+- `grafana`: Dashboards (port 3000)
+- `postgres-exporter`: DB metrics
+- `loki` + `promtail`: Log aggregation
+
+**Run Locally**:
+
+```bash
+cp .env.example .env
+# Edit .env with AWS, Gemini, Clerk credentials
+docker-compose up -d
+docker-compose exec api alembic upgrade head
+# API: http://localhost:8000/docs
+# Grafana: http://localhost:3000 (admin/admin)
+```
+
+## Common Pitfalls
+
+- Do not use `Any` type
+- Do not query DB in loops (use bulk queries)
+- Do not block request handlers (use Celery)
+- Do not forget temp file cleanup (`finally` blocks)
+- Do not expose internal errors to users
+- Do not skip progress updates
+- Do not hardcode config (use settings)
+- Do not commit secrets
+- Do not modify existing tests without user request
+
+---
+
+## Review Checklist
+
+- [ ] Type hints on all functions
+- [ ] Docstrings on public functions/classes
+- [ ] Inputs validated (Pydantic or explicit)
+- [ ] Auth/authorization on endpoints
+- [ ] Tasks idempotent and retriable
+- [ ] Progress updates emitted
+- [ ] Temp files cleaned up
+- [ ] Structured logging with job_id
+- [ ] Passes `./scripts/check-all.sh`
+- [ ] All tests pass
+
+---
+
+## Additional Resources
+
+- **Detailed Docs**: `backend/docs/` (DATABASE, DOCKER, OBSERVABILITY, TESTING, TROUBLESHOOTING)
+- **API Docs**: Run backend, visit `/docs` (Swagger) or `/redoc`
+- **Tech Docs**: FastAPI, Celery, SQLAlchemy, Pydantic, Google Gemini, Clerk
+
+---
+
+**Last Updated**: 2025-01-06

@@ -1,4 +1,5 @@
 import { useUser } from '@clerk/clerk-react';
+import { GoogleOneTap } from '@clerk/clerk-react';
 import { createFileRoute, Navigate } from '@tanstack/react-router';
 import { Video, Scissors, Subtitles, Clock, Share2, Sparkles, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -17,6 +18,7 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <GoogleOneTap />
       <LandingNavbar />
 
       {/* Hero Section */}

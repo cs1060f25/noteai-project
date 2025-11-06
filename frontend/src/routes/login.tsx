@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { GoogleOneTap, useUser } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-react';
 import { Navigate, createFileRoute } from '@tanstack/react-router';
 
 import { LoginForm } from '@/components/auth/LoginForm';
@@ -48,7 +48,6 @@ const LoginPage = () => {
 
   return (
     <>
-      <GoogleOneTap />
       <LoginForm
         onSubmit={onLoginSubmit}
         onOAuthSignIn={handleOAuthSignIn}
