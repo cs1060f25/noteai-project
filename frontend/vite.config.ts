@@ -27,13 +27,5 @@ export default defineConfig({
     port: 5173,
     strictPort: true, // fail instead of auto-incrementing so origin stays stable
     host: true,
-    headers: {
-      'Referrer-Policy': 'no-referrer-when-downgrade',
-    },
-  },
-  server: {
-    headers: {
-      'Referrer-Policy': 'no-referrer-when-downgrade',
-    },
   },
 });
