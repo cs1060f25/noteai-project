@@ -248,14 +248,14 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
             <span className="text-muted-foreground">Overall Progress</span>
             <span className="font-mono">{overallProgress}%</span>
           </div>
-          <div className="relative">
+          <div className="relative overflow-hidden">
             <Progress value={overallProgress} className="h-3" />
             {!isCompleted && (
               <motion.div
                 className="absolute top-0 left-0 h-3 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-full"
                 style={{ width: '30%' }}
                 animate={{
-                  x: ['-100%', '400%'],
+                  x: ['-100%', '300%'],
                 }}
                 transition={{
                   duration: 2,
