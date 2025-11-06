@@ -31,4 +31,9 @@ export default defineConfig({
       'Referrer-Policy': 'no-referrer-when-downgrade',
     },
   },
+  server: {
+    headers: {
+      'Referrer-Policy': 'no-referrer-when-downgrade',
+    },
+  },
 });
