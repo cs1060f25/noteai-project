@@ -9,7 +9,7 @@ from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
 from app.core.settings import settings
 from app.models.schemas import JobListResponse, JobProgress, JobResponse, JobStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
 
 logger = get_logger(__name__)
@@ -58,8 +58,8 @@ def get_job_status(
             },
         )
 
-    # verify job belongs to current user
-    if job.user_id != current_user.user_id:
+    # verify job belongs to current user (or user is admin)
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
         logger.warning(
             "Unauthorized job access attempt",
             extra={"job_id": job_id, "user_id": current_user.user_id, "job_owner": job.user_id},

@@ -1,12 +1,20 @@
 """user database model for authentication."""
 
+import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.models.database import Base
+
+
+class UserRole(str, enum.Enum):
+    """user role enum for role-based access control."""
+
+    USER = "user"
+    ADMIN = "admin"
 
 
 class User(Base):
@@ -28,6 +36,9 @@ class User(Base):
     # status flags
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=True, nullable=False)
+
+    # role-based access control
+    role = Column(Enum(UserRole), default=UserRole.USER, nullable=False, index=True)
 
     # user preferences
     organization = Column(String(255), nullable=True)
@@ -56,6 +67,7 @@ class User(Base):
             "clerk_user_id": self.clerk_user_id,
             "is_active": self.is_active,
             "is_verified": self.is_verified,
+            "role": self.role.value if self.role else UserRole.USER.value,
             "organization": self.organization,
             "email_notifications": self.email_notifications,
             "processing_notifications": self.processing_notifications,

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.clerk_auth import get_current_user_clerk
+from app.api.dependencies.authorization import require_admin
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
@@ -18,7 +18,7 @@ from app.models.schemas import (
     TranscriptSegment,
     TranscriptsResponse,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
 
 logger = get_logger(__name__)
@@ -26,18 +26,17 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["agent-outputs"])
 
 
-def verify_job_access_and_completion(
-    job_id: str, user_id: str, db: Session
+def verify_job_exists_and_completed(
+    job_id: str, db: Session
 ) -> None:
-    """verify job exists, belongs to user, and is completed.
+    """verify job exists and is completed (admin-only endpoints).
 
     Args:
         job_id: job identifier
-        user_id: current user identifier
         db: database session
 
     Raises:
-        HTTPException: 404 if job not found, 403 if unauthorized, 400 if not completed
+        HTTPException: 404 if job not found, 400 if not completed
     """
     db_service = DatabaseService(db)
 
@@ -52,22 +51,6 @@ def verify_job_access_and_completion(
                 "error": {
                     "code": "JOB_NOT_FOUND",
                     "message": f"Job with ID '{job_id}' not found",
-                }
-            },
-        )
-
-    # verify ownership
-    if job.user_id != user_id:
-        logger.warning(
-            "Unauthorized agent outputs access attempt",
-            extra={"job_id": job_id, "user_id": user_id, "job_owner": job.user_id},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "error": {
-                    "code": "FORBIDDEN",
-                    "message": "You do not have permission to access this job's outputs",
                 }
             },
         )
@@ -92,7 +75,7 @@ def verify_job_access_and_completion(
 @router.get(
     "/{job_id}/transcripts",
     response_model=TranscriptsResponse,
-    summary="Get transcript segments",
+    summary="Get transcript segments (Admin only)",
     description="""
     Retrieve all transcript segments for a completed job.
 
@@ -102,8 +85,8 @@ def verify_job_access_and_completion(
     - Confidence scores (when available)
 
     **Requirements:**
+    - Admin role required
     - Job must be completed
-    - User must own the job
 
     Segments are ordered by start time.
     """,
@@ -113,12 +96,12 @@ def get_transcripts(
     request: Request,
     response: Response,
     job_id: str,
-    current_user: User = Depends(get_current_user_clerk),
+    admin_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> TranscriptsResponse:
-    """get transcript segments for a completed job."""
-    # verify access and completion
-    verify_job_access_and_completion(job_id, current_user.user_id, db)
+    """get transcript segments for a completed job (admin only)."""
+    # verify job exists and is completed
+    verify_job_exists_and_completed(job_id, db)
 
     db_service = DatabaseService(db)
 
@@ -154,7 +137,7 @@ def get_transcripts(
 @router.get(
     "/{job_id}/silence-regions",
     response_model=SilenceRegionsResponse,
-    summary="Get silence regions",
+    summary="Get silence regions (Admin only)",
     description="""
     Retrieve all detected silence regions for a completed job.
 
@@ -164,8 +147,8 @@ def get_transcripts(
     - Detection threshold (for audio silence)
 
     **Requirements:**
+    - Admin role required
     - Job must be completed
-    - User must own the job
 
     Regions are ordered by start time.
     """,
@@ -175,12 +158,12 @@ def get_silence_regions(
     request: Request,
     response: Response,
     job_id: str,
-    current_user: User = Depends(get_current_user_clerk),
+    admin_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> SilenceRegionsResponse:
-    """get silence regions for a completed job."""
-    # verify access and completion
-    verify_job_access_and_completion(job_id, current_user.user_id, db)
+    """get silence regions for a completed job (admin only)."""
+    # verify job exists and is completed
+    verify_job_exists_and_completed(job_id, db)
 
     db_service = DatabaseService(db)
 
@@ -219,7 +202,7 @@ def get_silence_regions(
 @router.get(
     "/{job_id}/content-segments",
     response_model=ContentSegmentsResponse,
-    summary="Get content segments",
+    summary="Get content segments (Admin only)",
     description="""
     Retrieve all AI-analyzed content segments for a completed job.
 
@@ -231,8 +214,8 @@ def get_silence_regions(
     - Sequential ordering
 
     **Requirements:**
+    - Admin role required
     - Job must be completed
-    - User must own the job
 
     Segments are ordered by start time (chronological order).
     For importance-based ordering, use the importance_score field on the client side.
@@ -243,12 +226,12 @@ def get_content_segments(
     request: Request,
     response: Response,
     job_id: str,
-    current_user: User = Depends(get_current_user_clerk),
+    admin_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ContentSegmentsResponse:
-    """get content segments for a completed job."""
-    # verify access and completion
-    verify_job_access_and_completion(job_id, current_user.user_id, db)
+    """get content segments for a completed job (admin only)."""
+    # verify job exists and is completed
+    verify_job_exists_and_completed(job_id, db)
 
     db_service = DatabaseService(db)
 
@@ -291,7 +274,7 @@ def get_content_segments(
 @router.get(
     "/{job_id}/clips",
     response_model=ClipsResponse,
-    summary="Get extracted clips",
+    summary="Get extracted clips (Admin only)",
     description="""
     Retrieve all extracted clips for a completed job.
 
@@ -303,8 +286,8 @@ def get_content_segments(
     - Optimization metadata (boundary adjustments, silence alignment)
 
     **Requirements:**
+    - Admin role required
     - Job must be completed
-    - User must own the job
 
     Clips are ordered by clip_order (importance ranking).
     These are the final segments selected by the segment extraction agent.
@@ -315,12 +298,12 @@ def get_clips(
     request: Request,
     response: Response,
     job_id: str,
-    current_user: User = Depends(get_current_user_clerk),
+    admin_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ClipsResponse:
-    """get extracted clips for a completed job."""
-    # verify access and completion
-    verify_job_access_and_completion(job_id, current_user.user_id, db)
+    """get extracted clips for a completed job (admin only)."""
+    # verify job exists and is completed
+    verify_job_exists_and_completed(job_id, db)
 
     db_service = DatabaseService(db)
 
