@@ -19,6 +19,7 @@ from agents.video_compiler import compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
+from app.services.websocket_service import send_progress_sync, send_completion_sync, send_error_sync
 
 from .celery_app import celery_app, task_counter, task_duration_seconds
 
@@ -97,7 +98,7 @@ class BaseProcessingTask(Task):
         status: str = "running",
         eta_seconds: int | None = None,
     ) -> None:
-        """update job progress in database."""
+        """update job progress in database and send WebSocket update."""
         db = get_task_db()
         try:
             db_service = DatabaseService(db)
@@ -123,6 +124,10 @@ class BaseProcessingTask(Task):
                     "status": status,
                 },
             )
+
+            # Send WebSocket update to connected clients
+            send_progress_sync(job_id, stage, percent, message, eta_seconds)
+
         except Exception as e:
             logger.error(
                 "Failed to update job progress",
@@ -134,7 +139,7 @@ class BaseProcessingTask(Task):
             db.close()
 
     def mark_job_failed(self, job_id: str, error_message: str) -> None:
-        """mark job as failed with error message."""
+        """mark job as failed with error message and send WebSocket update."""
         db = get_task_db()
         try:
             db_service = DatabaseService(db)
@@ -149,6 +154,10 @@ class BaseProcessingTask(Task):
                 "Job marked as failed",
                 extra={"job_id": job_id, "error": error_message},
             )
+
+            # Send WebSocket error notification
+            send_error_sync(job_id, error_message)
+
         except Exception as e:
             logger.error(
                 "Failed to mark job as failed",
@@ -160,7 +169,7 @@ class BaseProcessingTask(Task):
             db.close()
 
     def mark_job_completed(self, job_id: str) -> None:
-        """mark job as completed."""
+        """mark job as completed and send WebSocket update."""
         db = get_task_db()
         try:
             db_service = DatabaseService(db)
@@ -174,6 +183,10 @@ class BaseProcessingTask(Task):
                 db.commit()
 
             logger.info("Job marked as completed", extra={"job_id": job_id})
+
+            # Send WebSocket completion notification
+            send_completion_sync(job_id)
+
         except Exception as e:
             logger.error(
                 "Failed to mark job as completed",

@@ -11,7 +11,6 @@ export const ProcessingStage = {
   UPLOADING: 'uploading',
   SILENCE_DETECTION: 'silence_detection',
   TRANSCRIPTION: 'transcription',
-  LAYOUT_ANALYSIS: 'layout_analysis',
   CONTENT_ANALYSIS: 'content_analysis',
   SEGMENTATION: 'segmentation',
   COMPILATION: 'compilation',
