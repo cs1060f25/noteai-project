@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import {
   Upload,
   Volume2,
@@ -17,7 +17,6 @@ import {
 
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
-import { Button } from './ui/button';
 import type { JobProgress, ProcessingStage as ProcessingStageType } from '@/types/api';
 
 export interface ProcessStage {
@@ -31,11 +30,9 @@ export interface ProcessStage {
 }
 
 interface ProcessingProgressProps {
-  jobId: string;
   videoName: string;
   currentProgress?: JobProgress;
   onComplete?: () => void;
-  onError?: (error: string) => void;
   startTime?: Date;
 }
 
@@ -88,11 +85,9 @@ const stageConfigs: Record<
 };
 
 export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
-  jobId,
   videoName,
   currentProgress,
   onComplete,
-  onError,
   startTime = new Date(),
 }) => {
   const [stages, setStages] = useState<ProcessStage[]>(() =>
@@ -108,7 +103,7 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
   const [overallProgress, setOverallProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage] = useState<string | null>(null);
 
   // Update elapsed time
   useEffect(() => {

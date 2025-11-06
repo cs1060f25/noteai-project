@@ -93,11 +93,6 @@ export function SettingsComponent() {
     }
   };
 
-  // Handle theme toggle
-  const handleThemeToggle = (checked: boolean) => {
-    setTheme(checked ? 'dark' : 'light');
-  };
-
   // Handle logout
   const handleLogout = () => {
     signOut();
