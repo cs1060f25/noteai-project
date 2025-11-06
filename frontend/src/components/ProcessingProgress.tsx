@@ -164,17 +164,21 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
         return stage;
       });
 
+      // Calculate overall progress based on the updated stages
+      const totalStages = updatedStages.length;
+      const currentStageIndex = updatedStages.findIndex((s) => s.id === currentProgress.stage);
+
+      if (currentStageIndex === -1) {
+        return updatedStages;
+      }
+
+      // Calculate: (completed stages + current stage progress) / total stages
+      const currentStageProgress = currentProgress.percent / 100;
+      const overall = ((currentStageIndex + currentStageProgress) / totalStages) * 100;
+      setOverallProgress(Math.min(100, Math.max(0, Math.floor(overall))));
+
       return updatedStages;
     });
-
-    // Calculate overall progress
-    const totalStages = stages.length;
-    const completedStages = stages.filter((s) => s.status === 'completed').length;
-    const currentStageIndex = stages.findIndex((s) => s.id === currentProgress.stage);
-    const currentStageProgress = currentProgress.percent / 100;
-
-    const overall = ((completedStages + currentStageProgress) / totalStages) * 100;
-    setOverallProgress(Math.min(100, Math.floor(overall)));
   }, [currentProgress, onComplete]);
 
   const completedStages = stages.filter((s) => s.status === 'completed').length;
