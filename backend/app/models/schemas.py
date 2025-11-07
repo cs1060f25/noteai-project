@@ -47,6 +47,12 @@ class UploadConfirmRequest(BaseModel):
     job_id: str = Field(..., description="Job identifier to confirm")
 
 
+class YouTubeUploadRequest(BaseModel):
+    """Request to upload video from YouTube URL."""
+
+    url: str = Field(..., description="YouTube video URL", min_length=1)
+
+
 class UploadResponse(BaseModel):
     """Response with S3 pre-signed URL for upload."""
 
