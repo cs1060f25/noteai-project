@@ -156,6 +156,42 @@ class S3Service:
             )
             raise
 
+    def upload_file(
+        self,
+        file_path: str,
+        object_key: str,
+        content_type: str = "application/octet-stream",
+    ) -> bool:
+        """Upload a file to S3.
+
+        Args:
+            file_path: Local file path to upload
+            object_key: S3 object key (destination path)
+            content_type: MIME type of the file
+
+        Returns:
+            True if upload successful, False otherwise
+        """
+        try:
+            self.s3_client.upload_file(
+                file_path,
+                self.bucket_name,
+                object_key,
+                ExtraArgs={"ContentType": content_type},
+            )
+            logger.info(
+                "Uploaded file to S3",
+                extra={"file_path": file_path, "object_key": object_key},
+            )
+            return True
+        except ClientError as e:
+            logger.error(
+                "Failed to upload file to S3",
+                exc_info=e,
+                extra={"file_path": file_path, "object_key": object_key},
+            )
+            raise
+
     def delete_object(self, object_key: str) -> bool:
         """delete an object from s3."""
         try:

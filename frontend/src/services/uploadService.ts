@@ -125,6 +125,40 @@ export const uploadVideo = async (
   return { jobId: uploadResponse.job_id, s3Key: uploadResponse.s3_key, uploadResponse };
 };
 
+export const uploadFromYouTube = async (
+  url: string,
+  onProgress?: (progress: number) => void
+): Promise<{ jobId: string; videoInfo: any }> => {
+  try {
+    onProgress?.(10);
+
+    const response = await apiClient.post<{
+      job_id: string;
+      status: string;
+      message: string;
+      video_info: {
+        title: string;
+        duration: number;
+        uploader: string;
+      };
+      celery_task_id: string;
+    }>('/upload/from-youtube', { url }, { timeout: 10 * 60 * 1000 }); // allow up to 10 minutes
+
+    onProgress?.(100);
+
+    return {
+      jobId: response.job_id,
+      videoInfo: response.video_info,
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to upload from YouTube', 'YOUTUBE_UPLOAD_FAILED');
+  }
+};
+
 export const getJobStatus = async (jobId: string): Promise<JobResponse> => {
   try {
     const response = await apiClient.get<JobResponse>(`/jobs/${jobId}`);
@@ -149,6 +183,34 @@ export const getJobs = async (limit = 50, offset = 0): Promise<JobListResponse> 
     }
     throw new UploadError('Failed to get jobs list', 'JOBS_LIST_FAILED');
   }
+};
+
+export const validateYouTubeUrl = (url: string): { valid: boolean; error?: string } => {
+  if (!url || typeof url !== 'string') {
+    return { valid: false, error: 'Please enter a URL' };
+  }
+
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) {
+    return { valid: false, error: 'Please enter a URL' };
+  }
+
+  // YouTube URL patterns
+  const youtubePatterns = [
+    /^(https?:\/\/)?(www\.)?youtube\.com\/watch\?v=[\w-]+/i,
+    /^(https?:\/\/)?(www\.)?youtu\.be\/[\w-]+/i,
+    /^(https?:\/\/)?(www\.)?youtube\.com\/embed\/[\w-]+/i,
+    /^(https?:\/\/)?(www\.)?youtube\.com\/v\/[\w-]+/i,
+    /^(https?:\/\/)?(www\.)?youtube\.com\/shorts\/[\w-]+/i,
+  ];
+
+  const isValidYouTube = youtubePatterns.some((pattern) => pattern.test(trimmedUrl));
+
+  if (!isValidYouTube) {
+    return { valid: false, error: 'Please enter a valid YouTube URL' };
+  }
+
+  return { valid: true };
 };
 
 export const validateVideoFile = (file: File): { valid: boolean; error?: string } => {
