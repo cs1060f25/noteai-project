@@ -18,7 +18,7 @@ jobs:
   frontend:
     name: Frontend (Node)
     # Only run if there's a frontend folder
-    if: ${{ hashFiles('frontend/**') != '' }}
+    if: ${{ exists('frontend') }}
     runs-on: ubuntu-latest
 
     defaults:
@@ -57,7 +57,7 @@ jobs:
   backend:
     name: Backend (Python)
     # Only run if there's a backend folder
-    if: ${{ hashFiles('backend/**') != '' }}
+    if: ${{ exists('backend') }}
     runs-on: ubuntu-latest
 
     defaults:
