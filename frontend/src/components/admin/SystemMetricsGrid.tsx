@@ -74,10 +74,10 @@ export const SystemMetricsGrid: React.FC = () => {
       {/* User Metrics */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3">User Statistics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MetricsCard
             title="Total Users"
-            value={metrics ? formatNumber(metrics.users.total) : '-'}
+            value={metrics ? formatNumber(metrics.total_users) : '-'}
             description="Registered accounts"
             icon={Users}
             color="bg-blue-500"
@@ -85,18 +85,10 @@ export const SystemMetricsGrid: React.FC = () => {
           />
           <MetricsCard
             title="Active Users (30d)"
-            value={metrics ? formatNumber(metrics.users.active_30d) : '-'}
-            description="Users with activity"
+            value={metrics ? formatNumber(metrics.active_users_30d) : '-'}
+            description="Users with activity in last 30 days"
             icon={Activity}
             color="bg-green-500"
-            isLoading={isLoading}
-          />
-          <MetricsCard
-            title="Administrators"
-            value={metrics ? formatNumber(metrics.users.admin_count) : '-'}
-            description="Admin accounts"
-            icon={Users}
-            color="bg-purple-500"
             isLoading={isLoading}
           />
         </div>
@@ -108,7 +100,7 @@ export const SystemMetricsGrid: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <MetricsCard
             title="Total Jobs"
-            value={metrics ? formatNumber(metrics.jobs.total) : '-'}
+            value={metrics ? formatNumber(metrics.total_jobs) : '-'}
             description="All time"
             icon={Briefcase}
             color="bg-indigo-500"
@@ -116,7 +108,7 @@ export const SystemMetricsGrid: React.FC = () => {
           />
           <MetricsCard
             title="Completed"
-            value={metrics ? formatNumber(metrics.jobs.completed) : '-'}
+            value={metrics ? formatNumber(metrics.jobs_by_status.completed) : '-'}
             description="Successfully processed"
             icon={CheckCircle2}
             color="bg-green-500"
@@ -124,7 +116,7 @@ export const SystemMetricsGrid: React.FC = () => {
           />
           <MetricsCard
             title="Failed"
-            value={metrics ? formatNumber(metrics.jobs.failed) : '-'}
+            value={metrics ? formatNumber(metrics.jobs_by_status.failed) : '-'}
             description="Processing errors"
             icon={XCircle}
             color="bg-red-500"
@@ -132,7 +124,7 @@ export const SystemMetricsGrid: React.FC = () => {
           />
           <MetricsCard
             title="Running"
-            value={metrics ? formatNumber(metrics.jobs.running) : '-'}
+            value={metrics ? formatNumber(metrics.jobs_by_status.running) : '-'}
             description="Currently processing"
             icon={Loader2}
             color="bg-blue-500"
@@ -140,7 +132,7 @@ export const SystemMetricsGrid: React.FC = () => {
           />
           <MetricsCard
             title="Queued"
-            value={metrics ? formatNumber(metrics.jobs.queued) : '-'}
+            value={metrics ? formatNumber(metrics.jobs_by_status.queued) : '-'}
             description="Waiting to process"
             icon={Clock}
             color="bg-orange-500"
@@ -152,29 +144,13 @@ export const SystemMetricsGrid: React.FC = () => {
       {/* Storage Metrics */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3">Storage Usage</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <MetricsCard
             title="Total Storage"
-            value={metrics ? formatBytes(metrics.storage.total_bytes) : '-'}
-            description="All files"
+            value={metrics ? formatBytes(metrics.total_storage_bytes) : '-'}
+            description="All uploaded files"
             icon={HardDrive}
             color="bg-cyan-500"
-            isLoading={isLoading}
-          />
-          <MetricsCard
-            title="Video Storage"
-            value={metrics ? formatBytes(metrics.storage.video_bytes) : '-'}
-            description="Original videos"
-            icon={HardDrive}
-            color="bg-purple-500"
-            isLoading={isLoading}
-          />
-          <MetricsCard
-            title="Clip Storage"
-            value={metrics ? formatBytes(metrics.storage.clip_bytes) : '-'}
-            description="Generated clips"
-            icon={HardDrive}
-            color="bg-pink-500"
             isLoading={isLoading}
           />
         </div>
@@ -186,24 +162,24 @@ export const SystemMetricsGrid: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricsCard
             title="Last 24 Hours"
-            value={metrics ? formatNumber(metrics.activity.jobs_last_24h) : '-'}
-            description="Jobs processed"
+            value={metrics ? formatNumber(metrics.jobs_last_24h) : '-'}
+            description="Jobs created"
             icon={Activity}
             color="bg-green-500"
             isLoading={isLoading}
           />
           <MetricsCard
             title="Last 7 Days"
-            value={metrics ? formatNumber(metrics.activity.jobs_last_7d) : '-'}
-            description="Jobs processed"
+            value={metrics ? formatNumber(metrics.jobs_last_7d) : '-'}
+            description="Jobs created"
             icon={Activity}
             color="bg-blue-500"
             isLoading={isLoading}
           />
           <MetricsCard
             title="Last 30 Days"
-            value={metrics ? formatNumber(metrics.activity.jobs_last_30d) : '-'}
-            description="Jobs processed"
+            value={metrics ? formatNumber(metrics.jobs_last_30d) : '-'}
+            description="Jobs created"
             icon={Activity}
             color="bg-purple-500"
             isLoading={isLoading}

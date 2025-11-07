@@ -181,7 +181,7 @@ export const UsersTable: React.FC = () => {
                         {formatDate(user.created_at)}
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {user.last_active_at ? formatDate(user.last_active_at) : 'N/A'}
+                        {user.last_login_at ? formatDate(user.last_login_at) : 'N/A'}
                       </td>
                     </motion.tr>
                   ))}

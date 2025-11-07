@@ -7,7 +7,7 @@ import type {
   AdminJobsQueryParams,
   AdminUserListResponse,
   AdminUsersQueryParams,
-  ProcessingLogResponse,
+  ProcessingLogListResponse,
   ProcessingLogsQueryParams,
   SystemMetrics,
 } from '../types/admin';
@@ -112,18 +112,15 @@ export const getAllUsers = async (
  */
 export const getProcessingLogs = async (
   params?: ProcessingLogsQueryParams
-): Promise<ProcessingLogResponse> => {
+): Promise<ProcessingLogListResponse> => {
   try {
     const queryParams = new URLSearchParams();
 
     if (params?.job_id) {
       queryParams.append('job_id', params.job_id);
     }
-    if (params?.agent_name) {
-      queryParams.append('agent_name', params.agent_name);
-    }
-    if (params?.level) {
-      queryParams.append('level', params.level);
+    if (params?.stage) {
+      queryParams.append('stage', params.stage);
     }
     if (params?.limit !== undefined) {
       queryParams.append('limit', params.limit.toString());
@@ -135,7 +132,7 @@ export const getProcessingLogs = async (
     const queryString = queryParams.toString();
     const url = queryString ? `/admin/processing-logs?${queryString}` : '/admin/processing-logs';
 
-    const response = await apiClient.get<ProcessingLogResponse>(url);
+    const response = await apiClient.get<ProcessingLogListResponse>(url);
     return response;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.data?.error) {
