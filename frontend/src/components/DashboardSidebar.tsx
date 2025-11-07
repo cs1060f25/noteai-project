@@ -18,12 +18,18 @@ import {
   Moon,
   Check,
   Sparkle,
+  Shield,
+  Briefcase,
+  Users,
+  FileText,
 } from 'lucide-react';
 
+import { AdminBadge } from '@/components/admin/AdminBadge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/components/ui/theme-provider';
 import { UserDropdownContent } from '@/components/UserDropdown';
+import { useRole } from '@/hooks/useRole';
 
 import type { UserResource } from '@clerk/types';
 import type { LucideIcon } from 'lucide-react';
@@ -44,12 +50,20 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const routerState = useRouterState();
   const { theme, setTheme } = useTheme();
+  const { isAdmin } = useRole();
 
   const navigation: NavigationItem[] = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { id: 'upload', name: 'Upload', icon: Upload, path: '/upload' },
     { id: 'library', name: 'Library', icon: Library, path: '/library' },
     { id: 'settings', name: 'Settings', icon: Settings, path: '/settings' },
+  ];
+
+  const adminNavigation: NavigationItem[] = [
+    { id: 'admin-dashboard', name: 'Admin Dashboard', icon: Shield, path: '/admin' },
+    { id: 'admin-jobs', name: 'All Jobs', icon: Briefcase, path: '/admin/jobs' },
+    { id: 'admin-users', name: 'User Management', icon: Users, path: '/admin/users' },
+    { id: 'admin-logs', name: 'System Logs', icon: FileText, path: '/admin/logs' },
     { id: 'agent-outputs', name: 'Agent Outputs', icon: Sparkle, path: '/agent-outputs' },
   ];
 
@@ -111,7 +125,8 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+          {/* Main Navigation */}
           <div className="flex flex-col gap-2">
             {navigation.map((item) => (
               <Link key={item.id} to={item.path}>
@@ -131,6 +146,32 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
               </Link>
             ))}
           </div>
+
+          {/* Admin Navigation */}
+          {isAdmin && (
+            <div className="flex flex-col gap-2">
+              <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Admin
+              </div>
+              {adminNavigation.map((item) => (
+                <Link key={item.id} to={item.path}>
+                  <motion.div
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                      isActivePath(item.path)
+                        ? 'bg-purple-500 text-white'
+                        : 'text-muted-foreground hover:bg-purple-500/10 hover:text-purple-500'
+                    }`}
+                    whileHover={{ x: isActivePath(item.path) ? 0 : 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* User Info */}
@@ -141,7 +182,10 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
                 <div className="flex items-center gap-3">
                   <UserAvatar size="md" />
                   <div className="flex-1 min-w-0 text-left">
-                    <div className="text-sm truncate">{userName}</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="text-sm truncate">{userName}</div>
+                      <AdminBadge />
+                    </div>
                     <div className="text-xs text-muted-foreground truncate">Pro Plan</div>
                   </div>
                   <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -203,23 +247,51 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
               </Button>
             </div>
             <div className="flex flex-col h-[calc(100%-4rem)]">
-              <nav className="flex-1 p-4 space-y-1">
-                {navigation.map((item) => (
-                  <Link key={item.id} to={item.path}>
-                    <motion.div
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
-                        isActivePath(item.path)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                      }`}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.name}</span>
-                    </motion.div>
-                  </Link>
-                ))}
+              <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+                {/* Main Navigation */}
+                <div className="space-y-1">
+                  {navigation.map((item) => (
+                    <Link key={item.id} to={item.path}>
+                      <motion.div
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                          isActivePath(item.path)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                        }`}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <item.icon className="w-5 h-5" />
+                        <span>{item.name}</span>
+                      </motion.div>
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Admin Navigation */}
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Admin
+                    </div>
+                    {adminNavigation.map((item) => (
+                      <Link key={item.id} to={item.path}>
+                        <motion.div
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                            isActivePath(item.path)
+                              ? 'bg-purple-500 text-white'
+                              : 'text-muted-foreground hover:bg-purple-500/10 hover:text-purple-500'
+                          }`}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <item.icon className="w-5 h-5" />
+                          <span>{item.name}</span>
+                        </motion.div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </nav>
 
               {/* Mobile User Menu */}
@@ -228,7 +300,10 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
                   <div className="flex items-center gap-3 mb-3">
                     <UserAvatar size="md" />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm truncate">{userName}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-sm truncate">{userName}</div>
+                        <AdminBadge />
+                      </div>
                       <div className="text-xs text-muted-foreground truncate">Pro Plan</div>
                     </div>
                   </div>

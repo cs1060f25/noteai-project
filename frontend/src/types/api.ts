@@ -137,12 +137,15 @@ export interface ClipsResponse {
 
 // user types
 
+export type UserRole = 'user' | 'admin';
+
 export interface UserResponse {
   user_id: string;
   email: string;
   name?: string;
   picture_url?: string;
   organization?: string;
+  role: UserRole;
   email_notifications: boolean;
   processing_notifications: boolean;
   created_at: string;
