@@ -125,6 +125,7 @@ export interface Clip {
   end_time: number;
   duration: number;
   clip_order?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   extra_metadata: Record<string, any>;
   created_at: string;
 }

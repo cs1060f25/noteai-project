@@ -25,7 +25,7 @@ def test_silence_detector_local(video_path: str, job_id: str = "manual-test-001"
         job_id: job identifier for testing
     """
     print(f"\n{'='*60}")
-    print(f"Testing Silence Detector")
+    print("Testing Silence Detector")
     print(f"{'='*60}")
     print(f"Video file: {video_path}")
     print(f"Job ID: {job_id}")

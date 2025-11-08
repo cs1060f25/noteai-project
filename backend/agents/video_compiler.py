@@ -9,7 +9,6 @@ import boto3
 from sqlalchemy.orm import Session
 
 from agents.utils.ffmpeg_helper import FFmpegHelper
-from app.core.database import SessionLocal
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.models.database import Clip, Job

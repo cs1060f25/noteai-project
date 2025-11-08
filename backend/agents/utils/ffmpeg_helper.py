@@ -138,7 +138,7 @@ class FFmpegHelper:
         ]
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -253,7 +253,7 @@ class FFmpegHelper:
             ])
 
             # run ffmpeg
-            result = subprocess.run(
+            subprocess.run(
                 cmd, capture_output=True, text=True, check=True, timeout=1800
             )
             logger.info(
@@ -356,7 +356,7 @@ class FFmpegHelper:
         ]
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -403,7 +403,7 @@ class FFmpegHelper:
         cmd.append(str(output_path))
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -465,7 +465,7 @@ class FFmpegHelper:
                     output_path,
                 ]
 
-            result = subprocess.run(
+            subprocess.run(
                 cmd, check=True, capture_output=True, text=True)
             return output_path
 

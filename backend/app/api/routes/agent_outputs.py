@@ -18,7 +18,7 @@ from app.models.schemas import (
     TranscriptSegment,
     TranscriptsResponse,
 )
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.services.db_service import DatabaseService
 
 logger = get_logger(__name__)

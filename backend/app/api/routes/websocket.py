@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-from typing import Dict
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
@@ -21,7 +20,7 @@ class ConnectionManager:
 
     def __init__(self):
         # job_id -> list of websocket connections
-        self.active_connections: Dict[str, list[WebSocket]] = {}
+        self.active_connections: dict[str, list[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, job_id: str):
         """Accept a new WebSocket connection for a job.
@@ -192,7 +191,7 @@ async def websocket_job_progress(
         ws_task = asyncio.create_task(listen_to_websocket())
 
         # Wait for either task to complete (usually means disconnect)
-        done, pending = await asyncio.wait(
+        _done, pending = await asyncio.wait(
             [redis_task, ws_task],
             return_when=asyncio.FIRST_COMPLETED
         )

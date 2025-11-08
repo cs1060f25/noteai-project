@@ -19,7 +19,7 @@ from agents.video_compiler import compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
-from app.services.websocket_service import send_progress_sync, send_completion_sync, send_error_sync
+from app.services.websocket_service import send_completion_sync, send_error_sync, send_progress_sync
 
 from .celery_app import celery_app, task_counter, task_duration_seconds
 

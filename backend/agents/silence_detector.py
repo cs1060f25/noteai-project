@@ -1,21 +1,21 @@
 """Silence detector agent for audio/video silence analysis."""
-"""Updated"""
 
-import tempfile
 import os
+import tempfile
 import time
 import uuid
 from pathlib import Path
+
 import requests
 from pydub import AudioSegment
 from pydub.silence import detect_silence as pydub_detect_silence
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.core.logging import get_logger
 from app.core.settings import settings
-from app.services.s3_service import s3_service
 from app.services.db_service import DatabaseService
-
+from app.services.s3_service import s3_service
 
 logger = get_logger(__name__)
 

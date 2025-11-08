@@ -93,11 +93,11 @@ logger.info("Prometheus metrics configured at /metrics")
 
 # CORS: in development, allow any localhost/127.0.0.1 port via regex to avoid
 # updating .env when dev server picks a new port; in other envs, use explicit list
-cors_kwargs = dict(
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+cors_kwargs = {
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
 if settings.is_development:
     app.add_middleware(
         CORSMiddleware,
