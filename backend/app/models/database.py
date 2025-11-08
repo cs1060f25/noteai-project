@@ -1,6 +1,5 @@
 """Database models."""
 
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -383,5 +382,3 @@ class ProcessingLog(Base):
             "extra_metadata": self.extra_metadata,
             "created_at": self.created_at,
         }
-
-

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+
 import {
   Upload,
   Volume2,
@@ -14,10 +14,12 @@ import {
   Activity,
   Zap,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 
-import { Progress } from './ui/progress';
-import { Badge } from './ui/badge';
 import type { JobProgress, ProcessingStage as ProcessingStageType } from '@/types/api';
+
+import { Badge } from './ui/badge';
+import { Progress } from './ui/progress';
 
 export interface ProcessStage {
   id: ProcessingStageType;
@@ -38,6 +40,7 @@ interface ProcessingProgressProps {
 
 const stageConfigs: Record<
   ProcessingStageType,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { name: string; description: string; icon: React.ComponentType<any>; color: string }
 > = {
   uploading: {

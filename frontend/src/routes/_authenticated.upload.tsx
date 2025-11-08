@@ -1,13 +1,13 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@clerk/clerk-react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Upload, Link2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ProcessingProgress } from '@/components/ProcessingProgress';
 import {
   uploadVideo,
   uploadFromYouTube,
@@ -336,7 +336,11 @@ export const UploadIntegrated = () => {
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                 />
-                <Button className="glass-button" onClick={handleUrlUpload} disabled={!youtubeUrl.trim()}>
+                <Button
+                  className="glass-button"
+                  onClick={handleUrlUpload}
+                  disabled={!youtubeUrl.trim()}
+                >
                   Upload from URL
                 </Button>
               </div>
@@ -368,7 +372,6 @@ export const UploadIntegrated = () => {
             ))}
           </motion.div>
         )}
-
 
         {/* Processing Progress */}
         {isProcessing && uploadedJobId && processingStartTime && (

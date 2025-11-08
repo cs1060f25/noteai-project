@@ -316,7 +316,7 @@ async def upload_from_youtube(
                 detail={
                     "error": {
                         "code": "VIDEO_UNAVAILABLE",
-                        "message": f"Failed to access YouTube video: {str(e)}",
+                        "message": f"Failed to access YouTube video: {e!s}",
                     }
                 },
             ) from e
@@ -400,7 +400,7 @@ async def upload_from_youtube(
                 detail={
                     "error": {
                         "code": "DOWNLOAD_FAILED",
-                        "message": f"Failed to download YouTube video: {str(e)}",
+                        "message": f"Failed to download YouTube video: {e!s}",
                     }
                 },
             ) from e

@@ -2,9 +2,8 @@
 
 import re
 import tempfile
-import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import yt_dlp
 from yt_dlp.utils import DownloadError
@@ -37,7 +36,7 @@ class YouTubeService:
     """Service for downloading videos from YouTube."""
 
     # YouTube URL patterns
-    YOUTUBE_PATTERNS = [
+    YOUTUBE_PATTERNS: ClassVar[list[str]] = [
         r"(https?://)?(www\.)?youtube\.com/watch\?v=[\w-]+",
         r"(https?://)?(www\.)?youtu\.be/[\w-]+",
         r"(https?://)?(www\.)?youtube\.com/embed/[\w-]+",
@@ -62,10 +61,7 @@ class YouTubeService:
             return False
 
         url = url.strip()
-        for pattern in self.YOUTUBE_PATTERNS:
-            if re.match(pattern, url, re.IGNORECASE):
-                return True
-        return False
+        return any(re.match(pattern, url, re.IGNORECASE) for pattern in self.YOUTUBE_PATTERNS)
 
     def extract_video_info(self, url: str) -> dict[str, Any]:
         """Extract video information without downloading.
@@ -111,20 +107,20 @@ class YouTubeService:
                 exc_info=e,
                 extra={"url": url},
             )
-            raise DownloadFailedError(f"Failed to get video information: {str(e)}") from e
+            raise DownloadFailedError(f"Failed to get video information: {e!s}") from e
         except Exception as e:
             logger.error(
                 "Unexpected error extracting video info",
                 exc_info=e,
                 extra={"url": url},
             )
-            raise DownloadFailedError(f"Unexpected error: {str(e)}") from e
+            raise DownloadFailedError(f"Unexpected error: {e!s}") from e
 
     def download_and_upload_to_s3(
         self,
         url: str,
         job_id: str,
-        progress_callback: callable = None,
+        progress_callback: callable | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """Download YouTube video and upload to S3.
 
@@ -238,14 +234,14 @@ class YouTubeService:
                     exc_info=e,
                     extra={"url": url, "job_id": job_id},
                 )
-                raise DownloadFailedError(f"Failed to download video: {str(e)}") from e
+                raise DownloadFailedError(f"Failed to download video: {e!s}") from e
             except Exception as e:
                 logger.error(
                     "Unexpected error during YouTube download",
                     exc_info=e,
                     extra={"url": url, "job_id": job_id},
                 )
-                raise DownloadFailedError(f"Unexpected error: {str(e)}") from e
+                raise DownloadFailedError(f"Unexpected error: {e!s}") from e
 
 
 # Singleton instance

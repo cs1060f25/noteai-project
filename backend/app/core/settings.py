@@ -9,14 +9,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """application settings loaded from environment variables."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Application
     app_name: str = "Lecture Highlight Extractor"
     app_version: str = "0.1.0"
-    environment: Literal["development",
-                         "staging", "production"] = "development"
+    environment: Literal["development", "staging", "production"] = "development"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
 
@@ -26,8 +24,7 @@ class Settings(BaseSettings):
         default="http://localhost:3000,http://localhost:5173",
         description="CORS allowed origins (comma-separated)",
     )
-    max_upload_size_mb: int = Field(
-        default=500, description="Max upload size in MB")
+    max_upload_size_mb: int = Field(default=500, description="Max upload size in MB")
     upload_allowed_extensions: str = Field(
         default=".mp4,.mov,.avi,.mkv,.webm",
         description="Allowed video file extensions (comma-separated)",
@@ -41,10 +38,8 @@ class Settings(BaseSettings):
     db_echo: bool = Field(default=False, description="Echo SQL statements")
 
     # Redis
-    redis_url: str = Field(default="redis://localhost:6379/0",
-                           description="Redis connection URL")
-    redis_password: str | None = Field(
-        default=None, description="Redis password")
+    redis_url: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")
+    redis_password: str | None = Field(default=None, description="Redis password")
 
     # Celery
     celery_broker_url: str = Field(
@@ -65,13 +60,10 @@ class Settings(BaseSettings):
     )
 
     # AWS S3
-    aws_access_key_id: str | None = Field(
-        default=None, description="AWS access key ID")
-    aws_secret_access_key: str | None = Field(
-        default=None, description="AWS secret access key")
+    aws_access_key_id: str | None = Field(default=None, description="AWS access key ID")
+    aws_secret_access_key: str | None = Field(default=None, description="AWS secret access key")
     aws_region: str = Field(default="us-east-1", description="AWS region")
-    s3_bucket_name: str = Field(
-        default="lecture-highlights", description="S3 bucket name")
+    s3_bucket_name: str = Field(default="lecture-highlights", description="S3 bucket name")
     s3_presigned_url_expiry: int = Field(
         default=3600,
         description="S3 pre-signed URL expiry in seconds",
@@ -102,14 +94,12 @@ class Settings(BaseSettings):
         default=True,
         description="Enable word-level timestamps in transcription",
     )
-    gemini_api_key: str | None = Field(
-        default=None, description="Google Gemini API key")
+    gemini_api_key: str | None = Field(default=None, description="Google Gemini API key")
     gemini_model: str = Field(
         default="gemini-2.5-flash-lite",
         description="Gemini model to use for content analysis",
     )
-    whisper_model: str = Field(
-        default="whisper-1", description="Whisper model to use")
+    whisper_model: str = Field(default="whisper-1", description="Whisper model to use")
 
     # Security
     secret_key: str = Field(
@@ -168,8 +158,7 @@ class Settings(BaseSettings):
         valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         v_upper = v.upper()
         if v_upper not in valid_levels:
-            raise ValueError(
-                f"Invalid log level: {v}. Must be one of {valid_levels}")
+            raise ValueError(f"Invalid log level: {v}. Must be one of {valid_levels}")
         return v_upper
 
     def get_allowed_origins(self) -> list[str]:

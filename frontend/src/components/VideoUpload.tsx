@@ -33,6 +33,7 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [jobId, setJobId] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [videoInfo, setVideoInfo] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -127,7 +128,9 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
       onUploadComplete?.(result.jobId);
     } catch (error) {
       const errorMsg =
-        error instanceof UploadError ? error.message : 'Failed to download YouTube video. Please try again.';
+        error instanceof UploadError
+          ? error.message
+          : 'Failed to download YouTube video. Please try again.';
       setErrorMessage(errorMsg);
       setUploadState('error');
       onUploadError?.(error as Error);
@@ -169,7 +172,10 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs value={uploadMethod} onValueChange={(value: string) => setUploadMethod(value as UploadMethod)}>
+        <Tabs
+          value={uploadMethod}
+          onValueChange={(value: string) => setUploadMethod(value as UploadMethod)}
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="file">Upload File</TabsTrigger>
             <TabsTrigger value="youtube">YouTube URL</TabsTrigger>

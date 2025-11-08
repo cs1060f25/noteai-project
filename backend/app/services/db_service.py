@@ -329,10 +329,7 @@ class JobRepository:
         status_counts = {}
         for status_value in ["pending", "queued", "running", "completed", "failed"]:
             count = (
-                self.db.query(func.count(Job.id))
-                .filter(Job.status == status_value)
-                .scalar()
-                or 0
+                self.db.query(func.count(Job.id)).filter(Job.status == status_value).scalar() or 0
             )
             status_counts[status_value] = count
 
@@ -1326,9 +1323,7 @@ class UserRepository:
         """
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         return (
-            self.db.query(func.count(User.id))
-            .filter(User.last_login_at >= cutoff_date)
-            .scalar()
+            self.db.query(func.count(User.id)).filter(User.last_login_at >= cutoff_date).scalar()
             or 0
         )
 

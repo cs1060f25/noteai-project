@@ -128,6 +128,7 @@ export const uploadVideo = async (
 export const uploadFromYouTube = async (
   url: string,
   onProgress?: (progress: number) => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ jobId: string; videoInfo: any }> => {
   try {
     onProgress?.(10);

@@ -72,7 +72,7 @@ class FileValidator:
             max_mb = self.max_size_bytes / (1024 * 1024)
             actual_mb = file_size / (1024 * 1024)
             raise ValidationError(
-                f"File size {actual_mb:.2f}MB exceeds maximum allowed " f"size of {max_mb:.0f}MB",
+                f"File size {actual_mb:.2f}MB exceeds maximum allowed size of {max_mb:.0f}MB",
                 field="file_size",
             )
 
@@ -87,7 +87,7 @@ class FileValidator:
 
         if base_content_type not in self.allowed_mime_types:
             raise ValidationError(
-                f"Content type '{base_content_type}' not allowed. " f"Must be a video file.",
+                f"Content type '{base_content_type}' not allowed. Must be a video file.",
                 field="content_type",
             )
 
