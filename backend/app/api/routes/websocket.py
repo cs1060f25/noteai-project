@@ -33,7 +33,9 @@ class ConnectionManager:
         if job_id not in self.active_connections:
             self.active_connections[job_id] = []
         self.active_connections[job_id].append(websocket)
-        logger.info(f"WebSocket connected for job {job_id}. Total connections: {len(self.active_connections[job_id])}")
+        logger.info(
+            f"WebSocket connected for job {job_id}. Total connections: {len(self.active_connections[job_id])}"
+        )
 
     def disconnect(self, websocket: WebSocket, job_id: str):
         """Remove a WebSocket connection.
@@ -45,7 +47,9 @@ class ConnectionManager:
         if job_id in self.active_connections:
             if websocket in self.active_connections[job_id]:
                 self.active_connections[job_id].remove(websocket)
-                logger.info(f"WebSocket disconnected for job {job_id}. Remaining: {len(self.active_connections[job_id])}")
+                logger.info(
+                    f"WebSocket disconnected for job {job_id}. Remaining: {len(self.active_connections[job_id])}"
+                )
 
             # Clean up empty job lists
             if not self.active_connections[job_id]:
@@ -91,7 +95,7 @@ manager = ConnectionManager()
 async def websocket_job_progress(
     websocket: WebSocket,
     job_id: str,
-    token: str = Query(None, description="Clerk authentication token")
+    token: str = Query(None, description="Clerk authentication token"),
 ):
     """WebSocket endpoint for real-time job progress updates.
 
@@ -120,29 +124,29 @@ async def websocket_job_progress(
             payload = verify_clerk_token(token)
             user_id = payload.get("sub")
             if not user_id:
-                await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token")
+                await websocket.close(
+                    code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
+                )
                 return
             logger.info(f"Authenticated WebSocket connection for user {user_id}, job {job_id}")
         except Exception as e:
             logger.error(f"WebSocket authentication failed: {e}")
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed")
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed"
+            )
             return
 
     try:
         await manager.connect(websocket, job_id)
 
         # Send initial connection success message
-        await websocket.send_json({
-            "type": "connected",
-            "job_id": job_id,
-            "message": "Connected to job progress stream"
-        })
+        await websocket.send_json(
+            {"type": "connected", "job_id": job_id, "message": "Connected to job progress stream"}
+        )
 
         # Create Redis subscriber for this job
         redis_client = aioredis.from_url(
-            settings.redis_url,
-            password=settings.redis_password,
-            decode_responses=True
+            settings.redis_url, password=settings.redis_password, decode_responses=True
         )
         pubsub = redis_client.pubsub()
         redis_channel = f"job_progress:{job_id}"
@@ -159,7 +163,9 @@ async def websocket_job_progress(
                         try:
                             data = json.loads(message["data"])
                             await websocket.send_json(data)
-                            logger.debug(f"Forwarded Redis message to WebSocket: {data.get('type')}")
+                            logger.debug(
+                                f"Forwarded Redis message to WebSocket: {data.get('type')}"
+                            )
                         except json.JSONDecodeError as e:
                             logger.error(f"Invalid JSON from Redis: {e}")
                         except Exception as e:
@@ -192,8 +198,7 @@ async def websocket_job_progress(
 
         # Wait for either task to complete (usually means disconnect)
         _done, pending = await asyncio.wait(
-            [redis_task, ws_task],
-            return_when=asyncio.FIRST_COMPLETED
+            [redis_task, ws_task], return_when=asyncio.FIRST_COMPLETED
         )
 
         # Cancel remaining tasks
@@ -222,10 +227,7 @@ async def get_connection_stats() -> dict:
     return {
         "total_jobs": len(manager.active_connections),
         "total_connections": total_connections,
-        "jobs": {
-            job_id: len(conns)
-            for job_id, conns in manager.active_connections.items()
-        }
+        "jobs": {job_id: len(conns) for job_id, conns in manager.active_connections.items()},
     }
 
 

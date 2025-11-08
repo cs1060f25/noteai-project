@@ -30,8 +30,7 @@ MIN_AUDIO_DURATION_SECONDS = 3
 def get_db_session():
     """create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(
-        autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -42,9 +41,7 @@ def validate_gemini_config() -> None:
         ValueError: if gemini api key is not configured
     """
     if not settings.gemini_api_key:
-        raise ValueError(
-            "GEMINI_API_KEY not configured. Please add it to your .env file."
-        )
+        raise ValueError("GEMINI_API_KEY not configured. Please add it to your .env file.")
 
     # configure gemini
     genai.configure(api_key=settings.gemini_api_key)
@@ -124,8 +121,7 @@ def get_non_silent_intervals(job_id: str, video_duration: float) -> list[dict]:
         db_service = DatabaseService(db)
 
         # retrieve all silence regions for this job, sorted by start_time
-        silence_regions = db_service.silence_regions.get_by_job_id(
-            job_id, order_by_time=True)
+        silence_regions = db_service.silence_regions.get_by_job_id(job_id, order_by_time=True)
 
         logger.info(
             "Retrieved silence regions from database",
@@ -156,8 +152,7 @@ def get_non_silent_intervals(job_id: str, video_duration: float) -> list[dict]:
 
         # handle remaining time after last silence region
         if current_time < video_duration:
-            non_silent_intervals.append(
-                {"start_time": current_time, "end_time": video_duration})
+            non_silent_intervals.append({"start_time": current_time, "end_time": video_duration})
 
         # calculate statistics
         total_non_silent_duration = sum(
@@ -331,11 +326,9 @@ def extract_and_segment_audio(
         if needs_chunking:
             reason = []
             if file_size_mb > MAX_AUDIO_SIZE_MB:
-                reason.append(
-                    f"size {file_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB")
+                reason.append(f"size {file_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB")
             if duration_seconds > MAX_AUDIO_DURATION_SECONDS:
-                reason.append(
-                    f"duration {duration_seconds:.1f}s > {MAX_AUDIO_DURATION_SECONDS}s")
+                reason.append(f"duration {duration_seconds:.1f}s > {MAX_AUDIO_DURATION_SECONDS}s")
 
             logger.warning(
                 "Audio exceeds API limits, will use chunking",
@@ -453,10 +446,8 @@ def chunk_and_transcribe_audio(
             # adjust timestamps for this chunk's position in the full audio
             for segment in chunk_result.get("segments", []):
                 adjusted_segment = segment.copy()
-                adjusted_segment["start"] = round(
-                    segment["start"] + chunk_start_seconds, 2)
-                adjusted_segment["end"] = round(
-                    segment["end"] + chunk_start_seconds, 2)
+                adjusted_segment["start"] = round(segment["start"] + chunk_start_seconds, 2)
+                adjusted_segment["end"] = round(segment["end"] + chunk_start_seconds, 2)
                 all_segments.append(adjusted_segment)
 
             full_text += chunk_result.get("text", "") + " "
@@ -574,18 +565,22 @@ without any formatting, timestamps, or additional commentary. Just return the sp
             current_time = 0.0
 
             for segment_id, sentence in enumerate(sentences):
-                sentence_duration = (len(sentence) / total_chars) * \
-                    duration_seconds if total_chars > 0 else duration_seconds
-                end_time = min(current_time + sentence_duration,
-                               duration_seconds)
+                sentence_duration = (
+                    (len(sentence) / total_chars) * duration_seconds
+                    if total_chars > 0
+                    else duration_seconds
+                )
+                end_time = min(current_time + sentence_duration, duration_seconds)
 
-                segments.append({
-                    "id": segment_id,
-                    "start": round(current_time, 2),
-                    "end": round(end_time, 2),
-                    "text": sentence,
-                    "confidence": None,  # gemini doesn't provide confidence scores
-                })
+                segments.append(
+                    {
+                        "id": segment_id,
+                        "start": round(current_time, 2),
+                        "end": round(end_time, 2),
+                        "text": sentence,
+                        "confidence": None,  # gemini doesn't provide confidence scores
+                    }
+                )
 
                 current_time = end_time
 
@@ -700,8 +695,7 @@ def remap_timestamps_to_original(
                 proportion = (
                     offset_from_start / compressed_duration if compressed_duration > 0 else 0
                 )
-                original_start = map_orig_start + \
-                    (proportion * original_duration)
+                original_start = map_orig_start + (proportion * original_duration)
 
             # check if segment end falls within this mapping interval
             if map_comp_start <= compressed_end <= map_comp_end:
@@ -709,8 +703,7 @@ def remap_timestamps_to_original(
                 proportion = (
                     offset_from_start / compressed_duration if compressed_duration > 0 else 0
                 )
-                original_end = map_orig_start + \
-                    (proportion * original_duration)
+                original_end = map_orig_start + (proportion * original_duration)
 
             # if we found both timestamps, we can stop searching
             if original_start is not None and original_end is not None:
@@ -762,8 +755,7 @@ def store_transcript_segments(segments: list[dict], job_id: str) -> None:
         Exception: if database operation fails
     """
     if not segments:
-        logger.info("No transcript segments to store",
-                    extra={"job_id": job_id})
+        logger.info("No transcript segments to store", extra={"job_id": job_id})
         return
 
     db = get_db_session()
@@ -917,14 +909,12 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
                 "Using chunked transcription for large audio file",
                 extra={"job_id": job_id},
             )
-            transcription_result = chunk_and_transcribe_audio(
-                audio_or_path, job_id)
+            transcription_result = chunk_and_transcribe_audio(audio_or_path, job_id)
             temp_audio_path = None  # no single file, chunks are handled internally
         else:
             # audio fits in single request
             temp_audio_path = audio_or_path
-            transcription_result = transcribe_with_gemini(
-                temp_audio_path, job_id)
+            transcription_result = transcribe_with_gemini(temp_audio_path, job_id)
 
         logger.info(
             "Transcription received from Gemini API",
@@ -949,8 +939,7 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
             seg["end_time"] - seg["start_time"] for seg in remapped_segments
         )
         avg_confidence = (
-            sum(seg["confidence"]
-                for seg in remapped_segments if seg["confidence"] is not None)
+            sum(seg["confidence"] for seg in remapped_segments if seg["confidence"] is not None)
             / len([seg for seg in remapped_segments if seg["confidence"] is not None])
             if any(seg["confidence"] is not None for seg in remapped_segments)
             else None

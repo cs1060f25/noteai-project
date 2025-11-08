@@ -271,5 +271,3 @@ def list_processing_logs(
         logs=log_responses,
         total=total,
     )
-
-

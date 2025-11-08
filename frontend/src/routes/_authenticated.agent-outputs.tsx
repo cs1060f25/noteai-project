@@ -207,8 +207,8 @@ const JobListView = () => {
 
       <div className="flex items-center justify-between px-2">
         <p className="text-xs text-muted-foreground">
-          {filteredJobs.length} of {jobListState.jobList.total} job{jobListState.jobList.total !== 1 ? 's' : ''} ·{' '}
-          {completedCount} completed
+          {filteredJobs.length} of {jobListState.jobList.total} job
+          {jobListState.jobList.total !== 1 ? 's' : ''} · {completedCount} completed
         </p>
       </div>
 
@@ -220,51 +220,53 @@ const JobListView = () => {
           </div>
         ) : (
           filteredJobs.map((job: JobResponse) => {
-          return (
-            <button
-              key={job.job_id}
-              onClick={() => handleJobClick(job.job_id)}
-              className="w-full group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent transition-colors text-left"
-            >
-              <div className="flex-shrink-0">{getStatusIcon(job.status)}</div>
+            return (
+              <button
+                key={job.job_id}
+                onClick={() => handleJobClick(job.job_id)}
+                className="w-full group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent transition-colors text-left"
+              >
+                <div className="flex-shrink-0">{getStatusIcon(job.status)}</div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                    {job.filename}
-                  </h3>
-                  <span
-                    className={`px-1.5 py-0.5 text-xs rounded ${getStatusColor(job.status)} flex-shrink-0`}
-                  >
-                    {job.status}
-                  </span>
-                </div>
-
-                {job.error_message && (
-                  <p className="text-xs text-destructive truncate mb-1">Error: {job.error_message}</p>
-                )}
-
-                {job.progress && !job.error_message && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${job.progress.percent}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {Math.round(job.progress.percent)}%
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                      {job.filename}
+                    </h3>
+                    <span
+                      className={`px-1.5 py-0.5 text-xs rounded ${getStatusColor(job.status)} flex-shrink-0`}
+                    >
+                      {job.status}
                     </span>
                   </div>
-                )}
 
-                <p className="text-xs text-muted-foreground">{formatDate(job.created_at)}</p>
-              </div>
+                  {job.error_message && (
+                    <p className="text-xs text-destructive truncate mb-1">
+                      Error: {job.error_message}
+                    </p>
+                  )}
 
-              <ArrowLeft className="w-4 h-4 rotate-180 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-            </button>
-          );
-        })
+                  {job.progress && !job.error_message && (
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${job.progress.percent}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {Math.round(job.progress.percent)}%
+                      </span>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">{formatDate(job.created_at)}</p>
+                </div>
+
+                <ArrowLeft className="w-4 h-4 rotate-180 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              </button>
+            );
+          })
         )}
       </div>
     </div>
@@ -666,7 +668,9 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
                         )}
                       </div>
                       {clip.topic && (
-                        <p className="text-sm text-muted-foreground leading-relaxed">{clip.topic}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {clip.topic}
+                        </p>
                       )}
                     </div>
                     {clip.importance_score !== undefined && (

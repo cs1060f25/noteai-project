@@ -336,7 +336,11 @@ export const UploadIntegrated = () => {
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                 />
-                <Button className="glass-button" onClick={handleUrlUpload} disabled={!youtubeUrl.trim()}>
+                <Button
+                  className="glass-button"
+                  onClick={handleUrlUpload}
+                  disabled={!youtubeUrl.trim()}
+                >
                   Upload from URL
                 </Button>
               </div>
@@ -368,7 +372,6 @@ export const UploadIntegrated = () => {
             ))}
           </motion.div>
         )}
-
 
         {/* Processing Progress */}
         {isProcessing && uploadedJobId && processingStartTime && (

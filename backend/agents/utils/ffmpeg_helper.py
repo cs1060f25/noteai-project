@@ -33,12 +33,10 @@ class FFmpegHelper:
                 check=True,
                 timeout=5,
             )
-            logger.info("FFmpeg verified", extra={
-                        "version": result.stdout.split("\n")[0]})
+            logger.info("FFmpeg verified", extra={"version": result.stdout.split("\n")[0]})
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
             logger.error("FFmpeg not found or not working", exc_info=e)
-            raise FFmpegError(
-                "FFmpeg is not installed or not accessible") from e
+            raise FFmpegError("FFmpeg is not installed or not accessible") from e
 
     def get_video_info(self, video_path: Path) -> dict[str, Any]:
         """Get video metadata using ffprobe.
@@ -71,8 +69,7 @@ class FFmpegHelper:
 
             # extract video stream info
             video_stream = next(
-                (s for s in probe_data.get("streams", [])
-                 if s["codec_type"] == "video"),
+                (s for s in probe_data.get("streams", []) if s["codec_type"] == "video"),
                 None,
             )
 
@@ -184,6 +181,7 @@ class FFmpegHelper:
         # if only one clip, just copy it
         if len(segments) == 1:
             import shutil
+
             shutil.copy2(segments[0], output_path)
             return
 
@@ -229,33 +227,41 @@ class FFmpegHelper:
                 filter_parts.append(
                     f"[{v_last}][v{i}]xfade=transition=fade:duration={transition_duration}:offset={offset:.3f}[{v_out}]"
                 )
-                filter_parts.append(
-                    f"[{a_last}][a{i}]acrossfade=d={transition_duration}[{a_out}]"
-                )
+                filter_parts.append(f"[{a_last}][a{i}]acrossfade=d={transition_duration}[{a_out}]")
 
                 v_last, a_last = v_out, a_out
 
             filter_complex = ";".join(filter_parts)
 
             # --- complete ffmpeg command ---
-            cmd.extend([
-                "-filter_complex", filter_complex,
-                "-map", f"[{v_last}]",
-                "-map", f"[{a_last}]",
-                "-c:v", "libx264",
-                "-pix_fmt", "yuv420p",
-                "-preset", "medium",
-                "-crf", "23",
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-movflags", "+faststart",
-                str(output_path),
-            ])
+            cmd.extend(
+                [
+                    "-filter_complex",
+                    filter_complex,
+                    "-map",
+                    f"[{v_last}]",
+                    "-map",
+                    f"[{a_last}]",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-preset",
+                    "medium",
+                    "-crf",
+                    "23",
+                    "-c:a",
+                    "aac",
+                    "-b:a",
+                    "192k",
+                    "-movflags",
+                    "+faststart",
+                    str(output_path),
+                ]
+            )
 
             # run ffmpeg
-            subprocess.run(
-                cmd, capture_output=True, text=True, check=True, timeout=1800
-            )
+            subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=1800)
             logger.info(
                 "Videos concatenated with transitions (audio+video)",
                 extra={"output": str(output_path), "segments": len(segments)},
@@ -267,8 +273,7 @@ class FFmpegHelper:
                 exc_info=e,
                 extra={"stderr": e.stderr, "cmd": " ".join(cmd)},
             )
-            raise FFmpegError(
-                f"Failed to concatenate with transitions: {e.stderr}") from e
+            raise FFmpegError(f"Failed to concatenate with transitions: {e.stderr}") from e
 
     def _build_crossfade_filter(
         self,
@@ -377,8 +382,7 @@ class FFmpegHelper:
                 exc_info=e,
                 extra={"stderr": e.stderr},
             )
-            raise FFmpegError(
-                f"Failed to generate thumbnail: {e.stderr}") from e
+            raise FFmpegError(f"Failed to generate thumbnail: {e.stderr}") from e
 
     def add_metadata(
         self,
@@ -437,36 +441,59 @@ class FFmpegHelper:
             input_path = str(input_path)
             if output_path.lower().endswith(".webm"):
                 cmd = [
-                    "ffmpeg", "-y", "-i", input_path,
-                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease",
-                    "-c:v", "libvpx-vp9",
-                    "-b:v", "0",
-                    "-crf", str(crf),
-                    "-row-mt", "1",
-                    "-pix_fmt", "yuv420p",
-                    "-speed", "2",
-                    "-threads", str(threads),
-                    "-c:a", "libopus",
-                    "-b:a", "96k",
-                    "-ac", "2",
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    input_path,
+                    "-vf",
+                    f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+                    "-c:v",
+                    "libvpx-vp9",
+                    "-b:v",
+                    "0",
+                    "-crf",
+                    str(crf),
+                    "-row-mt",
+                    "1",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-speed",
+                    "2",
+                    "-threads",
+                    str(threads),
+                    "-c:a",
+                    "libopus",
+                    "-b:a",
+                    "96k",
+                    "-ac",
+                    "2",
                     output_path,
                 ]
             else:
                 # Default for MP4/MOV
                 cmd = [
-                    "ffmpeg", "-y", "-i", input_path,
-                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease",
-                    "-c:v", "libx264",
-                    "-preset", "medium",
-                    "-b:v", "4M",
-                    "-c:a", "aac",
-                    "-b:a", "192k",
-                    "-movflags", "+faststart",
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    input_path,
+                    "-vf",
+                    f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "medium",
+                    "-b:v",
+                    "4M",
+                    "-c:a",
+                    "aac",
+                    "-b:a",
+                    "192k",
+                    "-movflags",
+                    "+faststart",
                     output_path,
                 ]
 
-            subprocess.run(
-                cmd, check=True, capture_output=True, text=True)
+            subprocess.run(cmd, check=True, capture_output=True, text=True)
             return output_path
 
         except subprocess.CalledProcessError as e:

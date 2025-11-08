@@ -57,15 +57,11 @@ class VideoCompiler:
             raise CompilationError(f"Job not found: {job_id}")
 
         # fetch clip records created by segment extractor, ordered by clip_order
-        clips = (
-            self.db.query(Clip)
-            .filter(Clip.job_id == job_id)
-            .order_by(Clip.clip_order)
-            .all()
-        )
+        clips = self.db.query(Clip).filter(Clip.job_id == job_id).order_by(Clip.clip_order).all()
         if not clips:
             raise CompilationError(
-                f"No clips found for job: {job_id}. Run segment extraction first.")
+                f"No clips found for job: {job_id}. Run segment extraction first."
+            )
 
         compiled_clips: list[dict[str, Any]] = []
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -74,16 +70,13 @@ class VideoCompiler:
             # download original video
             original_video_path = temp_path / "original.mp4"
             try:
-                self._download_from_s3(
-                    job.original_s3_key, original_video_path)
+                self._download_from_s3(job.original_s3_key, original_video_path)
             except Exception as e:
-                raise CompilationError(
-                    f"Failed to download from S3: {job.original_s3_key}") from e
+                raise CompilationError(f"Failed to download from S3: {job.original_s3_key}") from e
 
             # get video info
             video_info = self.ffmpeg.get_video_info(original_video_path)
-            logger.info("Original video info", extra={
-                        "job_id": job_id, "info": video_info})
+            logger.info("Original video info", extra={"job_id": job_id, "info": video_info})
 
             # process each clip independently
             for clip in clips:
@@ -101,8 +94,7 @@ class VideoCompiler:
                     logger.error(
                         "Failed to process clip",
                         exc_info=e,
-                        extra={"job_id": job_id,
-                               "clip_id": clip.clip_id},
+                        extra={"job_id": job_id, "clip_id": clip.clip_id},
                     )
                     # continue with next clip instead of failing entire job
                     continue
@@ -129,8 +121,9 @@ class VideoCompiler:
                         ),
                     )
 
-                    logger.info("Applied smooth transitions between clips", extra={
-                                "job_id": job_id})
+                    logger.info(
+                        "Applied smooth transitions between clips", extra={"job_id": job_id}
+                    )
 
                 elif len(compiled_clips) == 1:
                     # Only one clip — use it as the final video
@@ -140,18 +133,22 @@ class VideoCompiler:
                 if final_video_path and final_video_path.exists():
                     final_video_s3_key = f"highlights/{job_id}/final.mp4"
                     self._upload_to_s3(final_video_path, final_video_s3_key, "video/mp4")
-                    logger.info("Uploaded final merged video to S3", extra={
-                                "job_id": job_id, "s3_key": final_video_s3_key})
+                    logger.info(
+                        "Uploaded final merged video to S3",
+                        extra={"job_id": job_id, "s3_key": final_video_s3_key},
+                    )
 
                     # Update job record with final video S3 key
                     job.compiled_video_s3_key = final_video_s3_key
                     self.db.commit()
-                    logger.info("Updated job with final video S3 key", extra={
-                                "job_id": job_id})
+                    logger.info("Updated job with final video S3 key", extra={"job_id": job_id})
 
             except Exception as e:
-                logger.error("Failed to create or upload final merged video",
-                             exc_info=e, extra={"job_id": job_id})
+                logger.error(
+                    "Failed to create or upload final merged video",
+                    exc_info=e,
+                    extra={"job_id": job_id},
+                )
 
         # commit result summary
         logger.info(
@@ -247,8 +244,7 @@ class VideoCompiler:
             "creation_time": datetime.now(timezone.utc).isoformat(),
         }
         final_path = temp_path / f"final_{clip_id}.mp4"
-        self.ffmpeg.add_metadata(
-            video_path=encoded_path, output_path=final_path, metadata=metadata)
+        self.ffmpeg.add_metadata(video_path=encoded_path, output_path=final_path, metadata=metadata)
 
         # --- generate thumbnail ---
         thumbnail_path = temp_path / f"thumbnail_{clip_id}.jpg"
@@ -274,13 +270,11 @@ class VideoCompiler:
         if clip.extra_metadata is None:
             clip.extra_metadata = {}
         clip.extra_metadata["resolution"] = f"{output_width}x{output_height}"
-        clip.extra_metadata["compiled_at"] = datetime.now(
-            timezone.utc).isoformat()
+        clip.extra_metadata["compiled_at"] = datetime.now(timezone.utc).isoformat()
 
         self.db.commit()
 
-        logger.info("Clip processed successfully", extra={
-                    "job_id": job_id, "clip_id": clip_id})
+        logger.info("Clip processed successfully", extra={"job_id": job_id, "clip_id": clip_id})
 
         return {
             "clip_id": clip_id,

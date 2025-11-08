@@ -30,8 +30,7 @@ logger = get_logger(__name__)
 def get_task_db():
     """create database session for celery tasks."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(
-        autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -75,8 +74,7 @@ class BaseProcessingTask(Task):
         """track successful task completion metrics."""
         if hasattr(self, "_start_time"):
             duration = time.time() - self._start_time
-            task_duration_seconds.labels(
-                task_name=self.name, status="success").observe(duration)
+            task_duration_seconds.labels(task_name=self.name, status="success").observe(duration)
 
         task_counter.labels(task_name=self.name, status="success").inc()
 
@@ -202,8 +200,7 @@ class BaseProcessingTask(Task):
         # track failure metrics
         if hasattr(self, "_start_time"):
             duration = time.time() - self._start_time
-            task_duration_seconds.labels(
-                task_name=self.name, status="failure").observe(duration)
+            task_duration_seconds.labels(task_name=self.name, status="failure").observe(duration)
 
         task_counter.labels(task_name=self.name, status="failure").inc()
 
@@ -242,8 +239,7 @@ def process_video(self, job_id: str) -> dict[str, Any]:
     returns:
         dict with processing results
     """
-    logger.info("starting video processing pipeline (sequential)",
-                extra={"job_id": job_id})
+    logger.info("starting video processing pipeline (sequential)", extra={"job_id": job_id})
 
     try:
         # update job status to running
@@ -310,8 +306,7 @@ def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
     returns:
         dict with stage one results
     """
-    logger.info("Starting stage one (sequential processing)",
-                extra={"job_id": job_id})
+    logger.info("Starting stage one (sequential processing)", extra={"job_id": job_id})
 
     try:
         self.update_job_progress(
@@ -688,8 +683,7 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
         # mark job as completed (final step)
         self.mark_job_completed(job_id)
 
-        logger.info("processing pipeline completed successfully",
-                    extra={"job_id": job_id})
+        logger.info("processing pipeline completed successfully", extra={"job_id": job_id})
 
         return result
     finally:

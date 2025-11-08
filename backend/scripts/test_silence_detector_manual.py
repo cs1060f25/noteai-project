@@ -24,12 +24,12 @@ def test_silence_detector_local(video_path: str, job_id: str = "manual-test-001"
         video_path: path to local video file
         job_id: job identifier for testing
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Testing Silence Detector")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Video file: {video_path}")
     print(f"Job ID: {job_id}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # check if file exists
     if not Path(video_path).exists():
@@ -47,7 +47,7 @@ def test_silence_detector_local(video_path: str, job_id: str = "manual-test-001"
 
     # step 2: display results
     print("Step 2: Silence regions detected:")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if not silence_regions:
         print("No silence regions detected in this video.")
@@ -62,10 +62,10 @@ def test_silence_detector_local(video_path: str, job_id: str = "manual-test-001"
             print(f"  Type: {region['silence_type']}")
             print(f"  Threshold: {region['amplitude_threshold']} dBFS")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Total silence duration: {total_silence:.2f}s")
         print(f"Total regions: {len(silence_regions)}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
     # step 3: optionally store in database
     try:
@@ -85,9 +85,9 @@ def test_silence_detector_local(video_path: str, job_id: str = "manual-test-001"
     else:
         print("\nSkipping database storage.")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Test completed!")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":

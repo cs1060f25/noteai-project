@@ -149,7 +149,9 @@ def check_video_file(video_path: str):
         print("\n    Solutions:")
         print("    1. Use a different video file with audio")
         print("    2. Add an audio track to this video:")
-        print(f"       ffmpeg -i {video_path} -f lavfi -i anullsrc -c:v copy -c:a aac -shortest output.mp4")
+        print(
+            f"       ffmpeg -i {video_path} -f lavfi -i anullsrc -c:v copy -c:a aac -shortest output.mp4"
+        )
     elif not info["has_video"]:
         print("⚠️  This file has NO video track!")
         print("    This appears to be an audio-only file.")
