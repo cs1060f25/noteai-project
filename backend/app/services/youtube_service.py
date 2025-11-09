@@ -3,7 +3,7 @@
 import re
 import tempfile
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, Callable, ClassVar
 
 import yt_dlp
 from yt_dlp.utils import DownloadError
@@ -120,7 +120,7 @@ class YouTubeService:
         self,
         url: str,
         job_id: str,
-        progress_callback: callable | None = None,
+        progress_callback: Callable[[float], None] | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """Download YouTube video and upload to S3.
 
