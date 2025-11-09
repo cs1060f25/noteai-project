@@ -38,7 +38,12 @@ class User(Base):
     is_verified = Column(Boolean, default=True, nullable=False)
 
     # role-based access control
-    role = Column(Enum(UserRole), default=UserRole.USER, nullable=False, index=True)
+    role = Column(
+        Enum(UserRole, values_callable=lambda x: [e.value for e in x]),
+        default=UserRole.USER,
+        nullable=False,
+        index=True,
+    )
 
     # user preferences
     organization = Column(String(255), nullable=True)

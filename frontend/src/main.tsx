@@ -25,7 +25,7 @@ const ClerkApiSetup = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     // set up the session token getter for the api client
-    setClerkSessionTokenGetter(() => getToken());
+    setClerkSessionTokenGetter(getToken);
   }, [getToken]);
 
   return <>{children}</>;

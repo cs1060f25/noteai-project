@@ -39,7 +39,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
     """,
 )
 @limiter.limit(settings.rate_limit_jobs_list)
-def list_all_jobs(
+async def list_all_jobs(
     request: Request,
     response: Response,
     admin_user: User = Depends(require_admin),
@@ -114,7 +114,7 @@ def list_all_jobs(
     """,
 )
 @limiter.limit(settings.rate_limit_jobs_list)
-def list_all_users(
+async def list_all_users(
     request: Request,
     response: Response,
     admin_user: User = Depends(require_admin),
@@ -173,7 +173,7 @@ def list_all_users(
     """,
 )
 @limiter.limit(settings.rate_limit_job_status)
-def get_system_metrics(
+async def get_system_metrics(
     request: Request,
     response: Response,
     admin_user: User = Depends(require_admin),
@@ -217,7 +217,7 @@ def get_system_metrics(
     """,
 )
 @limiter.limit(settings.rate_limit_jobs_list)
-def list_processing_logs(
+async def list_processing_logs(
     request: Request,
     response: Response,
     admin_user: User = Depends(require_admin),
