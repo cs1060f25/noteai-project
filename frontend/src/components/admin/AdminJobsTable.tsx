@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+
 import {
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   FileVideo,
@@ -12,16 +11,17 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { getAllJobs, AdminError } from '@/services/adminService';
 import type { AdminJobResponse, AdminJobsQueryParams } from '@/types/admin';
 import type { JobStatus } from '@/types/api';
-import { cn } from '@/lib/utils';
 
 const STATUS_COLORS: Record<JobStatus, string> = {
   completed: 'bg-green-500/10 text-green-500 border-green-500/20',

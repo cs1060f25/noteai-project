@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+
 import { Search, ChevronLeft, ChevronRight, Users, Shield, User, AlertCircle } from 'lucide-react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { getAllUsers, AdminError } from '@/services/adminService';
 import type { AdminUserResponse, AdminUsersQueryParams } from '@/types/admin';
-import { cn } from '@/lib/utils';
 
 export const UsersTable: React.FC = () => {
   const [users, setUsers] = useState<AdminUserResponse[]>([]);

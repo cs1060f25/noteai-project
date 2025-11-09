@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { motion } from 'motion/react';
 

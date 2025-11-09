@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from '@tanstack/react-router';
+
 import { AlertCircle, Shield } from 'lucide-react';
 
 import { useRole } from '@/hooks/useRole';

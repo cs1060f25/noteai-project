@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+
 import {
   Users,
   Briefcase,
@@ -11,9 +12,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MetricsCard } from './MetricsCard';
 import { getSystemMetrics, AdminError } from '@/services/adminService';
 import type { SystemMetrics } from '@/types/admin';
+
+import { MetricsCard } from './MetricsCard';
 
 export const SystemMetricsGrid: React.FC = () => {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
