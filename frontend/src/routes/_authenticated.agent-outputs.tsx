@@ -17,6 +17,8 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { AdminRoute } from '@/components/admin/AdminRoute';
+
 import {
   getClips,
   getContentSegments,
@@ -732,19 +734,21 @@ const AgentOutputsComponent = () => {
   const { jobId } = Route.useSearch();
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-      {!jobId && (
-        <div className="space-y-1 mb-8">
-          <h1 className="text-3xl font-semibold text-foreground">Agent Outputs</h1>
-          <p className="text-sm text-muted-foreground">
-            Select a job to view detailed processing results from AI agents
-          </p>
-        </div>
-      )}
+    <AdminRoute>
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        {!jobId && (
+          <div className="space-y-1 mb-8">
+            <h1 className="text-3xl font-semibold text-foreground">Agent Outputs</h1>
+            <p className="text-sm text-muted-foreground">
+              Select a job to view detailed processing results from AI agents
+            </p>
+          </div>
+        )}
 
-      {/* content */}
-      {jobId ? <AgentOutputsDetailView jobId={jobId} /> : <JobListView />}
-    </div>
+        {/* content */}
+        {jobId ? <AgentOutputsDetailView jobId={jobId} /> : <JobListView />}
+      </div>
+    </AdminRoute>
   );
 };
 

@@ -9,7 +9,7 @@ from app.models.user import User, UserRole
 logger = get_logger(__name__)
 
 
-def require_admin(
+async def require_admin(
     current_user: User = Depends(get_current_user_clerk),
 ) -> User:
     """require admin role for endpoint access.
