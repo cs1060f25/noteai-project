@@ -13,9 +13,7 @@ export function AdminDashboardPage() {
           </div>
           <h1 className="font-bold">Admin Dashboard</h1>
         </div>
-        <p className="text-muted-foreground">
-          System-wide metrics and performance overview
-        </p>
+        <p className="text-muted-foreground">System-wide metrics and performance overview</p>
       </div>
 
       <div className="flex-1 overflow-auto">
