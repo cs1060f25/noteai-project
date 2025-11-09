@@ -47,6 +47,12 @@ class UploadConfirmRequest(BaseModel):
     job_id: str = Field(..., description="Job identifier to confirm")
 
 
+class YouTubeUploadRequest(BaseModel):
+    """Request to upload video from YouTube URL."""
+
+    url: str = Field(..., description="YouTube video URL", min_length=1)
+
+
 class UploadResponse(BaseModel):
     """Response with S3 pre-signed URL for upload."""
 
@@ -195,21 +201,15 @@ class ClipResponse(BaseModel):
     """Individual clip response for agent outputs."""
 
     clip_id: str = Field(..., description="Unique clip identifier")
-    content_segment_id: str | None = Field(
-        None, description="Associated content segment ID"
-    )
+    content_segment_id: str | None = Field(None, description="Associated content segment ID")
     title: str = Field(..., description="Clip title")
     topic: str | None = Field(None, description="Clip topic")
-    importance_score: float | None = Field(
-        None, description="Importance score (0-1)", ge=0, le=1
-    )
+    importance_score: float | None = Field(None, description="Importance score (0-1)", ge=0, le=1)
     start_time: float = Field(..., description="Start time in seconds", ge=0)
     end_time: float = Field(..., description="End time in seconds", ge=0)
     duration: float = Field(..., description="Clip duration in seconds", ge=0)
     clip_order: int | None = Field(None, description="Display order (1-based)")
-    extra_metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
-    )
+    extra_metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     created_at: datetime = Field(..., description="Creation timestamp")
 
 

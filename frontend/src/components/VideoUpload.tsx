@@ -1,27 +1,40 @@
 import React, { useState, useRef, useCallback } from 'react';
 
-import { Upload, CheckCircle2, XCircle, Loader2, FileVideo } from 'lucide-react';
+import { Upload, CheckCircle2, XCircle, Loader2, FileVideo, Link as LinkIcon } from 'lucide-react';
 
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { cn } from '../lib/utils';
-import { uploadVideo, validateVideoFile, UploadError } from '../services/uploadService';
+import {
+  uploadVideo,
+  uploadFromYouTube,
+  validateVideoFile,
+  validateYouTubeUrl,
+  UploadError,
+} from '../services/uploadService';
 
 interface VideoUploadProps {
-  onUploadComplete?: (jobId: string, s3Key: string) => void;
+  onUploadComplete?: (jobId: string, s3Key?: string) => void;
   onUploadError?: (error: Error) => void;
   className?: string;
 }
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error';
+type UploadMethod = 'file' | 'youtube';
 
 export const VideoUpload = ({ onUploadComplete, onUploadError, className }: VideoUploadProps) => {
+  const [uploadMethod, setUploadMethod] = useState<UploadMethod>('file');
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [progress, setProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [jobId, setJobId] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [videoInfo, setVideoInfo] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = useCallback((file: File | null) => {
@@ -92,12 +105,46 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
     }
   };
 
+  const handleYouTubeUpload = async () => {
+    const validation = validateYouTubeUrl(youtubeUrl);
+    if (!validation.valid) {
+      setErrorMessage(validation.error || 'Invalid YouTube URL');
+      setUploadState('error');
+      return;
+    }
+
+    setUploadState('uploading');
+    setProgress(0);
+    setErrorMessage('');
+
+    try {
+      const result = await uploadFromYouTube(youtubeUrl, (progressPercent) => {
+        setProgress(progressPercent);
+      });
+
+      setJobId(result.jobId);
+      setVideoInfo(result.videoInfo);
+      setUploadState('success');
+      onUploadComplete?.(result.jobId);
+    } catch (error) {
+      const errorMsg =
+        error instanceof UploadError
+          ? error.message
+          : 'Failed to download YouTube video. Please try again.';
+      setErrorMessage(errorMsg);
+      setUploadState('error');
+      onUploadError?.(error as Error);
+    }
+  };
+
   const handleReset = () => {
     setSelectedFile(null);
+    setYoutubeUrl('');
     setUploadState('idle');
     setProgress(0);
     setErrorMessage('');
     setJobId('');
+    setVideoInfo(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -120,61 +167,101 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
       <CardHeader>
         <CardTitle>Upload Video</CardTitle>
         <CardDescription>
-          Upload your lecture video to generate highlight clips with subtitles
+          Upload your lecture video or provide a YouTube URL to generate highlight clips with
+          subtitles
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!selectedFile && uploadState === 'idle' && (
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={cn(
-              'border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer',
-              isDragging
-                ? 'border-primary bg-primary/5 fluent-shadow-lg'
-                : 'border-border hover:border-primary/50 hover:bg-accent/50'
+        <Tabs
+          value={uploadMethod}
+          onValueChange={(value: string) => setUploadMethod(value as UploadMethod)}
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="file">Upload File</TabsTrigger>
+            <TabsTrigger value="youtube">YouTube URL</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="file" className="space-y-4 mt-4">
+            {!selectedFile && uploadState === 'idle' && (
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={cn(
+                  'border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer',
+                  isDragging
+                    ? 'border-primary bg-primary/5 fluent-shadow-lg'
+                    : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                )}
+                onClick={handleBrowseClick}
+              >
+                <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="fluent-subtitle text-lg text-foreground mb-2">
+                  Drag and drop your video here
+                </p>
+                <p className="fluent-body text-muted-foreground mb-4">or click to browse</p>
+                <p className="fluent-caption">Supports MP4, MOV, AVI, MKV, WebM (max 2GB)</p>
+              </div>
             )}
-            onClick={handleBrowseClick}
-          >
-            <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="fluent-subtitle text-lg text-foreground mb-2">
-              Drag and drop your video here
-            </p>
-            <p className="fluent-body text-muted-foreground mb-4">or click to browse</p>
-            <p className="fluent-caption">Supports MP4, MOV, AVI, MKV, WebM (max 2GB)</p>
-          </div>
-        )}
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm"
-          onChange={handleFileInputChange}
-          className="hidden"
-        />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
 
-        {selectedFile && uploadState === 'idle' && (
-          <div className="flex items-start gap-4 p-4 border border-border rounded-xl bg-accent/50">
-            <FileVideo className="w-10 h-10 text-primary flex-shrink-0 mt-1" />
-            <div className="flex-1 min-w-0">
-              <p className="fluent-body font-medium text-foreground truncate">
-                {selectedFile.name}
-              </p>
-              <p className="fluent-caption">{formatFileSize(selectedFile.size)}</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              Remove
-            </Button>
-          </div>
-        )}
+            {selectedFile && uploadState === 'idle' && (
+              <>
+                <div className="flex items-start gap-4 p-4 border border-border rounded-xl bg-accent/50">
+                  <FileVideo className="w-10 h-10 text-primary flex-shrink-0 mt-1" />
+                  <div className="flex-1 min-w-0">
+                    <p className="fluent-body font-medium text-foreground truncate">
+                      {selectedFile.name}
+                    </p>
+                    <p className="fluent-caption">{formatFileSize(selectedFile.size)}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleReset}>
+                    Remove
+                  </Button>
+                </div>
+                <Button onClick={handleUpload} className="w-full" size="lg">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Start Upload
+                </Button>
+              </>
+            )}
+          </TabsContent>
 
-        {selectedFile && uploadState === 'idle' && (
-          <Button onClick={handleUpload} className="w-full" size="lg">
-            <Upload className="w-4 h-4 mr-2" />
-            Start Upload
-          </Button>
-        )}
+          <TabsContent value="youtube" className="space-y-4 mt-4">
+            {uploadState === 'idle' && (
+              <>
+                <div className="space-y-2">
+                  <Input
+                    type="url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    className="w-full"
+                  />
+                  <p className="fluent-caption text-muted-foreground">
+                    Paste a YouTube video URL to download and process
+                  </p>
+                </div>
+                <Button
+                  onClick={handleYouTubeUpload}
+                  disabled={!youtubeUrl.trim()}
+                  className="w-full"
+                  size="lg"
+                >
+                  <LinkIcon className="w-4 h-4 mr-2" />
+                  Download from YouTube
+                </Button>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {uploadState === 'uploading' && (
           <div className="space-y-4">
@@ -204,6 +291,24 @@ export const VideoUpload = ({ onUploadComplete, onUploadError, className }: Vide
                   Your video is now processing. Job ID:{' '}
                   <code className="bg-accent px-1 py-0.5 rounded text-xs font-mono">{jobId}</code>
                 </p>
+                {videoInfo && (
+                  <div className="mt-2 space-y-1">
+                    <p className="fluent-caption">
+                      <strong>Title:</strong> {videoInfo.title}
+                    </p>
+                    {videoInfo.duration && (
+                      <p className="fluent-caption">
+                        <strong>Duration:</strong> {Math.floor(videoInfo.duration / 60)}m{' '}
+                        {videoInfo.duration % 60}s
+                      </p>
+                    )}
+                    {videoInfo.uploader && (
+                      <p className="fluent-caption">
+                        <strong>Uploader:</strong> {videoInfo.uploader}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <Button onClick={handleReset} variant="outline" className="w-full">

@@ -1,9 +1,6 @@
 """Tests to verify timezone-aware datetime usage after fixing deprecated datetime.utcnow()."""
 
 from datetime import timezone
-from unittest.mock import MagicMock
-
-import pytest
 
 from app.core.logging import JSONFormatter
 from app.core.security import generate_job_id
@@ -82,7 +79,7 @@ def test_json_formatter_uses_timezone_aware_datetime():
 
 def test_datetime_now_with_timezone_utc_is_timezone_aware():
     """test that datetime.now(timezone.utc) creates timezone-aware datetime objects."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     dt = datetime.now(timezone.utc)
 

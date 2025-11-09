@@ -1,21 +1,21 @@
 """Silence detector agent for audio/video silence analysis."""
-"""Updated"""
 
-import tempfile
 import os
+import tempfile
 import time
 import uuid
 from pathlib import Path
+
 import requests
 from pydub import AudioSegment
 from pydub.silence import detect_silence as pydub_detect_silence
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.core.logging import get_logger
 from app.core.settings import settings
-from app.services.s3_service import s3_service
 from app.services.db_service import DatabaseService
-
+from app.services.s3_service import s3_service
 
 logger = get_logger(__name__)
 
@@ -27,8 +27,7 @@ MIN_SILENCE_LEN_MS = 500  # minimum silence duration in milliseconds
 def get_db_session():
     """create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(
-        autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -136,8 +135,7 @@ def analyze_audio_silence(video_path: str, job_id: str) -> list[dict]:
 
         logger.info(
             "Silence detection completed",
-            extra={"job_id": job_id,
-                   "silence_regions_found": len(silence_ranges)},
+            extra={"job_id": job_id, "silence_regions_found": len(silence_ranges)},
         )
 
         # convert to standardized format (seconds)
@@ -248,8 +246,7 @@ def detect_silence(video_path: str, job_id: str) -> dict:
         store_silence_regions(silence_regions, job_id)
 
         # calculate statistics
-        total_silence_duration = sum(
-            region["duration"] for region in silence_regions)
+        total_silence_duration = sum(region["duration"] for region in silence_regions)
         processing_time = time.time() - start_time
 
         result = {

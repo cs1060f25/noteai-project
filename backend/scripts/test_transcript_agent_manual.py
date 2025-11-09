@@ -38,12 +38,12 @@ def test_transcription_with_silence_removal(
         video_path: path to local video file
         job_id: job identifier for testing
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Testing Transcription Agent (with silence removal)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Video file: {video_path}")
     print(f"Job ID: {job_id}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # check if file exists
     if not Path(video_path).exists():
@@ -78,7 +78,7 @@ def test_transcription_with_silence_removal(
         if silence_regions:
             total_silence = sum(r["duration"] for r in silence_regions)
             print(f"   Total silence: {total_silence:.2f}s")
-            print(f"   Silence percentage: {(total_silence/video_duration*100):.1f}%\n")
+            print(f"   Silence percentage: {(total_silence / video_duration * 100):.1f}%\n")
 
         # optionally store silence regions
         try:
@@ -166,7 +166,7 @@ def test_transcription_with_silence_removal(
 
     # step 7: display results
     print("Step 7: Transcription results:")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if not remapped_segments:
         print("No transcription segments generated.")
@@ -181,7 +181,7 @@ def test_transcription_with_silence_removal(
         if len(remapped_segments) > 10:
             print(f"\n... and {len(remapped_segments) - 10} more segments")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Total segments: {len(remapped_segments)}")
 
         # calculate average confidence
@@ -190,7 +190,7 @@ def test_transcription_with_silence_removal(
             avg_conf = sum(confidences) / len(confidences)
             print(f"Average confidence: {avg_conf:.3f}")
 
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
     # step 8: optionally store in database
     try:
@@ -208,9 +208,9 @@ def test_transcription_with_silence_removal(
     else:
         print("\nSkipping database storage.")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Test completed successfully!")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 def test_transcription_without_silence(video_path: str, job_id: str = "manual-test-transcript-002"):
@@ -220,12 +220,12 @@ def test_transcription_without_silence(video_path: str, job_id: str = "manual-te
         video_path: path to local video file
         job_id: job identifier for testing
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Testing Transcription Agent (without silence removal)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Video file: {video_path}")
     print(f"Job ID: {job_id}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # check if file exists
     if not Path(video_path).exists():
@@ -292,7 +292,7 @@ def test_transcription_without_silence(video_path: str, job_id: str = "manual-te
 
     # display results
     print("Step 4: Transcription results:")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     for i, segment in enumerate(remapped_segments[:10], 1):
         print(f"\nSegment {i}:")
@@ -304,13 +304,13 @@ def test_transcription_without_silence(video_path: str, job_id: str = "manual-te
     if len(remapped_segments) > 10:
         print(f"\n... and {len(remapped_segments) - 10} more segments")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Total segments: {len(remapped_segments)}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print("Test completed successfully!")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":

@@ -10,11 +10,21 @@ from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
 from app.core.settings import settings
-from app.models.schemas import UploadConfirmRequest, UploadRequest, UploadResponse
+from app.models.schemas import (
+    UploadConfirmRequest,
+    UploadRequest,
+    UploadResponse,
+    YouTubeUploadRequest,
+)
 from app.models.user import User
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
 from app.services.validation_service import ValidationError, file_validator
+from app.services.youtube_service import (
+    DownloadFailedError,
+    InvalidURLError,
+    youtube_service,
+)
 from pipeline.tasks import process_video
 
 logger = get_logger(__name__)
@@ -243,6 +253,206 @@ def confirm_upload(
                 "error": {
                     "code": "CONFIRM_FAILED",
                     "message": "Failed to confirm upload. Please try again.",
+                }
+            },
+        ) from e
+
+
+@router.post(
+    "/from-youtube",
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload video from YouTube URL",
+    description="""
+    Upload a video from a YouTube URL.
+
+    This endpoint:
+    1. Validates the YouTube URL
+    2. Downloads the video using yt-dlp
+    3. Uploads it to S3
+    4. Creates a job record and triggers processing
+    5. Returns the job_id to track progress
+
+    Note: This may take a few minutes depending on video size.
+    """,
+)
+@limiter.limit(settings.rate_limit_upload)
+async def upload_from_youtube(
+    request: Request,
+    response: Response,
+    youtube_request: YouTubeUploadRequest,
+    current_user: User = Depends(get_current_user_clerk),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Upload video from YouTube URL and start processing."""
+    try:
+        # Validate YouTube URL
+        if not youtube_service.validate_youtube_url(youtube_request.url):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": {
+                        "code": "INVALID_URL",
+                        "message": "Invalid YouTube URL. Please provide a valid YouTube video URL.",
+                    }
+                },
+            )
+
+        # Extract video info first (quick check before downloading)
+        try:
+            video_info = youtube_service.extract_video_info(youtube_request.url)
+        except InvalidURLError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": {
+                        "code": "INVALID_URL",
+                        "message": str(e),
+                    }
+                },
+            ) from e
+        except DownloadFailedError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": {
+                        "code": "VIDEO_UNAVAILABLE",
+                        "message": f"Failed to access YouTube video: {e!s}",
+                    }
+                },
+            ) from e
+
+        # Check file size limit (2GB)
+        filesize = video_info.get("filesize", 0)
+        if filesize > 2 * 1024 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": {
+                        "code": "FILE_TOO_LARGE",
+                        "message": f"Video file size ({filesize / (1024**3):.2f} GB) exceeds maximum allowed size of 2GB.",
+                    }
+                },
+            )
+
+        # Create job record
+        job_id = f"job_{uuid.uuid4().hex[:12]}"
+
+        logger.info(
+            "Starting YouTube video download",
+            extra={
+                "job_id": job_id,
+                "url": youtube_request.url,
+                "video_title": video_info.get("title"),
+            },
+        )
+
+        # Create initial job record
+        db_service = DatabaseService(db)
+        job = db_service.jobs.create(
+            job_id=job_id,
+            user_id=current_user.user_id,
+            filename=f"{video_info.get('title', 'youtube_video')}.mp4",
+            file_size=filesize or 0,
+            content_type="video/mp4",
+            original_s3_key="",  # Will be updated after download
+            status="pending",
+            current_stage="uploading",
+            progress_percent=0.0,
+            progress_message="Downloading video from YouTube...",
+        )
+
+        # Download and upload to S3
+        try:
+            s3_key, updated_video_info = youtube_service.download_and_upload_to_s3(
+                url=youtube_request.url,
+                job_id=job_id,
+            )
+
+            # Update job with S3 key and actual file size
+            db_service.jobs.update_video_metadata(
+                job_id=job_id,
+                video_duration=updated_video_info.get("duration"),
+                video_metadata={
+                    "source": "youtube",
+                    "original_url": youtube_request.url,
+                    "video_id": updated_video_info.get("video_id"),
+                    "title": updated_video_info.get("title"),
+                    "uploader": updated_video_info.get("uploader"),
+                },
+            )
+
+            job.original_s3_key = s3_key
+            job.file_size = updated_video_info.get("filesize", 0)
+            job.filename = updated_video_info.get("filename", job.filename)
+            db.commit()
+
+        except (InvalidURLError, DownloadFailedError) as e:
+            # Mark job as failed
+            db_service.jobs.update_status(
+                job_id=job_id,
+                status="failed",
+                error_message=str(e),
+            )
+            db.commit()
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": {
+                        "code": "DOWNLOAD_FAILED",
+                        "message": f"Failed to download YouTube video: {e!s}",
+                    }
+                },
+            ) from e
+
+        # Update job status to queued and trigger processing
+        db_service.jobs.update_status(job_id=job_id, status="queued")
+        db_service.jobs.update_progress(
+            job_id=job_id,
+            current_stage="silence_detection",
+            progress_percent=10.0,
+            progress_message="Video downloaded, starting processing...",
+        )
+        db.commit()
+
+        # Trigger celery processing pipeline
+        task = process_video.delay(job_id)
+
+        logger.info(
+            "YouTube video uploaded and processing started",
+            extra={
+                "job_id": job_id,
+                "s3_key": s3_key,
+                "celery_task_id": task.id,
+            },
+        )
+
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "message": "YouTube video downloaded and processing started",
+            "video_info": {
+                "title": updated_video_info.get("title"),
+                "duration": updated_video_info.get("duration"),
+                "uploader": updated_video_info.get("uploader"),
+            },
+            "celery_task_id": task.id,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "YouTube upload failed",
+            exc_info=e,
+            extra={"url": youtube_request.url},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "YOUTUBE_UPLOAD_FAILED",
+                    "message": "Failed to process YouTube video. Please try again.",
                 }
             },
         ) from e

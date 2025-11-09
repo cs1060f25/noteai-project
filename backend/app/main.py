@@ -91,13 +91,26 @@ logger.info("Rate limiting configured with Redis backend")
 Instrumentator().instrument(app).expose(app)
 logger.info("Prometheus metrics configured at /metrics")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.get_allowed_origins(),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS: in development, allow any localhost/127.0.0.1 port via regex to avoid
+# updating .env when dev server picks a new port; in other envs, use explicit list
+cors_kwargs = {
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if settings.is_development:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.get_allowed_origins(),
+        allow_origin_regex=r"^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$",
+        **cors_kwargs,
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.get_allowed_origins(),
+        **cors_kwargs,
+    )
 
 
 @app.get("/health", tags=["Health"])

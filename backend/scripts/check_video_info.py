@@ -121,14 +121,14 @@ def check_video_file(video_path: str):
 
     # video stream
     if info["has_video"]:
-        print(f"✅ Video Track: Present")
+        print("✅ Video Track: Present")
         print(f"   Codec: {info['video_codec']}")
     else:
         print("❌ Video Track: Not found")
 
     # audio stream
     if info["has_audio"]:
-        print(f"✅ Audio Track: Present")
+        print("✅ Audio Track: Present")
         print(f"   Codec: {info['audio_codec']}")
         if info["audio_channels"]:
             print(f"   Channels: {info['audio_channels']}")
@@ -149,13 +149,15 @@ def check_video_file(video_path: str):
         print("\n    Solutions:")
         print("    1. Use a different video file with audio")
         print("    2. Add an audio track to this video:")
-        print(f"       ffmpeg -i {video_path} -f lavfi -i anullsrc -c:v copy -c:a aac -shortest output.mp4")
+        print(
+            f"       ffmpeg -i {video_path} -f lavfi -i anullsrc -c:v copy -c:a aac -shortest output.mp4"
+        )
     elif not info["has_video"]:
         print("⚠️  This file has NO video track!")
         print("    This appears to be an audio-only file.")
     else:
         print("✅ This video file is compatible with silence detection!")
-        print(f"\n    You can run:")
+        print("\n    You can run:")
         print(f"    uv run python scripts/test_silence_detector_manual.py {video_path}")
 
     print(f"{'=' * 60}\n")

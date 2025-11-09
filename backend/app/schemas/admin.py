@@ -4,7 +4,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-
 # Admin Job Schemas
 
 
@@ -109,5 +108,3 @@ class ProcessingLogListResponse(BaseModel):
 
     logs: list[ProcessingLogResponse] = Field(..., description="List of processing logs")
     total: int = Field(..., description="Total number of logs")
-
-

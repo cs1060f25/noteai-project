@@ -1,14 +1,20 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@clerk/clerk-react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Upload, Link2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ProcessingProgress } from '@/components/ProcessingProgress';
-import { uploadVideo, validateVideoFile, UploadError } from '@/services/uploadService';
+import {
+  uploadVideo,
+  uploadFromYouTube,
+  validateVideoFile,
+  validateYouTubeUrl,
+  UploadError,
+} from '@/services/uploadService';
 import { createJobWebSocket, WebSocketService } from '@/services/websocketService';
 import type { JobProgress } from '@/types/api';
 
@@ -29,6 +35,7 @@ export const UploadIntegrated = () => {
   const [_uploadStage, setUploadStage] = useState<
     'uploading' | 'processing' | 'analyzing' | 'complete'
   >('uploading');
+  const [youtubeUrl, setYoutubeUrl] = useState<string>('');
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -184,7 +191,13 @@ export const UploadIntegrated = () => {
     await handleFileSelected(f);
   };
 
-  const handleMockUrlUpload = useCallback(async () => {
+  const handleUrlUpload = useCallback(async () => {
+    const validation = validateYouTubeUrl(youtubeUrl);
+    if (!validation.valid) {
+      setErrorMsg(validation.error || 'Please enter a valid YouTube URL');
+      return;
+    }
+
     setFileName('YouTube Video');
     setUploadComplete(false);
     setUploadProgress(0);
@@ -193,34 +206,31 @@ export const UploadIntegrated = () => {
     setProcessingStartTime(new Date());
     setUploadStage('uploading');
 
-    // Set a temporary job ID so ProcessingProgress can render immediately
+    // Temporary job id so progress UI renders immediately
     setUploadedJobId('uploading');
     setUploadedVideoKey(null);
 
-    // Set initial uploading progress
+    // Initial progress UI
     setProcessingProgress({
       stage: 'uploading',
       percent: 0,
-      message: 'Starting URL upload...',
+      message: 'Starting YouTube download...',
     });
 
-    // Simulate progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      if (progress <= 100) {
+    try {
+      const result = await uploadFromYouTube(youtubeUrl, (p) => {
+        const percent = Math.max(0, Math.min(100, Math.floor(p)));
         setProcessingProgress({
           stage: 'uploading',
-          percent: progress,
-          message: `Downloading from URL... ${progress}%`,
+          percent,
+          message: `Downloading from YouTube... ${percent}%`,
         });
-      }
-    }, 350);
+      });
 
-    setTimeout(() => {
-      clearInterval(interval);
-      setUploadedJobId('job_mock_' + Date.now());
-      setUploadedVideoKey('videos/mock_youtube_key.mp4');
+      setUploadedJobId(result.jobId);
+      if (result.videoInfo?.title) {
+        setFileName(result.videoInfo.title);
+      }
       setUploadProgress(100);
       setUploadStage('complete');
       setIsUploading(false);
@@ -230,8 +240,17 @@ export const UploadIntegrated = () => {
         percent: 100,
         message: 'Upload complete! Starting processing...',
       });
-    }, 3500);
-  }, []);
+    } catch (error) {
+      const msg =
+        error instanceof UploadError
+          ? error.message
+          : 'Failed to download YouTube video. Please try again.';
+      setErrorMsg(msg);
+      setIsUploading(false);
+      setIsProcessing(false);
+      setUploadStage('uploading');
+    }
+  }, [youtubeUrl]);
 
   return (
     <div className="h-full flex items-center justify-center p-8 overflow-hidden relative">
@@ -314,8 +333,14 @@ export const UploadIntegrated = () => {
                 <Input
                   placeholder="Paste YouTube or video URL here..."
                   className="flex-1 bg-transparent border-0 focus-visible:ring-0 px-0"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
                 />
-                <Button className="glass-button" onClick={handleMockUrlUpload}>
+                <Button
+                  className="glass-button"
+                  onClick={handleUrlUpload}
+                  disabled={!youtubeUrl.trim()}
+                >
                   Upload from URL
                 </Button>
               </div>
@@ -347,7 +372,6 @@ export const UploadIntegrated = () => {
             ))}
           </motion.div>
         )}
-
 
         {/* Processing Progress */}
         {isProcessing && uploadedJobId && processingStartTime && (

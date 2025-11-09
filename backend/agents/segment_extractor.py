@@ -25,8 +25,7 @@ SILENCE_SEARCH_WINDOW = 5.0  # search for silence within ±5 seconds
 def get_db_session():
     """create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(
-        autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -125,8 +124,7 @@ def optimize_segment_boundaries(
     )
 
     # find optimal end boundary (prefer silence before original end)
-    optimal_end, end_silence = find_nearest_silence(
-        original_end, silence_regions, prefer="before")
+    optimal_end, end_silence = find_nearest_silence(original_end, silence_regions, prefer="before")
 
     # fallback to original boundaries if no silence found
     if optimal_start is None:
@@ -258,8 +256,7 @@ def create_clips(
         )
 
         # optimize boundaries using silence data
-        optimal_start, optimal_end, metadata = optimize_segment_boundaries(
-            segment, silence_regions)
+        optimal_start, optimal_end, metadata = optimize_segment_boundaries(segment, silence_regions)
 
         optimal_duration = optimal_end - optimal_start
 
@@ -345,8 +342,7 @@ def extract_segments(
             selected_segments = select_segments(job_id, db_service)
 
             if not selected_segments:
-                logger.warning("no valid segments found for extraction", extra={
-                               "job_id": job_id})
+                logger.warning("no valid segments found for extraction", extra={"job_id": job_id})
                 return {
                     "job_id": job_id,
                     "status": "completed",
@@ -362,13 +358,11 @@ def extract_segments(
 
             logger.info(
                 "silence regions retrieved",
-                extra={"job_id": job_id,
-                       "silence_count": len(silence_regions)},
+                extra={"job_id": job_id, "silence_count": len(silence_regions)},
             )
 
             # create optimized clips
-            clips = create_clips(
-                selected_segments, silence_regions, job_id, db_service)
+            clips = create_clips(selected_segments, silence_regions, job_id, db_service)
 
             # commit transaction
             db.commit()
@@ -395,8 +389,7 @@ def extract_segments(
                         "importance_score": round(clip.importance_score, 3),
                         "clip_order": clip.clip_order,
                         "boundaries_optimized": (
-                            clip.extra_metadata.get("optimization", {}).get(
-                                "start_adjusted", False)
+                            clip.extra_metadata.get("optimization", {}).get("start_adjusted", False)
                             or clip.extra_metadata.get("optimization", {}).get(
                                 "end_adjusted", False
                             )
@@ -434,6 +427,5 @@ def extract_segments(
             db.close()
 
     except Exception as e:
-        logger.error("segment extraction failed",
-                     exc_info=e, extra={"job_id": job_id})
+        logger.error("segment extraction failed", exc_info=e, extra={"job_id": job_id})
         raise

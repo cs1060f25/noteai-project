@@ -1,6 +1,6 @@
 """admin api routes for system management and monitoring."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.authorization import require_admin
@@ -228,8 +228,6 @@ async def list_processing_logs(
     db: Session = Depends(get_db),
 ) -> ProcessingLogListResponse:
     """list processing logs with pagination and filters."""
-    db_service = DatabaseService(db)
-
     # build query
     query = db.query(ProcessingLog)
 
@@ -273,5 +271,3 @@ async def list_processing_logs(
         logs=log_responses,
         total=total,
     )
-
-

@@ -102,7 +102,6 @@ const mockClips = [
   },
 ];
 
-// eslint-disable-next-line unused-imports/no-unused-vars
 export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPageProps) {
   const [podcastDialogOpen, setPodcastDialogOpen] = useState(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);

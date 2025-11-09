@@ -18,7 +18,7 @@ from app.models.schemas import (
     TranscriptSegment,
     TranscriptsResponse,
 )
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.services.db_service import DatabaseService
 
 logger = get_logger(__name__)
@@ -26,9 +26,7 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["agent-outputs"])
 
 
-def verify_job_exists_and_completed(
-    job_id: str, db: Session
-) -> None:
+def verify_job_exists_and_completed(job_id: str, db: Session) -> None:
     """verify job exists and is completed (admin-only endpoints).
 
     Args:
