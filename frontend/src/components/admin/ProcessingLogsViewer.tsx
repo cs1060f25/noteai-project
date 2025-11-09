@@ -200,9 +200,7 @@ export const ProcessingLogsViewer: React.FC = () => {
                               </Badge>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            Job: {log.job_id}
-                          </span>
+                          <span className="text-xs text-muted-foreground">Job: {log.job_id}</span>
                         </div>
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                           {formatTimestamp(log.created_at)}

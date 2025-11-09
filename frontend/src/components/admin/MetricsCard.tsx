@@ -55,9 +55,7 @@ export const MetricsCard: React.FC<MetricsCardProps> = ({
           ) : (
             <>
               <div className="text-2xl font-bold mb-1">{value}</div>
-              {description && (
-                <p className="text-xs text-muted-foreground mb-2">{description}</p>
-              )}
+              {description && <p className="text-xs text-muted-foreground mb-2">{description}</p>}
               {trend && (
                 <div className="flex items-center gap-1 text-xs">
                   {isPositiveTrend && (
