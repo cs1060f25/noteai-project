@@ -1,10 +1,13 @@
 """celery task definitions for video processing pipeline."""
 
+import os
+import subprocess
 import time
 from datetime import datetime, timezone
 from typing import Any
 
-from celery import Task, chain
+import requests
+from celery import Task
 from celery.signals import worker_ready
 from prometheus_client import start_http_server
 from sqlalchemy import create_engine
@@ -15,10 +18,11 @@ from agents.layout_detector import detect_layout
 from agents.segment_extractor import extract_segments
 from agents.silence_detector import detect_silence
 from agents.transcript_agent import generate_transcript
-from agents.video_compiler import compile_clips
+from agents.video_compiler import VideoCompiler, compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
+from app.services.s3_service import s3_service
 from app.services.websocket_service import send_completion_sync, send_error_sync, send_progress_sync
 
 from .celery_app import celery_app, task_counter, task_duration_seconds
@@ -59,6 +63,48 @@ def get_job_s3_key(job_id: str) -> str:
         )
 
         return job.original_s3_key
+    finally:
+        db.close()
+
+
+def get_processing_config(job_id: str) -> dict[str, Any]:
+    """get processing configuration from job metadata.
+
+    Args:
+        job_id: job identifier
+
+    Returns:
+        processing configuration dict with keys: prompt, resolution, processing_mode
+
+    Raises:
+        ValueError: if job not found
+    """
+    db = get_task_db()
+    try:
+        db_service = DatabaseService(db)
+        job = db_service.jobs.get_by_id(job_id)
+        if not job:
+            raise ValueError(f"Job not found: {job_id}")
+
+        # extract processing config from extra_metadata
+        config = job.extra_metadata.get("processing_config", {})
+
+        # provide defaults if config not present
+        default_config = {
+            "prompt": None,
+            "resolution": "1080p",
+            "processing_mode": "vision",
+        }
+
+        # merge with defaults
+        result = {**default_config, **config}
+
+        logger.info(
+            "Retrieved processing config",
+            extra={"job_id": job_id, "config": result},
+        )
+
+        return result
     finally:
         db.close()
 
@@ -220,212 +266,620 @@ class BaseProcessingTask(Task):
         )
 
 
+def download_audio_from_s3_to_temp(s3_key: str, job_id: str) -> str:
+    """download audio only from S3 video file.
+
+    Args:
+        s3_key: S3 object key
+        job_id: job identifier (for temp dir naming)
+
+    Returns:
+        path to downloaded audio file (WAV format)
+
+    Raises:
+        Exception: if download fails
+    """
+    temp_dir = f"/tmp/lecture_extractor_{job_id}"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    temp_path = os.path.join(temp_dir, "audio.wav")
+
+    logger.info(
+        "Downloading audio from S3 (audio-only pipeline)",
+        extra={"s3_key": s3_key, "temp_path": temp_path, "job_id": job_id},
+    )
+
+    # generate presigned URL
+    presigned_url = s3_service.generate_presigned_url(s3_key)
+
+    # extract audio using ffmpeg
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-i",
+        presigned_url,  # Input from S3 URL
+        "-vn",  # No video
+        "-acodec",
+        "pcm_s16le",  # PCM audio codec
+        "-ar",
+        "44100",  # Sample rate
+        "-ac",
+        "2",  # Stereo
+        "-y",  # Overwrite
+        temp_path,
+    ]
+
+    subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=True)
+
+    file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
+    logger.info(
+        "Audio downloaded successfully",
+        extra={"s3_key": s3_key, "file_size_mb": round(file_size_mb, 2), "job_id": job_id},
+    )
+
+    return temp_path
+
+
+def download_video_from_s3_to_temp(s3_key: str, job_id: str, transcode_720p: bool = True) -> str:
+    """download video from S3 and optionally transcode to 720p.
+
+    Args:
+        s3_key: S3 object key
+        job_id: job identifier (for temp dir naming)
+        transcode_720p: if True, transcode to 720p during download (default: True)
+
+    Returns:
+        path to downloaded (and transcoded) video file
+
+    Raises:
+        Exception: if download fails
+    """
+    temp_dir = f"/tmp/lecture_extractor_{job_id}"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    temp_path = os.path.join(temp_dir, "video_720p.mp4" if transcode_720p else "original.mp4")
+
+    logger.info(
+        "Downloading video from S3 (optimized pipeline)",
+        extra={
+            "s3_key": s3_key,
+            "temp_path": temp_path,
+            "job_id": job_id,
+            "transcode_720p": transcode_720p,
+        },
+    )
+
+    # generate presigned URL
+    presigned_url = s3_service.generate_presigned_url(s3_key)
+
+    if transcode_720p:
+        # Stream from S3 and transcode to 720p in one pass (much faster!)
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-i",
+            presigned_url,  # Input from S3 URL
+            "-vf",
+            "scale=-2:720",  # Scale to 720p (maintain aspect ratio)
+            "-c:v",
+            "libx264",  # H.264 codec
+            "-preset",
+            "fast",  # Fast encoding
+            "-crf",
+            "23",  # Quality (23 = good balance)
+            "-c:a",
+            "aac",  # AAC audio
+            "-b:a",
+            "128k",  # 128kbps audio
+            "-movflags",
+            "+faststart",  # Web-optimized
+            "-y",  # Overwrite
+            temp_path,
+        ]
+
+        subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=True)
+
+        file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
+        logger.info(
+            "Video downloaded and transcoded to 720p",
+            extra={"s3_key": s3_key, "file_size_mb": round(file_size_mb, 2), "job_id": job_id},
+        )
+    else:
+        # download without transcoding
+        response = requests.get(presigned_url, stream=True, timeout=300)
+        response.raise_for_status()
+
+        with open(temp_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
+        logger.info(
+            "Video downloaded successfully",
+            extra={"s3_key": s3_key, "file_size_mb": round(file_size_mb, 2), "job_id": job_id},
+        )
+
+    return temp_path
+
+
 @celery_app.task(
     bind=True,
     base=BaseProcessingTask,
-    name="pipeline.tasks.process_video",
+    name="pipeline.tasks.process_video_optimized",
 )
-def process_video(self, job_id: str) -> dict[str, Any]:
-    """main task to orchestrate video processing pipeline.
+def process_video_optimized(self, job_id: str) -> dict[str, Any]:
+    """router for optimized pipelines based on processing mode.
 
-    runs agents sequentially:
-    1. silence detector
-    2. content analyzer (gemini)
-    3. segment extractor
+    reads processing configuration and routes to appropriate pipeline:
+    - audio mode: process_audio_only_pipeline
+    - vision mode: process_vision_pipeline
 
-    args:
-        job_id: unique job identifier
+    Args:
+        job_id: job identifier
 
-    returns:
-        dict with processing results
+    Returns:
+        result dictionary with job completion info
+
+    Raises:
+        Exception: if any stage fails
     """
-    logger.info("starting video processing pipeline (sequential)", extra={"job_id": job_id})
+    logger.info("Starting pipeline router", extra={"job_id": job_id})
 
     try:
-        # update job status to running
+        # get processing configuration
+        config = get_processing_config(job_id)
+        processing_mode = config.get("processing_mode", "vision")
+
+        logger.info(
+            "Routing to pipeline",
+            extra={"job_id": job_id, "processing_mode": processing_mode, "config": config},
+        )
+
+        # route to appropriate pipeline
+        if processing_mode == "audio":
+            return process_audio_only_pipeline(self, job_id, config)
+        else:
+            return process_vision_pipeline(self, job_id, config)
+
+    except Exception as e:
+        logger.error(
+            "Pipeline router failed",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        self.mark_job_failed(job_id, f"Pipeline routing failed: {e!s}")
+        raise
+
+
+def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[str, Any]:
+    """audio-only optimized pipeline with parallel downloads.
+
+    pipeline strategy:
+    1. parallel downloads:
+       - download audio-only → silence + transcript + content + segment
+       - download full video (in background)
+    2. video compilation uses the downloaded video
+
+    Args:
+        self: task instance
+        job_id: job identifier
+        config: processing configuration
+
+    Returns:
+        result dictionary with job completion info
+
+    Raises:
+        Exception: if any stage fails
+    """
+    import concurrent.futures
+
+    start_time = time.time()
+    audio_path = None
+    video_path = None
+
+    logger.info("Starting AUDIO-ONLY pipeline", extra={"job_id": job_id, "config": config})
+
+    try:
+        # update status
         self.update_job_progress(
             job_id=job_id,
             stage="initializing",
             percent=5.0,
-            message="starting processing pipeline",
+            message="Starting audio-only pipeline (parallel downloads)",
             status="running",
         )
 
-        # sequential pipeline: silence → transcription → content → segments → compilation
-        # use .s() for transcription to receive silence result, .si() for others
-        pipeline = chain(
-            silence_detection_task.si(job_id),
-            # receives silence_result as first arg
-            transcription_task.s(job_id=job_id),
-            content_analysis_task.si(job_id),
-            segment_extraction_task.si(job_id),
-            video_compilation_task.si(job_id),
-        )
+        s3_key = get_job_s3_key(job_id)
 
-        # execute pipeline
-        result = pipeline.apply_async()
+        # parallel download: audio + video
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            audio_future = executor.submit(download_audio_from_s3_to_temp, s3_key, job_id)
+            video_future = executor.submit(download_video_from_s3_to_temp, s3_key, job_id)
+
+            # process audio path first (fast)
+            audio_path = audio_future.result()
+
+            # audio processing pipeline (while video downloads in background)
+
+            # step 1: silence detection on audio
+            self.update_job_progress(
+                job_id, "silence_detection", 10.0, "Detecting silence regions (audio-only mode)"
+            )
+            logger.info("Step 1/5: Silence detection (audio-only)", extra={"job_id": job_id})
+
+            silence_result = detect_silence(
+                s3_key=None,
+                job_id=job_id,
+                local_video_path=audio_path,  # use audio file
+            )
+
+            logger.info(
+                "Silence detection complete",
+                extra={
+                    "job_id": job_id,
+                    "silence_count": silence_result.get("silence_count", 0),
+                },
+            )
+
+            # step 2: transcription
+            self.update_job_progress(
+                job_id, "transcription", 20.0, "Transcribing audio (parallel chunks)"
+            )
+            logger.info("Step 2/5: Transcription", extra={"job_id": job_id})
+
+            transcript_result = generate_transcript(
+                s3_key=None,
+                job_id=job_id,
+                local_video_path=audio_path,
+            )
+
+            logger.info(
+                "Transcription complete",
+                extra={
+                    "job_id": job_id,
+                    "segments": transcript_result.get("total_segments", 0),
+                },
+            )
+
+            # step 3: content analysis (uses custom prompt if provided)
+            self.update_job_progress(
+                job_id,
+                "content_analysis",
+                40.0,
+                "Analyzing content with AI (audio-only mode)",
+            )
+            logger.info("Step 3/5: Content analysis", extra={"job_id": job_id})
+
+            content_result = analyze_content({}, job_id)
+
+            logger.info(
+                "Content analysis complete",
+                extra={
+                    "job_id": job_id,
+                    "segments_created": content_result.get("segments_created", 0),
+                },
+            )
+
+            # step 4: segment extraction
+            self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
+            logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
+
+            segment_result = extract_segments({}, {}, {}, job_id)
+
+            logger.info(
+                "Segment extraction complete",
+                extra={
+                    "job_id": job_id,
+                    "clips_created": segment_result.get("clips_created", 0),
+                },
+            )
+
+            # wait for video download to complete
+            video_path = video_future.result()
+
+        # step 5: video compilation
+        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
+
+        db = get_task_db()
+        try:
+            compiler = VideoCompiler(db)
+            compilation_result = compiler.compile_clips(
+                job_id=job_id,
+                local_video_path=video_path,
+            )
+        finally:
+            db.close()
 
         logger.info(
-            "sequential pipeline started",
-            extra={"job_id": job_id, "chain_id": result.id},
+            "Video compilation complete",
+            extra={
+                "job_id": job_id,
+                "clips_compiled": compilation_result.get("clips_compiled", 0),
+            },
         )
 
-        return {
-            "job_id": job_id,
-            "status": "started",
-            "chain_id": result.id,
-            "pipeline": "sequential",
-        }
-
-    except Exception as e:
-        logger.error(
-            "failed to start pipeline",
-            exc_info=e,
-            extra={"job_id": job_id},
-        )
-        self.mark_job_failed(job_id, f"pipeline initialization failed: {e!s}")
-        raise
-
-
-@celery_app.task(
-    bind=True,
-    base=BaseProcessingTask,
-    name="pipeline.tasks.stage_one_parallel",
-)
-def stage_one_parallel(self, job_id: str) -> dict[str, Any]:
-    """stage one: sequential silence detection followed by transcription.
-
-    runs agents in sequence to ensure transcription only processes non-silent segments:
-    1. silence detector (analyzes and stores silence regions)
-    2. transcript generator (retrieves silence regions and transcribes only non-silent parts)
-    3. layout analyzer (runs in parallel, optional)
-
-    args:
-        job_id: unique job identifier
-
-    returns:
-        dict with stage one results
-    """
-    logger.info("Starting stage one (sequential processing)", extra={"job_id": job_id})
-
-    try:
-        self.update_job_progress(
-            job_id=job_id,
-            stage="parallel_processing",
-            percent=10.0,
-            message="Running analysis (silence detection, then transcription)",
-            status="running",
-            eta_seconds=300,
-        )
-
-        # chain silence detection followed by transcription
-        # this ensures silence regions are stored in DB before transcription starts
-        sequential_chain = chain(
-            silence_detection_task.s(job_id),
-            # receives silence_result as first arg
-            transcription_task.s(job_id=job_id),
-        )
-
-        # execute sequential chain
-        # layout analysis can be added separately if needed
-        sequential_chain.apply_async()
-
-        logger.info("Stage one completed", extra={"job_id": job_id})
-
-        return {
-            "job_id": job_id,
-            "stage": "stage_one",
-            "status": "completed",
-        }
-
-    except Exception as e:
-        logger.error(
-            "Stage one failed",
-            exc_info=e,
-            extra={"job_id": job_id},
-        )
-        self.mark_job_failed(job_id, f"Stage one failed: {e!s}")
-        raise
-
-
-@celery_app.task(
-    bind=True,
-    base=BaseProcessingTask,
-    name="pipeline.tasks.stage_two_sequential",
-)
-def stage_two_sequential(self, _stage_one_result: dict[str, Any], job_id: str) -> dict[str, Any]:
-    """stage two: sequential processing of content, segmentation, and compilation.
-
-    runs three agents sequentially:
-    1. content analyzer (gemini)
-    2. segment extractor
-    3. video compiler
-
-    args:
-        stage_one_result: results from stage one
-        job_id: unique job identifier
-
-    returns:
-        dict with final processing results
-    """
-    logger.info("Starting stage two (sequential)", extra={"job_id": job_id})
-
-    try:
-        # content analysis
-        self.update_job_progress(
-            job_id=job_id,
-            stage="content_analysis",
-            percent=50.0,
-            message="Analyzing content with AI",
-            status="running",
-            eta_seconds=180,
-        )
-        content_analysis_task.apply_async(args=[job_id])
-
-        # segment extraction
-        self.update_job_progress(
-            job_id=job_id,
-            stage="segmentation",
-            percent=70.0,
-            message="Extracting highlight segments",
-            status="running",
-            eta_seconds=120,
-        )
-        segment_extraction_task.apply_async(args=[job_id])
-
-        # video compilation
-        self.update_job_progress(
-            job_id=job_id,
-            stage="compilation",
-            percent=85.0,
-            message="Compiling final video clips",
-            status="running",
-            eta_seconds=60,
-        )
-        video_compilation_task.apply_async(args=[job_id])
-
-        # mark job as completed
+        # mark complete
         self.mark_job_completed(job_id)
 
-        logger.info("Stage two completed", extra={"job_id": job_id})
+        processing_time = time.time() - start_time
+
+        logger.info(
+            "AUDIO-ONLY pipeline completed successfully",
+            extra={
+                "job_id": job_id,
+                "total_duration_seconds": round(processing_time, 2),
+                "pipeline_type": "audio_only",
+            },
+        )
 
         return {
             "job_id": job_id,
-            "stage": "stage_two",
             "status": "completed",
+            "pipeline": "audio_only",
+            "processing_time_seconds": round(processing_time, 2),
         }
 
     except Exception as e:
         logger.error(
-            "Stage two failed",
+            "AUDIO-ONLY pipeline failed",
             exc_info=e,
             extra={"job_id": job_id},
         )
-        self.mark_job_failed(job_id, f"Stage two failed: {e!s}")
+        self.mark_job_failed(job_id, f"Pipeline failed: {e!s}")
         raise
 
+    finally:
+        # cleanup temp files
+        for path in [audio_path, video_path]:
+            if path and os.path.exists(path):
+                try:
+                    os.unlink(path)
+                    logger.info("Cleaned up temp file", extra={"job_id": job_id, "path": path})
+                except Exception as cleanup_error:
+                    logger.warning(
+                        "Failed to cleanup temp file",
+                        exc_info=cleanup_error,
+                        extra={"job_id": job_id, "path": path},
+                    )
 
-# placeholder tasks for individual agents (will be replaced with actual agent implementations)
+        # cleanup temp directory
+        temp_dir = f"/tmp/lecture_extractor_{job_id}"
+        if os.path.exists(temp_dir) and os.path.isdir(temp_dir):
+            try:
+                os.rmdir(temp_dir)
+                logger.info("Cleaned up temp directory", extra={"job_id": job_id, "dir": temp_dir})
+            except Exception as cleanup_error:
+                logger.warning(
+                    "Failed to cleanup temp directory",
+                    exc_info=cleanup_error,
+                    extra={"job_id": job_id},
+                )
+
+
+def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[str, Any]:
+    """vision pipeline with parallel audio and video processing.
+
+    pipeline strategy:
+    1. parallel track processing:
+       - audio track: download audio → silence + transcript
+       - video track: download video → layout analysis
+    2. content analysis (uses both transcript + layout if available)
+    3. segment extraction + video compilation
+
+    Args:
+        self: task instance
+        job_id: job identifier
+        config: processing configuration
+
+    Returns:
+        result dictionary with job completion info
+
+    Raises:
+        Exception: if any stage fails
+    """
+    import concurrent.futures
+
+    start_time = time.time()
+    audio_path = None
+    video_path = None
+
+    logger.info("Starting VISION pipeline", extra={"job_id": job_id, "config": config})
+
+    try:
+        # update status
+        self.update_job_progress(
+            job_id=job_id,
+            stage="initializing",
+            percent=5.0,
+            message="Starting vision pipeline (parallel audio+video processing)",
+            status="running",
+        )
+
+        s3_key = get_job_s3_key(job_id)
+
+        # parallel download and processing
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # audio track processing
+            def audio_track():
+                nonlocal audio_path
+                audio_path = download_audio_from_s3_to_temp(s3_key, job_id)
+
+                # silence detection
+                self.update_job_progress(
+                    job_id, "silence_detection", 10.0, "Detecting silence regions"
+                )
+                logger.info("Audio track: Silence detection", extra={"job_id": job_id})
+
+                silence_result = detect_silence(
+                    s3_key=None,
+                    job_id=job_id,
+                    local_video_path=audio_path,
+                )
+
+                # transcription
+                self.update_job_progress(
+                    job_id, "transcription", 20.0, "Transcribing audio (parallel chunks)"
+                )
+                logger.info("Audio track: Transcription", extra={"job_id": job_id})
+
+                transcript_result = generate_transcript(
+                    s3_key=None,
+                    job_id=job_id,
+                    local_video_path=audio_path,
+                )
+
+                return {
+                    "silence": silence_result,
+                    "transcript": transcript_result,
+                }
+
+            # video track processing
+            def video_track():
+                nonlocal video_path
+                video_path = download_video_from_s3_to_temp(s3_key, job_id)
+
+                # layout analysis
+                self.update_job_progress(
+                    job_id, "layout_analysis", 15.0, "Analyzing video layout"
+                )
+                logger.info("Video track: Layout analysis", extra={"job_id": job_id})
+
+                layout_result = detect_layout(s3_key, job_id)
+
+                return {
+                    "layout": layout_result,
+                }
+
+            # execute both tracks in parallel
+            audio_future = executor.submit(audio_track)
+            video_future = executor.submit(video_track)
+
+            # wait for both to complete
+            audio_results = audio_future.result()
+            _video_results = video_future.result()  # layout saved to DB, not needed here
+
+        logger.info(
+            "Parallel processing complete",
+            extra={
+                "job_id": job_id,
+                "silence_count": audio_results["silence"].get("silence_count", 0),
+                "transcript_segments": audio_results["transcript"].get("total_segments", 0),
+            },
+        )
+
+        # step 3: content analysis (combines audio + video data)
+        self.update_job_progress(
+            job_id,
+            "content_analysis",
+            40.0,
+            "Analyzing content with AI (vision mode)",
+        )
+        logger.info("Step 3/5: Content analysis (vision mode)", extra={"job_id": job_id})
+
+        content_result = analyze_content({}, job_id)
+
+        logger.info(
+            "Content analysis complete",
+            extra={
+                "job_id": job_id,
+                "segments_created": content_result.get("segments_created", 0),
+            },
+        )
+
+        # step 4: segment extraction
+        self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
+        logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
+
+        segment_result = extract_segments({}, {}, {}, job_id)
+
+        logger.info(
+            "Segment extraction complete",
+            extra={
+                "job_id": job_id,
+                "clips_created": segment_result.get("clips_created", 0),
+            },
+        )
+
+        # step 5: video compilation
+        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
+
+        db = get_task_db()
+        try:
+            compiler = VideoCompiler(db)
+            compilation_result = compiler.compile_clips(
+                job_id=job_id,
+                local_video_path=video_path,
+            )
+        finally:
+            db.close()
+
+        logger.info(
+            "Video compilation complete",
+            extra={
+                "job_id": job_id,
+                "clips_compiled": compilation_result.get("clips_compiled", 0),
+            },
+        )
+
+        # mark complete
+        self.mark_job_completed(job_id)
+
+        processing_time = time.time() - start_time
+
+        logger.info(
+            "VISION pipeline completed successfully",
+            extra={
+                "job_id": job_id,
+                "total_duration_seconds": round(processing_time, 2),
+                "pipeline_type": "vision",
+            },
+        )
+
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "pipeline": "vision",
+            "processing_time_seconds": round(processing_time, 2),
+        }
+
+    except Exception as e:
+        logger.error(
+            "VISION pipeline failed",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        self.mark_job_failed(job_id, f"Pipeline failed: {e!s}")
+        raise
+
+    finally:
+        # cleanup temp files
+        for path in [audio_path, video_path]:
+            if path and os.path.exists(path):
+                try:
+                    os.unlink(path)
+                    logger.info("Cleaned up temp file", extra={"job_id": job_id, "path": path})
+                except Exception as cleanup_error:
+                    logger.warning(
+                        "Failed to cleanup temp file",
+                        exc_info=cleanup_error,
+                        extra={"job_id": job_id, "path": path},
+                    )
+
+        # cleanup temp directory
+        temp_dir = f"/tmp/lecture_extractor_{job_id}"
+        if os.path.exists(temp_dir) and os.path.isdir(temp_dir):
+            try:
+                os.rmdir(temp_dir)
+                logger.info("Cleaned up temp directory", extra={"job_id": job_id, "dir": temp_dir})
+            except Exception as cleanup_error:
+                logger.warning(
+                    "Failed to cleanup temp directory",
+                    exc_info=cleanup_error,
+                    extra={"job_id": job_id},
+                )
+
+
+# individual agent tasks (used by both pipelines)
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)

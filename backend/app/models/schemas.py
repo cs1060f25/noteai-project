@@ -30,6 +30,40 @@ class ProcessingStage(str, Enum):
     COMPLETE = "complete"
 
 
+class ProcessingMode(str, Enum):
+    """Video processing mode."""
+
+    AUDIO = "audio"
+    VISION = "vision"
+
+
+class ResolutionOption(str, Enum):
+    """Output resolution options."""
+
+    HD_720P = "720p"
+    FULL_HD_1080P = "1080p"
+    QHD_1440P = "1440p"
+    UHD_4K = "2160p"
+
+
+class ProcessingConfig(BaseModel):
+    """Processing configuration for video analysis."""
+
+    prompt: str | None = Field(
+        None,
+        description="Optional AI instructions for content analysis",
+        max_length=2000,
+    )
+    resolution: ResolutionOption = Field(
+        default=ResolutionOption.FULL_HD_1080P,
+        description="Output video resolution",
+    )
+    processing_mode: ProcessingMode = Field(
+        default=ProcessingMode.VISION,
+        description="Processing mode: audio-only or vision+audio",
+    )
+
+
 # Request Models
 
 
@@ -39,6 +73,10 @@ class UploadRequest(BaseModel):
     filename: str = Field(..., description="Original filename", min_length=1, max_length=255)
     file_size: int = Field(..., description="File size in bytes", gt=0)
     content_type: str = Field(..., description="MIME type of the file")
+    processing_config: ProcessingConfig | None = Field(
+        None,
+        description="Optional processing configuration (prompt, resolution, mode)",
+    )
 
 
 class UploadConfirmRequest(BaseModel):
@@ -51,6 +89,10 @@ class YouTubeUploadRequest(BaseModel):
     """Request to upload video from YouTube URL."""
 
     url: str = Field(..., description="YouTube video URL", min_length=1)
+    processing_config: ProcessingConfig | None = Field(
+        None,
+        description="Optional processing configuration (prompt, resolution, mode)",
+    )
 
 
 class UploadResponse(BaseModel):

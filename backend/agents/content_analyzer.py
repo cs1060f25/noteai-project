@@ -3,6 +3,7 @@
 import json
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import google.generativeai as genai
@@ -249,6 +250,116 @@ def store_content_segments(segments: list[dict], job_id: str) -> None:
         db.close()
 
 
+def split_transcript_into_chunks(
+    transcript_text: str, chunk_size: int = 5000, overlap: int = 500
+) -> list[str]:
+    """split large transcript into overlapping chunks for parallel processing.
+
+    Args:
+        transcript_text: full transcript text
+        chunk_size: maximum characters per chunk
+        overlap: number of characters to overlap between chunks
+
+    Returns:
+        list of transcript chunks
+    """
+    if len(transcript_text) <= chunk_size:
+        return [transcript_text]
+
+    chunks = []
+    start = 0
+
+    while start < len(transcript_text):
+        end = min(start + chunk_size, len(transcript_text))
+
+        # try to break at newline for cleaner chunks
+        if end < len(transcript_text):
+            newline_pos = transcript_text.rfind("\n", start, end)
+            if newline_pos > start:
+                end = newline_pos + 1
+
+        chunks.append(transcript_text[start:end])
+        start = end - overlap if end < len(transcript_text) else end
+
+    return chunks
+
+
+def analyze_chunk_with_gemini(chunk_text: str, job_id: str, chunk_idx: int) -> list[dict]:
+    """analyze a single transcript chunk with Gemini API.
+
+    Args:
+        chunk_text: chunk of transcript text
+        job_id: job identifier for logging
+        chunk_idx: index of this chunk
+
+    Returns:
+        list of segment dictionaries from Gemini
+    """
+    logger.info(
+        f"Analyzing chunk {chunk_idx + 1} with Gemini",
+        extra={"job_id": job_id, "chunk_size": len(chunk_text)},
+    )
+
+    prompt = build_analysis_prompt(chunk_text)
+
+    genai.configure(api_key=settings.gemini_api_key)
+    model = genai.GenerativeModel(settings.gemini_model)
+
+    response = model.generate_content(prompt)
+    parsed_data = parse_gemini_response(response.text)
+    segments = parsed_data.get("segments", [])
+
+    logger.info(
+        f"Chunk {chunk_idx + 1} analyzed",
+        extra={"job_id": job_id, "segments_found": len(segments)},
+    )
+
+    return segments
+
+
+def merge_and_deduplicate_segments(
+    chunk_results: list[list[dict]], overlap_threshold: float = 5.0
+) -> list[dict]:
+    """merge segments from parallel chunk analysis and remove duplicates.
+
+    Args:
+        chunk_results: list of segment lists from each chunk
+        overlap_threshold: seconds of overlap to consider segments duplicates
+
+    Returns:
+        merged and deduplicated segment list
+    """
+    all_segments = []
+    for segments in chunk_results:
+        all_segments.extend(segments)
+
+    # sort by start time
+    all_segments.sort(key=lambda s: s.get("start_time", 0))
+
+    # remove near-duplicate segments (from overlapping chunks)
+    deduplicated = []
+    for segment in all_segments:
+        is_duplicate = False
+
+        for existing in deduplicated:
+            time_diff = abs(segment.get("start_time", 0) - existing.get("start_time", 0))
+            if time_diff < overlap_threshold:
+                # keep segment with higher importance score
+                if segment.get("importance_score", 0) > existing.get("importance_score", 0):
+                    deduplicated.remove(existing)
+                    deduplicated.append(segment)
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            deduplicated.append(segment)
+
+    # re-sort after deduplication
+    deduplicated.sort(key=lambda s: s.get("start_time", 0))
+
+    return deduplicated
+
+
 def analyze_content(_transcript_data: dict, job_id: str) -> dict:
     """analyze transcript content and extract topics using Gemini.
 
@@ -312,36 +423,89 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
             },
         )
 
-        # build analysis prompt
-        prompt = build_analysis_prompt(transcript_text)
+        # parallel processing for large transcripts (> 15000 chars ~ 20+ min video)
+        if len(transcript_text) > 15000:
+            logger.info(
+                "Using PARALLEL content analysis for large transcript",
+                extra={
+                    "job_id": job_id,
+                    "transcript_length": len(transcript_text),
+                },
+            )
 
-        # configure and call Gemini API
-        genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel(settings.gemini_model)
+            # split into overlapping chunks
+            chunks = split_transcript_into_chunks(transcript_text, chunk_size=5000, overlap=500)
 
-        logger.info(
-            "calling Gemini API",
-            extra={"job_id": job_id, "model": settings.gemini_model},
-        )
+            logger.info(
+                f"Split transcript into {len(chunks)} chunks",
+                extra={"job_id": job_id, "num_chunks": len(chunks)},
+            )
 
-        response = model.generate_content(prompt)
+            # analyze chunks in parallel (3 at a time)
+            chunk_results = []
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                future_to_idx = {
+                    executor.submit(analyze_chunk_with_gemini, chunk, job_id, idx): idx
+                    for idx, chunk in enumerate(chunks)
+                }
 
-        logger.info(
-            "Gemini API response received",
-            extra={
-                "job_id": job_id,
-                "response_length": len(response.text),
-            },
-        )
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    try:
+                        segments = future.result()
+                        chunk_results.append(segments)
+                    except Exception as e:
+                        logger.error(
+                            f"Chunk {idx + 1} analysis failed",
+                            exc_info=e,
+                            extra={"job_id": job_id},
+                        )
+                        raise
 
-        # parse response
-        parsed_data = parse_gemini_response(response.text)
-        raw_segments = parsed_data.get("segments", [])
+            # merge and deduplicate results
+            raw_segments = merge_and_deduplicate_segments(chunk_results)
 
-        logger.info(
-            "response parsed",
-            extra={"job_id": job_id, "raw_segments": len(raw_segments)},
-        )
+            logger.info(
+                "Parallel content analysis complete",
+                extra={
+                    "job_id": job_id,
+                    "chunks_analyzed": len(chunks),
+                    "raw_segments": len(raw_segments),
+                },
+            )
+
+        else:
+            # single API call for smaller transcripts
+            logger.info(
+                "Using SINGLE content analysis for small transcript",
+                extra={
+                    "job_id": job_id,
+                    "transcript_length": len(transcript_text),
+                },
+            )
+
+            prompt = build_analysis_prompt(transcript_text)
+
+            genai.configure(api_key=settings.gemini_api_key)
+            model = genai.GenerativeModel(settings.gemini_model)
+
+            response = model.generate_content(prompt)
+
+            logger.info(
+                "Gemini API response received",
+                extra={
+                    "job_id": job_id,
+                    "response_length": len(response.text),
+                },
+            )
+
+            parsed_data = parse_gemini_response(response.text)
+            raw_segments = parsed_data.get("segments", [])
+
+            logger.info(
+                "response parsed",
+                extra={"job_id": job_id, "raw_segments": len(raw_segments)},
+            )
 
         # validate and enrich segments
         validated_segments = validate_and_enrich_segments(raw_segments, job_id)

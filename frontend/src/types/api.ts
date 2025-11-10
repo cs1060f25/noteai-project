@@ -19,10 +19,21 @@ export const ProcessingStage = {
 
 export type ProcessingStage = (typeof ProcessingStage)[keyof typeof ProcessingStage];
 
+export type ProcessingMode = 'audio' | 'vision';
+
+export type ResolutionOption = '720p' | '1080p' | '1440p' | '2160p';
+
+export interface ProcessingConfig {
+  prompt?: string;
+  resolution: ResolutionOption;
+  processing_mode: ProcessingMode;
+}
+
 export interface UploadRequest {
   filename: string;
   file_size: number;
   content_type: string;
+  processing_config?: ProcessingConfig;
 }
 
 export interface UploadResponse {

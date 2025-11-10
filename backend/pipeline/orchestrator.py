@@ -5,7 +5,7 @@ from typing import Any
 from app.core.logging import get_logger
 from app.services.s3_service import s3_service
 
-from .tasks import process_video
+from .tasks import process_video_optimized
 
 logger = get_logger(__name__)
 
@@ -18,7 +18,10 @@ class PipelineOrchestrator:
         """start the video processing pipeline for a job.
 
         this is called after the client uploads a video to s3.
-        it verifies the upload and kicks off the celery task chain.
+        it verifies the upload and kicks off the celery task.
+
+        the optimized pipeline will automatically route to audio-only
+        or vision mode based on the job's processing configuration.
 
         args:
             job_id: unique job identifier
@@ -49,15 +52,15 @@ class PipelineOrchestrator:
             )
             raise
 
-        # start celery task
-        task = process_video.delay(job_id)
+        # start optimized celery task (routes based on processing config)
+        task = process_video_optimized.delay(job_id)
 
         logger.info(
             "Pipeline task started",
             extra={
                 "job_id": job_id,
                 "task_id": task.id,
-                "task_name": "process_video",
+                "task_name": "process_video_optimized",
             },
         )
 

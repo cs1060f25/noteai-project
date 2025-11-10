@@ -4,6 +4,7 @@ import os
 import tempfile
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import google.generativeai as genai
@@ -396,6 +397,8 @@ def chunk_and_transcribe_audio(
     chunk_files = []
 
     try:
+        # step 1: prepare all chunks (export to temp files)
+        chunk_data = []
         for chunk_idx in range(num_chunks):
             start_ms = chunk_idx * chunk_duration_ms
             end_ms = min(start_ms + chunk_duration_ms, total_duration_ms)
@@ -405,7 +408,7 @@ def chunk_and_transcribe_audio(
             chunk_start_seconds = start_ms / 1000.0
 
             logger.info(
-                f"Processing chunk {chunk_idx + 1}/{num_chunks}",
+                f"Preparing chunk {chunk_idx + 1}/{num_chunks}",
                 extra={
                     "job_id": job_id,
                     "chunk_idx": chunk_idx,
@@ -440,25 +443,73 @@ def chunk_and_transcribe_audio(
                     f"Try reducing chunk_duration_seconds."
                 )
 
-            # transcribe chunk
-            chunk_result = transcribe_with_gemini(chunk_path, job_id)
-
-            # adjust timestamps for this chunk's position in the full audio
-            for segment in chunk_result.get("segments", []):
-                adjusted_segment = segment.copy()
-                adjusted_segment["start"] = round(segment["start"] + chunk_start_seconds, 2)
-                adjusted_segment["end"] = round(segment["end"] + chunk_start_seconds, 2)
-                all_segments.append(adjusted_segment)
-
-            full_text += chunk_result.get("text", "") + " "
-
-            logger.info(
-                f"Chunk {chunk_idx + 1}/{num_chunks} transcribed",
-                extra={
-                    "job_id": job_id,
-                    "chunk_segments": len(chunk_result.get("segments", [])),
-                },
+            chunk_data.append(
+                {
+                    "path": chunk_path,
+                    "start_seconds": chunk_start_seconds,
+                    "index": chunk_idx,
+                }
             )
+
+        # step 2: parallel transcription (3 chunks at a time to avoid rate limits)
+        logger.info(
+            "Starting PARALLEL transcription",
+            extra={"job_id": job_id, "max_workers": 3, "num_chunks": num_chunks},
+        )
+
+        chunk_results = [None] * num_chunks  # preserve order
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # submit all transcription tasks
+            future_to_chunk = {
+                executor.submit(transcribe_with_gemini, chunk["path"], job_id): chunk
+                for chunk in chunk_data
+            }
+
+            # collect results as they complete
+            for future in as_completed(future_to_chunk):
+                chunk = future_to_chunk[future]
+                chunk_idx = chunk["index"]
+
+                try:
+                    chunk_result = future.result()
+
+                    # adjust timestamps for this chunk's position
+                    adjusted_segments = []
+                    for segment in chunk_result.get("segments", []):
+                        adjusted_segment = segment.copy()
+                        adjusted_segment["start"] = round(
+                            segment["start"] + chunk["start_seconds"], 2
+                        )
+                        adjusted_segment["end"] = round(segment["end"] + chunk["start_seconds"], 2)
+                        adjusted_segments.append(adjusted_segment)
+
+                    chunk_results[chunk_idx] = {
+                        "text": chunk_result.get("text", ""),
+                        "segments": adjusted_segments,
+                    }
+
+                    logger.info(
+                        f"Chunk {chunk_idx + 1}/{num_chunks} transcribed (parallel)",
+                        extra={
+                            "job_id": job_id,
+                            "chunk_segments": len(adjusted_segments),
+                        },
+                    )
+
+                except Exception as e:
+                    logger.error(
+                        f"Chunk {chunk_idx + 1} transcription failed",
+                        exc_info=e,
+                        extra={"job_id": job_id},
+                    )
+                    raise
+
+        # step 3: merge results in order
+        for result in chunk_results:
+            if result:
+                all_segments.extend(result["segments"])
+                full_text += result["text"] + " "
 
     finally:
         # clean up chunk files
@@ -797,16 +848,19 @@ def store_transcript_segments(segments: list[dict], job_id: str) -> None:
         db.close()
 
 
-def generate_transcript(video_path: str, job_id: str) -> dict:
+def generate_transcript(
+    s3_key: str | None, job_id: str, local_video_path: str | None = None
+) -> dict:
     """generate transcript from video audio using Google Gemini API.
 
-    this function downloads the video from s3, retrieves silence regions,
-    extracts and processes audio (removing silence), transcribes using
-    Gemini API, stores results in database, and returns a summary.
+    this function either uses a local video file or downloads from s3,
+    retrieves silence regions, extracts and processes audio (removing silence),
+    transcribes using Gemini API, stores results in database, and returns a summary.
 
     Args:
-        video_path: s3 key for the video file (not local path)
+        s3_key: s3 key for the video file (optional if local_video_path provided)
         job_id: job identifier
+        local_video_path: optional local video file path (skips s3 download)
 
     Returns:
         result dictionary with transcript segments and statistics
@@ -817,18 +871,35 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
     start_time = time.time()
     temp_video_path = None
     temp_audio_path = None
+    cleanup_required = False
 
     logger.info(
         "Transcription started",
-        extra={"job_id": job_id, "s3_key": video_path},
+        extra={
+            "job_id": job_id,
+            "s3_key": s3_key,
+            "using_local_path": local_video_path is not None,
+        },
     )
 
     try:
         # validate gemini api configuration
         validate_gemini_config()
 
-        # download video from s3
-        temp_video_path = download_video_from_s3(video_path, job_id)
+        # use local video path if provided, otherwise download from s3
+        if local_video_path and os.path.exists(local_video_path):
+            temp_video_path = local_video_path
+            cleanup_required = False
+            logger.info(
+                "Using local video path (optimized pipeline)",
+                extra={"job_id": job_id, "local_path": local_video_path},
+            )
+        else:
+            # fallback to s3 download
+            if not s3_key:
+                raise ValueError("Either local_video_path or s3_key must be provided")
+            temp_video_path = download_video_from_s3(s3_key, job_id)
+            cleanup_required = True
 
         # get video duration from database
         db = get_db_session()
@@ -975,8 +1046,8 @@ def generate_transcript(video_path: str, job_id: str) -> dict:
         raise
 
     finally:
-        # clean up temporary files
-        if temp_video_path and os.path.exists(temp_video_path):
+        # clean up temporary files only if we downloaded them
+        if cleanup_required and temp_video_path and os.path.exists(temp_video_path):
             try:
                 os.unlink(temp_video_path)
                 logger.info(

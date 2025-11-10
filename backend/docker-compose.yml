@@ -75,8 +75,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: lecture-extractor-worker
-    command: celery -A pipeline.celery_app worker --loglevel=info --concurrency=2
+    # REMOVED container_name to allow scaling (docker-compose up --scale worker=N)
+    # concurrency=1 for optimized pipeline (one job per worker, no resource contention)
+    # Each worker processes 1 job at a time, scale to N workers for N concurrent jobs
+    command: celery -A pipeline.celery_app worker --loglevel=info --concurrency=1
+    deploy:
+      replicas: 3 # Start with 3 workers by default (handles 3 concurrent jobs)
     env_file:
       - .env
     environment:
@@ -218,7 +222,15 @@ services:
       - lecture-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3100/ready",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

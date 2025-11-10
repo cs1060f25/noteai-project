@@ -25,7 +25,7 @@ from app.services.youtube_service import (
     InvalidURLError,
     youtube_service,
 )
-from pipeline.tasks import process_video
+from pipeline.tasks import process_video_optimized
 
 logger = get_logger(__name__)
 
@@ -78,6 +78,15 @@ def initiate_upload(
             content_type=upload_request.content_type,
         )
 
+        # Prepare processing configuration
+        processing_config_dict = {}
+        if upload_request.processing_config:
+            processing_config_dict = {
+                "prompt": upload_request.processing_config.prompt,
+                "resolution": upload_request.processing_config.resolution.value,
+                "processing_mode": upload_request.processing_config.processing_mode.value,
+            }
+
         db_service = DatabaseService(db)
         job = db_service.jobs.create(
             job_id=job_id,
@@ -90,6 +99,7 @@ def initiate_upload(
             current_stage="uploading",
             progress_percent=0.0,
             progress_message="Waiting for file upload to S3",
+            extra_metadata={"processing_config": processing_config_dict} if processing_config_dict else {},
         )
 
         logger.info(
@@ -220,8 +230,8 @@ def confirm_upload(
         db_service.jobs.update_status(job_id=job.job_id, status="queued")
         db.commit()
 
-        # trigger celery processing pipeline
-        task = process_video.delay(confirm_request.job_id)
+        # trigger optimized celery processing pipeline (single download, parallel sub-tasks)
+        task = process_video_optimized.delay(confirm_request.job_id)
 
         logger.info(
             "Upload confirmed and processing started",
@@ -346,6 +356,15 @@ async def upload_from_youtube(
             },
         )
 
+        # Prepare processing configuration
+        processing_config_dict = {}
+        if youtube_request.processing_config:
+            processing_config_dict = {
+                "prompt": youtube_request.processing_config.prompt,
+                "resolution": youtube_request.processing_config.resolution.value,
+                "processing_mode": youtube_request.processing_config.processing_mode.value,
+            }
+
         # Create initial job record
         db_service = DatabaseService(db)
         job = db_service.jobs.create(
@@ -359,6 +378,7 @@ async def upload_from_youtube(
             current_stage="uploading",
             progress_percent=0.0,
             progress_message="Downloading video from YouTube...",
+            extra_metadata={"processing_config": processing_config_dict} if processing_config_dict else {},
         )
 
         # Download and upload to S3
@@ -415,8 +435,8 @@ async def upload_from_youtube(
         )
         db.commit()
 
-        # Trigger celery processing pipeline
-        task = process_video.delay(job_id)
+        # Trigger optimized celery processing pipeline (single download, parallel sub-tasks)
+        task = process_video_optimized.delay(job_id)
 
         logger.info(
             "YouTube video uploaded and processing started",

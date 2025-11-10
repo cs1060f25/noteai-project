@@ -210,16 +210,17 @@ def store_silence_regions(silence_regions: list[dict], job_id: str) -> None:
         db.close()
 
 
-def detect_silence(video_path: str, job_id: str) -> dict:
+def detect_silence(s3_key: str | None, job_id: str, local_video_path: str | None = None) -> dict:
     """detect silence in video file.
 
-    this function downloads the video from s3, analyzes the audio track
-    for silence regions, stores the results in the database, and returns
-    a summary of the detected silence.
+    this function either uses a local video file or downloads from s3,
+    analyzes the audio track for silence regions, stores the results in
+    the database, and returns a summary of the detected silence.
 
     Args:
-        video_path: s3 key for the video file (not local path)
+        s3_key: s3 key for the video file (optional if local_video_path provided)
         job_id: job identifier
+        local_video_path: optional local video file path (skips s3 download)
 
     Returns:
         result dictionary with silence regions and statistics
@@ -229,15 +230,32 @@ def detect_silence(video_path: str, job_id: str) -> dict:
     """
     start_time = time.time()
     temp_video_path = None
+    cleanup_required = False
 
     logger.info(
         "Silence detection started",
-        extra={"job_id": job_id, "s3_key": video_path},
+        extra={
+            "job_id": job_id,
+            "s3_key": s3_key,
+            "using_local_path": local_video_path is not None,
+        },
     )
 
     try:
-        # download video from s3
-        temp_video_path = download_video_from_s3(video_path, job_id)
+        # use local video path if provided, otherwise download from s3
+        if local_video_path and os.path.exists(local_video_path):
+            temp_video_path = local_video_path
+            cleanup_required = False
+            logger.info(
+                "Using local video path (optimized pipeline)",
+                extra={"job_id": job_id, "local_path": local_video_path},
+            )
+        else:
+            # fallback to s3 download
+            if not s3_key:
+                raise ValueError("Either local_video_path or s3_key must be provided")
+            temp_video_path = download_video_from_s3(s3_key, job_id)
+            cleanup_required = True
 
         # analyze audio for silence
         silence_regions = analyze_audio_silence(temp_video_path, job_id)
@@ -288,8 +306,8 @@ def detect_silence(video_path: str, job_id: str) -> dict:
         raise
 
     finally:
-        # clean up temporary file
-        if temp_video_path and os.path.exists(temp_video_path):
+        # clean up temporary file only if we downloaded it
+        if cleanup_required and temp_video_path and os.path.exists(temp_video_path):
             try:
                 os.unlink(temp_video_path)
                 logger.info(

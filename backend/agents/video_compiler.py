@@ -1,5 +1,6 @@
 """Video compilation agent for creating final highlight clips."""
 
+import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,16 +41,20 @@ class VideoCompiler:
         )
         self.bucket_name = settings.s3_bucket_name
 
-    def compile_clips(self, job_id: str) -> dict[str, Any]:
+    def compile_clips(self, job_id: str, local_video_path: str | None = None) -> dict[str, Any]:
         """Compile video clips from Clip records created by segment extractor.
         Args:
             job_id: Job identifier
+            local_video_path: Optional local video file path (skips S3 download)
         Returns:
             Result dictionary with compiled clips information
         Raises:
             CompilationError: If compilation fails
         """
-        logger.info("Starting video compilation", extra={"job_id": job_id})
+        logger.info(
+            "Starting video compilation",
+            extra={"job_id": job_id, "using_local_path": local_video_path is not None},
+        )
 
         # fetch job
         job = self.db.query(Job).filter(Job.job_id == job_id).first()
@@ -67,12 +72,26 @@ class VideoCompiler:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # download original video
-            original_video_path = temp_path / "original.mp4"
-            try:
-                self._download_from_s3(job.original_s3_key, original_video_path)
-            except Exception as e:
-                raise CompilationError(f"Failed to download from S3: {job.original_s3_key}") from e
+            # use local video path if provided, otherwise download from S3
+            if local_video_path and os.path.exists(local_video_path):
+                original_video_path = Path(local_video_path)
+                logger.info(
+                    "Using local video path (optimized pipeline)",
+                    extra={"job_id": job_id, "local_path": local_video_path},
+                )
+            else:
+                # fallback to S3 download
+                if not job.original_s3_key:
+                    raise CompilationError(
+                        f"No original S3 key found for job {job_id} and no local path provided"
+                    )
+                original_video_path = temp_path / "original.mp4"
+                try:
+                    self._download_from_s3(job.original_s3_key, original_video_path)
+                except Exception as e:
+                    raise CompilationError(
+                        f"Failed to download from S3: {job.original_s3_key}"
+                    ) from e
 
             # get video info
             video_info = self.ffmpeg.get_video_info(original_video_path)

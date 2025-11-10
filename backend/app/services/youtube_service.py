@@ -160,14 +160,21 @@ class YouTubeService:
                         pass
 
             ydl_opts = {
-                "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                # Download 720p max for processing efficiency
+                # Format priority: 720p mp4 > 720p any > best under 720p > best available
+                "format": (
+                    "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/"
+                    "bestvideo[height<=720]+bestaudio/"
+                    "best[height<=720]/"
+                    "best"
+                ),
                 "outtmpl": output_template,
                 "quiet": False,
                 "no_warnings": False,
                 "progress_hooks": [progress_hook] if progress_callback else [],
                 "merge_output_format": "mp4",
-                # Limit file size to 2GB
-                "max_filesize": 2 * 1024 * 1024 * 1024,
+                # Limit file size to 1GB (720p should never exceed this)
+                "max_filesize": 1024 * 1024 * 1024,
             }
 
             try:

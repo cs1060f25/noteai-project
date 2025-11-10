@@ -2,7 +2,13 @@ import axios from 'axios';
 
 import { apiClient } from '../lib/clerk-api';
 
-import type { JobListResponse, JobResponse, UploadRequest, UploadResponse } from '../types/api';
+import type {
+  JobListResponse,
+  JobResponse,
+  ProcessingConfig,
+  UploadRequest,
+  UploadResponse,
+} from '../types/api';
 
 export class UploadError extends Error {
   code: string;
@@ -16,12 +22,16 @@ export class UploadError extends Error {
   }
 }
 
-export const initiateUpload = async (file: File): Promise<UploadResponse> => {
+export const initiateUpload = async (
+  file: File,
+  processingConfig?: ProcessingConfig
+): Promise<UploadResponse> => {
   try {
     const request: UploadRequest = {
       filename: file.name,
       file_size: file.size,
       content_type: file.type,
+      processing_config: processingConfig,
     };
 
     const response = await apiClient.post<UploadResponse>('/upload', request);
@@ -104,11 +114,12 @@ export const confirmUpload = async (jobId: string): Promise<void> => {
 
 export const uploadVideo = async (
   file: File,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  processingConfig?: ProcessingConfig
 ): Promise<{ jobId: string; s3Key: string; uploadResponse: UploadResponse }> => {
   // step 1: initiate upload (5% progress)
   onProgress?.(5);
-  const uploadResponse = await initiateUpload(file);
+  const uploadResponse = await initiateUpload(file, processingConfig);
 
   // step 2: upload to s3 (10% - 95% progress)
   onProgress?.(10);
@@ -127,7 +138,8 @@ export const uploadVideo = async (
 
 export const uploadFromYouTube = async (
   url: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  processingConfig?: ProcessingConfig
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ jobId: string; videoInfo: any }> => {
   try {
@@ -143,7 +155,11 @@ export const uploadFromYouTube = async (
         uploader: string;
       };
       celery_task_id: string;
-    }>('/upload/from-youtube', { url }, { timeout: 10 * 60 * 1000 }); // allow up to 10 minutes
+    }>(
+      '/upload/from-youtube',
+      { url, processing_config: processingConfig },
+      { timeout: 10 * 60 * 1000 }
+    ); // allow up to 10 minutes
 
     onProgress?.(100);
 
