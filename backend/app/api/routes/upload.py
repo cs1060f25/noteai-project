@@ -100,9 +100,9 @@ def initiate_upload(
             current_stage="uploading",
             progress_percent=0.0,
             progress_message="Waiting for file upload to S3",
-            extra_metadata=(
-                {"processing_config": processing_config_dict} if processing_config_dict else {}
-            ),
+            extra_metadata={"processing_config": processing_config_dict}
+            if processing_config_dict
+            else {},
         )
 
         logger.info(
@@ -312,7 +312,8 @@ async def upload_from_youtube(
 
         # Extract video info first (quick check before downloading)
         try:
-            video_info = youtube_service.extract_video_info(youtube_request.url)
+            video_info = youtube_service.extract_video_info(
+                youtube_request.url)
         except InvalidURLError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -382,9 +383,15 @@ async def upload_from_youtube(
             current_stage="uploading",
             progress_percent=0.0,
             progress_message="Downloading video from YouTube...",
+            << << << < HEAD
             extra_metadata=(
                 {"processing_config": processing_config_dict} if processing_config_dict else {}
             ),
+            == == == =
+            extra_metadata={"processing_config": processing_config_dict}
+            if processing_config_dict
+            else {},
+            >>>>>> > 74ba61c(Fix linter failing tests)
         )
 
         # Download and upload to S3
