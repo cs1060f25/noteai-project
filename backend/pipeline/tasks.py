@@ -738,9 +738,7 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 video_path = download_video_from_s3_to_temp(s3_key, job_id)
 
                 # layout analysis
-                self.update_job_progress(
-                    job_id, "layout_analysis", 15.0, "Analyzing video layout"
-                )
+                self.update_job_progress(job_id, "layout_analysis", 15.0, "Analyzing video layout")
                 logger.info("Video track: Layout analysis", extra={"job_id": job_id})
 
                 layout_result = detect_layout(

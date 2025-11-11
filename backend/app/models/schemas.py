@@ -133,7 +133,9 @@ class JobResponse(BaseModel):
     job_id: str = Field(..., description="Unique job identifier")
     status: JobStatus = Field(..., description="Current job status")
     filename: str = Field(..., description="Original filename")
-    processing_mode: ProcessingMode | None = Field(None, description="Processing mode (audio/vision)")
+    processing_mode: ProcessingMode | None = Field(
+        None, description="Processing mode (audio/vision)"
+    )
     created_at: datetime = Field(..., description="Job creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     progress: JobProgress | None = Field(None, description="Current progress information")
@@ -219,7 +221,9 @@ class LayoutAnalysisResponse(BaseModel):
     confidence_score: float = Field(
         ..., description="Detection confidence (0-1, 0 = fallback default)", ge=0, le=1
     )
-    sample_frame_time: float | None = Field(None, description="Frame time used for analysis (seconds)")
+    sample_frame_time: float | None = Field(
+        None, description="Frame time used for analysis (seconds)"
+    )
     created_at: datetime = Field(..., description="Analysis timestamp")
 
 

@@ -14,15 +14,12 @@ import {
   Headphones,
   Settings2,
   Info,
-  CheckCircle2,
-  FileVideo,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -32,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import {
   uploadVideo,
   uploadFromYouTube,
@@ -39,8 +37,8 @@ import {
   validateYouTubeUrl,
   UploadError,
 } from '@/services/uploadService';
-import type { ProcessingConfig, ResolutionOption, ProcessingMode } from '@/types/api';
 import { createJobWebSocket, WebSocketService } from '@/services/websocketService';
+import type { ProcessingConfig, ResolutionOption, ProcessingMode } from '@/types/api';
 import type { JobProgress } from '@/types/api';
 
 // Badge helper component
