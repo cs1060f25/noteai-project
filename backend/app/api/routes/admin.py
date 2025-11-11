@@ -28,6 +28,19 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+def _extract_processing_mode(job):
+    """extract processing mode from job's extra_metadata."""
+    from app.models.schemas import ProcessingMode
+
+    if not job.extra_metadata:
+        return None
+    processing_config = job.extra_metadata.get("processing_config", {})
+    mode = processing_config.get("processing_mode")
+    if mode and mode in ["audio", "vision"]:
+        return ProcessingMode(mode)
+    return None
+
+
 @router.get(
     "/jobs",
     response_model=AdminJobListResponse,
@@ -78,6 +91,7 @@ async def list_all_jobs(
                 ),
                 filename=job.filename,
                 file_size=job.file_size,
+                processing_mode=_extract_processing_mode(job),
                 status=job.status,
                 current_stage=job.current_stage,
                 progress_percent=job.progress_percent,

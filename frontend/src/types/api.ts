@@ -11,6 +11,7 @@ export const ProcessingStage = {
   UPLOADING: 'uploading',
   SILENCE_DETECTION: 'silence_detection',
   TRANSCRIPTION: 'transcription',
+  LAYOUT_ANALYSIS: 'layout_analysis',
   CONTENT_ANALYSIS: 'content_analysis',
   SEGMENTATION: 'segmentation',
   COMPILATION: 'compilation',
@@ -55,6 +56,7 @@ export interface JobResponse {
   job_id: string;
   status: JobStatus;
   filename: string;
+  processing_mode?: ProcessingMode;
   created_at: string;
   updated_at: string;
   progress?: JobProgress;
@@ -105,6 +107,28 @@ export interface ContentSegment {
   keywords: string[];
   concepts: string[];
   segment_order: number;
+  created_at: string;
+}
+
+export interface LayoutAnalysis {
+  layout_id: string;
+  job_id: string;
+  screen_region: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  camera_region: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  split_ratio: number;
+  layout_type: 'side_by_side' | 'picture_in_picture' | 'screen_only' | 'camera_only' | 'unknown';
+  confidence_score: number;
+  sample_frame_time?: number;
   created_at: string;
 }
 

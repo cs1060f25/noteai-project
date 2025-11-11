@@ -50,17 +50,39 @@ def format_transcript_for_gemini(transcripts: list[Any]) -> str:
     return "\n".join(lines)
 
 
-def build_analysis_prompt(transcript_text: str) -> str:
+def build_analysis_prompt(transcript_text: str, layout_info: dict[str, Any] | None = None) -> str:
     """build Gemini prompt for content analysis.
 
     Args:
         transcript_text: formatted transcript with timestamps
+        layout_info: optional layout analysis data (type, regions, confidence)
 
     Returns:
         complete prompt string for Gemini
     """
-    prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
+    # build layout context section if available
+    layout_context = ""
+    if layout_info:
+        layout_type = layout_info.get("layout_type", "unknown")
+        confidence = layout_info.get("confidence_score", 0.0)
 
+        layout_descriptions = {
+            "side_by_side": "The video has a side-by-side layout with screen content (slides/presentation) on one half and camera (speaker) on the other half.",
+            "picture_in_picture": "The video has a picture-in-picture layout with full-screen content and a small camera overlay in the corner.",
+            "screen_only": "The video shows only screen content (slides, presentations, or demonstrations) without visible camera.",
+            "camera_only": "The video shows only the speaker/camera without any screen sharing or slides.",
+        }
+
+        layout_desc = layout_descriptions.get(layout_type, "The video layout could not be determined.")
+
+        if confidence > 0.6:
+            layout_context = f"\nVIDEO LAYOUT INFORMATION:\n{layout_desc}\n(Detection confidence: {confidence:.0%})\n"
+        elif confidence > 0.0:
+            layout_context = f"\nVIDEO LAYOUT INFORMATION:\n{layout_desc}\n(Low confidence detection - layout may vary)\n"
+        # if confidence is 0.0, it's a fallback default, so don't mention it
+
+    prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
+{layout_context}
 TRANSCRIPT (time-stamped):
 {transcript_text}
 
@@ -284,13 +306,16 @@ def split_transcript_into_chunks(
     return chunks
 
 
-def analyze_chunk_with_gemini(chunk_text: str, job_id: str, chunk_idx: int) -> list[dict]:
+def analyze_chunk_with_gemini(
+    chunk_text: str, job_id: str, chunk_idx: int, layout_info: dict[str, Any] | None = None
+) -> list[dict]:
     """analyze a single transcript chunk with Gemini API.
 
     Args:
         chunk_text: chunk of transcript text
         job_id: job identifier for logging
         chunk_idx: index of this chunk
+        layout_info: optional layout analysis data to provide context
 
     Returns:
         list of segment dictionaries from Gemini
@@ -300,7 +325,7 @@ def analyze_chunk_with_gemini(chunk_text: str, job_id: str, chunk_idx: int) -> l
         extra={"job_id": job_id, "chunk_size": len(chunk_text)},
     )
 
-    prompt = build_analysis_prompt(chunk_text)
+    prompt = build_analysis_prompt(chunk_text, layout_info)
 
     genai.configure(api_key=settings.gemini_api_key)
     model = genai.GenerativeModel(settings.gemini_model)
@@ -389,7 +414,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
                 "Please set GEMINI_API_KEY in your .env file."
             )
 
-        # create database session and query transcripts
+        # create database session and query transcripts + layout
         db = get_db_session()
         try:
             db_service = DatabaseService(db)
@@ -407,6 +432,33 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
                 "transcripts retrieved",
                 extra={"job_id": job_id, "transcript_count": len(transcripts)},
             )
+
+            # query layout analysis if available (vision pipeline only)
+            layout_analysis = db_service.layout_analysis.get_by_job_id(job_id)
+            layout_info = None
+
+            if layout_analysis:
+                layout_info = {
+                    "layout_type": layout_analysis.layout_type,
+                    "screen_region": layout_analysis.screen_region,
+                    "camera_region": layout_analysis.camera_region,
+                    "split_ratio": layout_analysis.split_ratio,
+                    "confidence_score": layout_analysis.confidence_score,
+                }
+
+                logger.info(
+                    "layout analysis retrieved",
+                    extra={
+                        "job_id": job_id,
+                        "layout_type": layout_analysis.layout_type,
+                        "confidence": layout_analysis.confidence_score,
+                    },
+                )
+            else:
+                logger.info(
+                    "no layout analysis found (audio pipeline or vision not yet complete)",
+                    extra={"job_id": job_id},
+                )
 
         finally:
             db.close()
@@ -445,7 +497,9 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
             chunk_results = []
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_to_idx = {
-                    executor.submit(analyze_chunk_with_gemini, chunk, job_id, idx): idx
+                    executor.submit(
+                        analyze_chunk_with_gemini, chunk, job_id, idx, layout_info
+                    ): idx
                     for idx, chunk in enumerate(chunks)
                 }
 
@@ -484,7 +538,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
                 },
             )
 
-            prompt = build_analysis_prompt(transcript_text)
+            prompt = build_analysis_prompt(transcript_text, layout_info)
 
             genai.configure(api_key=settings.gemini_api_key)
             model = genai.GenerativeModel(settings.gemini_model)

@@ -8,13 +8,24 @@ from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
 from app.core.settings import settings
-from app.models.schemas import JobListResponse, JobProgress, JobResponse, JobStatus
+from app.models.schemas import JobListResponse, JobProgress, JobResponse, JobStatus, ProcessingMode
 from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+def _extract_processing_mode(job) -> ProcessingMode | None:
+    """extract processing mode from job's extra_metadata."""
+    if not job.extra_metadata:
+        return None
+    processing_config = job.extra_metadata.get("processing_config", {})
+    mode = processing_config.get("processing_mode")
+    if mode and mode in ["audio", "vision"]:
+        return ProcessingMode(mode)
+    return None
 
 
 @router.get(
@@ -97,6 +108,7 @@ def get_job_status(
         job_id=job.job_id,
         status=JobStatus(job.status),
         filename=job.filename,
+        processing_mode=_extract_processing_mode(job),
         created_at=job.created_at,
         updated_at=job.updated_at,
         progress=progress,
@@ -155,6 +167,7 @@ def list_jobs(
                 job_id=job.job_id,
                 status=JobStatus(job.status),
                 filename=job.filename,
+                processing_mode=_extract_processing_mode(job),
                 created_at=job.created_at,
                 updated_at=job.updated_at,
                 progress=progress,

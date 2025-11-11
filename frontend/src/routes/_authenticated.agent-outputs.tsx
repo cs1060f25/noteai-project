@@ -8,6 +8,7 @@ import {
   CheckCircle,
   Clock,
   FileText,
+  Layout,
   Loader2,
   MessageSquare,
   Scissors,
@@ -22,6 +23,7 @@ import { AdminRoute } from '@/components/admin/AdminRoute';
 import {
   getClips,
   getContentSegments,
+  getLayoutAnalysis,
   getSilenceRegions,
   getTranscripts,
 } from '../services/agentOutputsService';
@@ -34,6 +36,7 @@ import type {
   ContentSegmentsResponse,
   JobListResponse,
   JobResponse,
+  LayoutAnalysis,
   SilenceRegion,
   SilenceRegionsResponse,
   TranscriptSegment,
@@ -45,17 +48,20 @@ interface AgentOutputsState {
   silenceRegions: SilenceRegionsResponse | null;
   contentSegments: ContentSegmentsResponse | null;
   clips: ClipsResponse | null;
+  layoutAnalysis: LayoutAnalysis | null;
   loading: {
     transcripts: boolean;
     silenceRegions: boolean;
     contentSegments: boolean;
     clips: boolean;
+    layoutAnalysis: boolean;
   };
   errors: {
     transcripts: string | null;
     silenceRegions: string | null;
     contentSegments: string | null;
     clips: string | null;
+    layoutAnalysis: string | null;
   };
 }
 
@@ -283,17 +289,20 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
     silenceRegions: null,
     contentSegments: null,
     clips: null,
+    layoutAnalysis: null,
     loading: {
       transcripts: true,
       silenceRegions: true,
       contentSegments: true,
       clips: true,
+      layoutAnalysis: true,
     },
     errors: {
       transcripts: null,
       silenceRegions: null,
       contentSegments: null,
       clips: null,
+      layoutAnalysis: null,
     },
   });
 
@@ -390,6 +399,29 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
           errors: { ...prev.errors, clips: errorMessage },
         }));
       });
+
+    // fetch layout analysis
+    getLayoutAnalysis(jobId)
+      .then((data) => {
+        setState((prev) => ({
+          ...prev,
+          layoutAnalysis: data,
+          loading: { ...prev.loading, layoutAnalysis: false },
+        }));
+      })
+      .catch((error) => {
+        const errorMessage =
+          error.statusCode === 404
+            ? 'Not available - this may be an audio-only pipeline job'
+            : error.statusCode === 400
+              ? 'Not available yet - layout detection may still be in progress'
+              : error.message;
+        setState((prev) => ({
+          ...prev,
+          loading: { ...prev.loading, layoutAnalysis: false },
+          errors: { ...prev.errors, layoutAnalysis: errorMessage },
+        }));
+      });
   }, [jobId]);
 
   return (
@@ -447,6 +479,87 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
           </div>
         </div>
       )}
+
+      {/* layout analysis section */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Layout className="w-5 h-5 text-muted-foreground" />
+          <h2 className="text-xl font-semibold text-foreground">Layout Analysis</h2>
+          {state.loading.layoutAnalysis && (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+
+        {state.errors.layoutAnalysis ? (
+          <div className="flex items-start gap-2 px-3 py-2 bg-muted/30 border border-border/50 rounded-md">
+            <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">{state.errors.layoutAnalysis}</p>
+          </div>
+        ) : state.layoutAnalysis ? (
+          <div className="px-4 py-3 border border-border/50 rounded-md space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 text-sm font-medium rounded bg-primary/10 text-primary border border-primary/20">
+                    {state.layoutAnalysis.layout_type.replace(/_/g, ' ')}
+                  </span>
+                  {state.layoutAnalysis.confidence_score > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round(state.layoutAnalysis.confidence_score * 100)}% confidence
+                    </span>
+                  )}
+                </div>
+
+                {/* layout description */}
+                <p className="text-sm text-muted-foreground">
+                  {state.layoutAnalysis.layout_type === 'side_by_side' &&
+                    'Side-by-side layout with screen content and camera view'}
+                  {state.layoutAnalysis.layout_type === 'picture_in_picture' &&
+                    'Picture-in-picture layout with camera overlay'}
+                  {state.layoutAnalysis.layout_type === 'screen_only' &&
+                    'Screen-only layout (slides/presentation only)'}
+                  {state.layoutAnalysis.layout_type === 'camera_only' &&
+                    'Camera-only layout (speaker view only)'}
+                  {state.layoutAnalysis.layout_type === 'unknown' && 'Layout type could not be determined'}
+                </p>
+
+                {/* region details */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {state.layoutAnalysis.screen_region.width > 0 && (
+                    <div className="px-2 py-1.5 rounded bg-muted/50">
+                      <p className="font-medium text-foreground mb-0.5">Screen Region</p>
+                      <p className="text-muted-foreground">
+                        {state.layoutAnalysis.screen_region.width}×
+                        {state.layoutAnalysis.screen_region.height}
+                      </p>
+                    </div>
+                  )}
+                  {state.layoutAnalysis.camera_region.width > 0 && (
+                    <div className="px-2 py-1.5 rounded bg-muted/50">
+                      <p className="font-medium text-foreground mb-0.5">Camera Region</p>
+                      <p className="text-muted-foreground">
+                        {state.layoutAnalysis.camera_region.width}×
+                        {state.layoutAnalysis.camera_region.height}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {state.layoutAnalysis.split_ratio > 0 && state.layoutAnalysis.split_ratio < 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    Split ratio: {Math.round(state.layoutAnalysis.split_ratio * 100)}% screen /{' '}
+                    {Math.round((1 - state.layoutAnalysis.split_ratio) * 100)}% camera
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          !state.loading.layoutAnalysis && (
+            <p className="text-sm text-muted-foreground px-1">No layout analysis available</p>
+          )
+        )}
+      </div>
 
       {/* silence regions section */}
       <div className="space-y-3">

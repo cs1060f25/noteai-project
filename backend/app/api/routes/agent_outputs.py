@@ -13,6 +13,7 @@ from app.models.schemas import (
     ClipsResponse,
     ContentSegmentResponse,
     ContentSegmentsResponse,
+    LayoutAnalysisResponse,
     SilenceRegionResponse,
     SilenceRegionsResponse,
     TranscriptSegment,
@@ -341,4 +342,80 @@ def get_clips(
         job_id=job_id,
         clips=clips,
         total=len(clips),
+    )
+
+
+@router.get(
+    "/{job_id}/layout-analysis",
+    response_model=LayoutAnalysisResponse,
+    summary="Get layout analysis (Admin only)",
+    description="""
+    Retrieve video layout analysis for a completed job.
+
+    Returns layout detection results with:
+    - Detected layout type (side_by_side, picture_in_picture, screen_only, camera_only)
+    - Screen and camera region coordinates
+    - Split ratio between screen and camera content
+    - Detection confidence score (0 = fallback default, >0.6 = high confidence)
+    - Sample frame time used for analysis
+
+    **Requirements:**
+    - Admin role required
+    - Job must be completed
+    - Only available for vision pipeline jobs (not audio-only)
+
+    **Note**: If no layout analysis exists (audio pipeline), returns 404.
+    """,
+)
+@limiter.limit(settings.rate_limit_results)
+def get_layout_analysis(
+    request: Request,
+    response: Response,
+    job_id: str,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> LayoutAnalysisResponse:
+    """get layout analysis for a completed job (admin only)."""
+    # verify job exists and is completed
+    verify_job_exists_and_completed(job_id, db)
+
+    db_service = DatabaseService(db)
+
+    # get layout analysis
+    layout_db = db_service.layout_analysis.get_by_job_id(job_id)
+
+    if not layout_db:
+        logger.warning(
+            "Layout analysis not found for job",
+            extra={"job_id": job_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "LAYOUT_ANALYSIS_NOT_FOUND",
+                    "message": f"Layout analysis not found for job '{job_id}'. This may be an audio-only pipeline job.",
+                }
+            },
+        )
+
+    logger.info(
+        "Layout analysis retrieved",
+        extra={
+            "job_id": job_id,
+            "layout_type": layout_db.layout_type,
+            "confidence": layout_db.confidence_score,
+        },
+    )
+
+    return LayoutAnalysisResponse(
+        layout_id=layout_db.layout_id,
+        job_id=layout_db.job_id,
+        screen_region=layout_db.screen_region,
+        camera_region=layout_db.camera_region,
+        split_ratio=layout_db.split_ratio,
+        layout_type=layout_db.layout_type,
+        confidence_score=layout_db.confidence_score,
+        sample_frame_time=layout_db.sample_frame_time,
+        created_at=layout_db.created_at,
     )

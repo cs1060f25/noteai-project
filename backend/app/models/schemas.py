@@ -133,6 +133,7 @@ class JobResponse(BaseModel):
     job_id: str = Field(..., description="Unique job identifier")
     status: JobStatus = Field(..., description="Current job status")
     filename: str = Field(..., description="Original filename")
+    processing_mode: ProcessingMode | None = Field(None, description="Processing mode (audio/vision)")
     created_at: datetime = Field(..., description="Job creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     progress: JobProgress | None = Field(None, description="Current progress information")
@@ -197,6 +198,29 @@ class SilenceRegionResponse(BaseModel):
         None, description="Audio amplitude threshold in dBFS (if audio silence)"
     )
     created_at: datetime = Field(..., description="Detection timestamp")
+
+
+class LayoutAnalysisResponse(BaseModel):
+    """Video layout analysis result."""
+
+    layout_id: str = Field(..., description="Unique layout identifier")
+    job_id: str = Field(..., description="Associated job ID")
+    screen_region: dict[str, int] = Field(
+        ..., description="Screen region coordinates {x, y, width, height}"
+    )
+    camera_region: dict[str, int] = Field(
+        ..., description="Camera region coordinates {x, y, width, height}"
+    )
+    split_ratio: float = Field(..., description="Screen to camera split ratio (0-1)", ge=0, le=1)
+    layout_type: str = Field(
+        ...,
+        description="Detected layout type: 'side_by_side', 'picture_in_picture', 'screen_only', 'camera_only', 'unknown'",
+    )
+    confidence_score: float = Field(
+        ..., description="Detection confidence (0-1, 0 = fallback default)", ge=0, le=1
+    )
+    sample_frame_time: float | None = Field(None, description="Frame time used for analysis (seconds)")
+    created_at: datetime = Field(..., description="Analysis timestamp")
 
 
 class ContentSegmentResponse(BaseModel):

@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.models.schemas import ProcessingMode
+
 # Admin Job Schemas
 
 
@@ -22,6 +24,7 @@ class AdminJobResponse(BaseModel):
     user: AdminJobUser = Field(..., description="Job owner information")
     filename: str = Field(..., description="Original filename")
     file_size: int = Field(..., description="File size in bytes")
+    processing_mode: ProcessingMode | None = Field(None, description="Processing mode (audio/vision)")
     status: str = Field(..., description="Current job status")
     current_stage: str | None = Field(None, description="Current processing stage")
     progress_percent: float | None = Field(None, description="Progress percentage")

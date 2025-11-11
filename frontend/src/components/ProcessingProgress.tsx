@@ -13,10 +13,15 @@ import {
   AlertCircle,
   Activity,
   Zap,
+  Layout,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
-import type { JobProgress, ProcessingStage as ProcessingStageType } from '@/types/api';
+import type {
+  JobProgress,
+  ProcessingMode,
+  ProcessingStage as ProcessingStageType,
+} from '@/types/api';
 
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
@@ -29,10 +34,13 @@ export interface ProcessStage {
   color: string;
   status: 'pending' | 'processing' | 'completed' | 'error';
   progress: number;
+  isParallel?: boolean;
+  parallelGroup?: number;
 }
 
 interface ProcessingProgressProps {
   videoName: string;
+  processingMode?: ProcessingMode;
   currentProgress?: JobProgress;
   onComplete?: () => void;
   startTime?: Date;
@@ -60,6 +68,12 @@ const stageConfigs: Record<
     description: 'Converting speech to text',
     icon: FileText,
     color: 'bg-green-500',
+  },
+  layout_analysis: {
+    name: 'Layout Detection',
+    description: 'Detecting screen/camera regions',
+    icon: Layout,
+    color: 'bg-indigo-500',
   },
   content_analysis: {
     name: 'Content Analysis',
@@ -89,20 +103,45 @@ const stageConfigs: Record<
 
 export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
   videoName,
+  processingMode = 'vision',
   currentProgress,
   onComplete,
   startTime = new Date(),
 }) => {
-  const [stages, setStages] = useState<ProcessStage[]>(() =>
-    Object.entries(stageConfigs)
+  const [stages, setStages] = useState<ProcessStage[]>(() => {
+    const allStages = Object.entries(stageConfigs)
       .filter(([key]) => key !== 'complete')
       .map(([id, config]) => ({
         id: id as ProcessingStageType,
         ...config,
         status: 'pending' as const,
         progress: 0,
-      }))
-  );
+      }));
+
+    // filter out layout_analysis for audio mode
+    if (processingMode === 'audio') {
+      return allStages.filter((stage) => stage.id !== 'layout_analysis');
+    }
+
+    // for vision mode, mark silence, transcription and layout_analysis as parallel
+    // audio track: silence → transcription (sequential)
+    // video track: layout analysis
+    // both tracks run in parallel
+    return allStages.map((stage) => {
+      if (
+        stage.id === 'silence_detection' ||
+        stage.id === 'transcription' ||
+        stage.id === 'layout_analysis'
+      ) {
+        return {
+          ...stage,
+          isParallel: true,
+          parallelGroup: 1,
+        };
+      }
+      return stage;
+    });
+  });
   const [overallProgress, setOverallProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -230,7 +269,7 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-6 text-sm text-muted-foreground flex-wrap">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 <span>Elapsed: {formatTime(elapsedTime)}</span>
@@ -240,6 +279,27 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
                 <span>
                   Stage {completedStages + (currentStage ? 1 : 0)} of {stages.length}
                 </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  className={`${
+                    processingMode === 'vision'
+                      ? 'bg-indigo-500/10 text-indigo-500'
+                      : 'bg-purple-500/10 text-purple-500'
+                  } border-0 text-xs`}
+                >
+                  {processingMode === 'vision' ? (
+                    <>
+                      <Layout className="w-3 h-3 mr-1" />
+                      Vision Mode
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-3 h-3 mr-1" />
+                      Audio Mode
+                    </>
+                  )}
+                </Badge>
               </div>
             </div>
           </div>
@@ -301,7 +361,7 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
               stage.status === 'processing'
                 ? 'border-primary shadow-lg shadow-primary/10'
                 : 'border-border/50'
-            }`}
+            } ${stage.isParallel ? 'ring-2 ring-blue-500/20' : ''}`}
           >
             <div className="flex items-start gap-3 mb-3">
               <div
@@ -310,8 +370,14 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
                 <stage.icon className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <h3 className="text-sm truncate">{stage.name}</h3>
+                  {stage.isParallel && (
+                    <Badge className="bg-blue-500/10 text-blue-500 border-0 text-[10px] px-1.5 py-0">
+                      <Zap className="w-2.5 h-2.5 mr-0.5" />
+                      Parallel
+                    </Badge>
+                  )}
                   {getStatusIcon(stage)}
                 </div>
                 <p className="text-xs text-muted-foreground">{stage.description}</p>

@@ -5,6 +5,7 @@ import { apiClient } from '../lib/clerk-api';
 import type {
   ClipsResponse,
   ContentSegmentsResponse,
+  LayoutAnalysis,
   SilenceRegionsResponse,
   TranscriptsResponse,
 } from '../types/api';
@@ -75,5 +76,18 @@ export const getClips = async (jobId: string): Promise<ClipsResponse> => {
       throw new AgentOutputsError(apiError.message, apiError.code, error.response.status);
     }
     throw new AgentOutputsError('Failed to fetch clips', 'CLIPS_FETCH_FAILED');
+  }
+};
+
+export const getLayoutAnalysis = async (jobId: string): Promise<LayoutAnalysis> => {
+  try {
+    const response = await apiClient.get<LayoutAnalysis>(`/jobs/${jobId}/layout-analysis`);
+    return response;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new AgentOutputsError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new AgentOutputsError('Failed to fetch layout analysis', 'LAYOUT_ANALYSIS_FETCH_FAILED');
   }
 };

@@ -747,6 +747,7 @@ export const UploadIntegrated = () => {
                 >
                   <ProcessingProgress
                     videoName={fileName}
+                    processingMode={processingMode}
                     currentProgress={processingProgress || undefined}
                     onComplete={() => {
                       console.log('[Upload Page] Processing complete - redirecting to library');

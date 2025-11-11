@@ -743,7 +743,11 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 )
                 logger.info("Video track: Layout analysis", extra={"job_id": job_id})
 
-                layout_result = detect_layout(s3_key, job_id)
+                layout_result = detect_layout(
+                    s3_key=None,  # Video already downloaded locally
+                    job_id=job_id,
+                    local_video_path=video_path,  # Pass local video path
+                )
 
                 return {
                     "layout": layout_result,
