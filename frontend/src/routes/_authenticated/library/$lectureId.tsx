@@ -10,7 +10,7 @@ function VideoDetailComponent() {
     navigate({ to: '/library' });
   };
 
-  return <VideoDetailPage lectureId={Number(lectureId)} onBack={handleBack} />;
+  return <VideoDetailPage lectureId={lectureId} onBack={handleBack} />;
 }
 
 export const Route = createFileRoute('/_authenticated/library/$lectureId')({

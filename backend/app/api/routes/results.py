@@ -103,7 +103,7 @@ def get_results(
             try:
                 clip_url = s3_service.generate_presigned_url(
                     object_key=clip.s3_key,
-                    expires_in=settings.s3_presigned_url_expiry,
+                    expiration=settings.s3_presigned_url_expiry,
                 )
             except Exception as e:
                 logger.warning(
@@ -118,7 +118,7 @@ def get_results(
             try:
                 thumbnail_url = s3_service.generate_presigned_url(
                     object_key=clip.thumbnail_s3_key,
-                    expires_in=settings.s3_presigned_url_expiry,
+                    expiration=settings.s3_presigned_url_expiry,
                 )
             except Exception as e:
                 logger.warning(
@@ -172,6 +172,50 @@ def get_results(
     metadata["processing_duration_seconds"] = (
         (job.completed_at - job.created_at).total_seconds() if job.completed_at else None
     )
+
+    # add original video information
+    metadata["original_video"] = {
+        "s3_key": job.original_s3_key,
+        "filename": job.filename,
+        "duration": job.video_duration,
+    }
+
+    # generate pre-signed URL for original video
+    original_video_url = None
+    if job.original_s3_key:
+        try:
+            original_video_url = s3_service.generate_presigned_url(
+                object_key=job.original_s3_key,
+                expiration=settings.s3_presigned_url_expiry,
+            )
+            metadata["original_video"]["url"] = original_video_url
+        except Exception as e:
+            logger.warning(
+                "Failed to generate original video URL",
+                exc_info=e,
+                extra={"job_id": job_id},
+            )
+            metadata["original_video"]["url"] = None
+
+    # add highlight video information (compiled clips)
+    metadata["highlight_video"] = None
+    if job.compiled_video_s3_key:
+        try:
+            highlight_video_url = s3_service.generate_presigned_url(
+                object_key=job.compiled_video_s3_key,
+                expiration=settings.s3_presigned_url_expiry,
+            )
+            metadata["highlight_video"] = {
+                "s3_key": job.compiled_video_s3_key,
+                "url": highlight_video_url,
+            }
+        except Exception as e:
+            logger.warning(
+                "Failed to generate highlight video URL",
+                exc_info=e,
+                extra={"job_id": job_id},
+            )
+            metadata["highlight_video"] = {"s3_key": job.compiled_video_s3_key, "url": None}
 
     logger.info(
         "Results retrieved",

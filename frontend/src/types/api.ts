@@ -171,6 +171,27 @@ export interface ClipsResponse {
   total: number;
 }
 
+// results types (for /results endpoint with pre-signed URLs)
+
+export interface ClipMetadata {
+  clip_id: string;
+  title: string;
+  start_time: number;
+  end_time: number;
+  duration: number;
+  s3_key: string;
+  url: string | null;
+  thumbnail_url: string | null;
+}
+
+export interface ResultsResponse {
+  job_id: string;
+  clips: ClipMetadata[];
+  transcript: TranscriptSegment[] | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata: Record<string, any>;
+}
+
 // user types
 
 export type UserRole = 'user' | 'admin';

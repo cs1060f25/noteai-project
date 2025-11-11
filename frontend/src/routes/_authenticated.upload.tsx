@@ -136,86 +136,78 @@ export const UploadIntegrated = () => {
     }
   }, [uploadComplete, uploadedJobId, getToken, navigate]);
 
-  const startUpload = useCallback(
-    async (file: File, config?: ProcessingConfig) => {
-      setErrorMsg(null);
-      setFileName(file.name);
-      setIsUploading(true);
-      setIsProcessing(true);
-      setProcessingStartTime(new Date());
-      setUploadProgress(0);
-      setUploadStage('uploading');
+  const startUpload = useCallback(async (file: File, config?: ProcessingConfig) => {
+    setErrorMsg(null);
+    setFileName(file.name);
+    setIsUploading(true);
+    setIsProcessing(true);
+    setProcessingStartTime(new Date());
+    setUploadProgress(0);
+    setUploadStage('uploading');
 
-      // Set a temporary job ID so ProcessingProgress can render immediately
-      setUploadedJobId('uploading');
+    // Set a temporary job ID so ProcessingProgress can render immediately
+    setUploadedJobId('uploading');
 
-      // Set initial uploading progress
+    // Set initial uploading progress
+    setProcessingProgress({
+      stage: 'uploading',
+      percent: 0,
+      message: 'Preparing to upload...',
+    });
+
+    try {
+      const result = await uploadVideo(
+        file,
+        (percent) => {
+          const p = Math.max(0, Math.min(100, Math.floor(percent)));
+          setUploadProgress(p);
+
+          // Update processing progress for upload stage
+          setProcessingProgress({
+            stage: 'uploading',
+            percent: p,
+            message: `Uploading video... ${p}%`,
+          });
+        },
+        config
+      );
+
+      setUploadedJobId(result.jobId);
+      setUploadedVideoKey(result.s3Key);
+      setUploadProgress(100);
+      setUploadStage('complete');
+      setIsUploading(false);
+      setUploadComplete(true);
+
+      // Upload complete, WebSocket will take over from here
       setProcessingProgress({
         stage: 'uploading',
-        percent: 0,
-        message: 'Preparing to upload...',
+        percent: 100,
+        message: 'Upload complete! Starting processing...',
       });
+    } catch (error) {
+      const msg =
+        error instanceof UploadError ? error.message : 'Failed to upload video. Please try again.';
+      setErrorMsg(msg);
+      setIsUploading(false);
+      setIsProcessing(false);
+      setUploadStage('uploading');
+    }
+  }, []);
 
-      try {
-        const result = await uploadVideo(
-          file,
-          (percent) => {
-            const p = Math.max(0, Math.min(100, Math.floor(percent)));
-            setUploadProgress(p);
-
-            // Update processing progress for upload stage
-            setProcessingProgress({
-              stage: 'uploading',
-              percent: p,
-              message: `Uploading video... ${p}%`,
-            });
-          },
-          config
-        );
-
-        setUploadedJobId(result.jobId);
-        setUploadedVideoKey(result.s3Key);
-        setUploadProgress(100);
-        setUploadStage('complete');
-        setIsUploading(false);
-        setUploadComplete(true);
-
-        // Upload complete, WebSocket will take over from here
-        setProcessingProgress({
-          stage: 'uploading',
-          percent: 100,
-          message: 'Upload complete! Starting processing...',
-        });
-      } catch (error) {
-        const msg =
-          error instanceof UploadError
-            ? error.message
-            : 'Failed to upload video. Please try again.';
-        setErrorMsg(msg);
-        setIsUploading(false);
-        setIsProcessing(false);
-        setUploadStage('uploading');
-      }
-    },
-    []
-  );
-
-  const handleFileSelected = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
-      const validation = validateVideoFile(file);
-      if (!validation.valid) {
-        setErrorMsg(validation.error || 'Invalid file');
-        return;
-      }
-      // Store the file and show configuration panel
-      setSelectedFile(file);
-      setFileName(file.name);
-      setShowConfig(true);
-      setErrorMsg(null);
-    },
-    []
-  );
+  const handleFileSelected = useCallback(async (file: File | null) => {
+    if (!file) return;
+    const validation = validateVideoFile(file);
+    if (!validation.valid) {
+      setErrorMsg(validation.error || 'Invalid file');
+      return;
+    }
+    // Store the file and show configuration panel
+    setSelectedFile(file);
+    setFileName(file.name);
+    setShowConfig(true);
+    setErrorMsg(null);
+  }, []);
 
   const onFilePickerClick = useCallback(() => {
     hiddenInputRef.current?.click();

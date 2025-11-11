@@ -85,7 +85,7 @@ async def get_presigned_url(
                 detail=f"Video not found: {key}",
             )
 
-        url = s3_service.generate_presigned_url(key, expires_in)
+        url = s3_service.generate_presigned_url(key, expiration=expires_in)
 
         return PresignedUrlResponse(
             url=url,
