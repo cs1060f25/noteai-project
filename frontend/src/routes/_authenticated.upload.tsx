@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   uploadVideo,
@@ -80,6 +81,7 @@ export const UploadIntegrated = () => {
   const [prompt, setPrompt] = useState('');
   const [resolution, setResolution] = useState<ResolutionOption>('1080p');
   const [processingMode, setProcessingMode] = useState<ProcessingMode>('vision');
+  const [rateLimitMode, setRateLimitMode] = useState(true); // default: enabled for safety
 
   // Cleanup WebSocket on unmount
   useEffect(() => {
@@ -257,6 +259,7 @@ export const UploadIntegrated = () => {
       prompt: prompt || undefined,
       resolution,
       processing_mode: processingMode,
+      rate_limit_mode: rateLimitMode,
     };
 
     if (selectedFile) {
@@ -320,7 +323,7 @@ export const UploadIntegrated = () => {
         setUploadStage('uploading');
       }
     }
-  }, [selectedFile, youtubeUrl, startUpload, prompt, resolution, processingMode]);
+  }, [selectedFile, youtubeUrl, startUpload, prompt, resolution, processingMode, rateLimitMode]);
 
   return (
     <div className="h-full flex items-center justify-center p-8 overflow-hidden relative">
@@ -426,7 +429,10 @@ export const UploadIntegrated = () => {
                       </div>
                       <Label className="text-sm">Output Resolution</Label>
                     </div>
-                    <Select value={resolution} onValueChange={setResolution}>
+                    <Select
+                      value={resolution}
+                      onValueChange={(value) => setResolution(value as ResolutionOption)}
+                    >
                       <SelectTrigger className="rounded-xl border-border/50 bg-background/50">
                         <SelectValue />
                       </SelectTrigger>
@@ -438,6 +444,37 @@ export const UploadIntegrated = () => {
                       </SelectContent>
                     </Select>
                   </motion.div>
+                  {/* Rate Limiting Toggle */}
+                  <div className="rounded-xl bg-background/60 backdrop-blur-xl border border-border/50 p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Label htmlFor="rate-limit-mode" className="text-sm cursor-pointer">
+                            Rate Limiting Mode
+                          </Label>
+                          <Badge
+                            className={`text-xs px-2 py-0 border-0 ${
+                              rateLimitMode
+                                ? 'bg-green-500/10 text-green-500'
+                                : 'bg-orange-500/10 text-orange-500'
+                            }`}
+                          >
+                            {rateLimitMode ? 'Safe' : 'Fast'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {rateLimitMode
+                            ? 'Sequential processing with delays to stay under API limits. Recommended for free-tier keys.'
+                            : 'Parallel processing for faster transcription. Use if you have higher API rate limits.'}
+                        </p>
+                      </div>
+                      <Switch
+                        id="rate-limit-mode"
+                        checked={rateLimitMode}
+                        onCheckedChange={setRateLimitMode}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Right Column - Processing Mode */}

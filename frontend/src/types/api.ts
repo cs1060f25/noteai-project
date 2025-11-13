@@ -28,6 +28,7 @@ export interface ProcessingConfig {
   prompt?: string;
   resolution: ResolutionOption;
   processing_mode: ProcessingMode;
+  rate_limit_mode?: boolean;
 }
 
 export interface UploadRequest {
