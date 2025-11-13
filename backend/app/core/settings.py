@@ -73,6 +73,12 @@ class Settings(BaseSettings):
         description="CloudFront domain for serving videos",
     )
 
+    # Video Processing
+    video_compilation_max_workers: int = Field(
+        default=2,
+        description="Maximum parallel workers for video clip compilation (1-4)",
+    )
+
     # AI Services
     google_cloud_credentials_path: str | None = Field(
         default=None,

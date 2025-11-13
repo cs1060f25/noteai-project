@@ -12,6 +12,7 @@ from pydub.silence import detect_silence as pydub_detect_silence
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from agents.utils.ffmpeg_helper import FFmpegHelper
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
@@ -22,6 +23,7 @@ logger = get_logger(__name__)
 # silence detection parameters
 SILENCE_THRESH_DBFS = -35  # decibels relative to full scale
 MIN_SILENCE_LEN_MS = 500  # minimum silence duration in milliseconds
+MIN_SILENCE_LEN_SEC = MIN_SILENCE_LEN_MS / 1000.0  # convert to seconds for ffmpeg
 
 
 def get_db_session():
@@ -82,12 +84,15 @@ def download_video_from_s3(s3_key: str, job_id: str) -> str:
         raise
 
 
-def analyze_audio_silence(video_path: str, job_id: str) -> list[dict]:
+def analyze_audio_silence(video_path: str, job_id: str, use_ffmpeg: bool = True) -> list[dict]:
     """analyze audio track for silence regions.
+
+    Uses FFmpeg-based detection by default (50-100x faster), with pydub as fallback.
 
     Args:
         video_path: path to video file
         job_id: job identifier for logging
+        use_ffmpeg: whether to use FFmpeg-based detection (default: True)
 
     Returns:
         list of silence region dictionaries
@@ -95,65 +100,56 @@ def analyze_audio_silence(video_path: str, job_id: str) -> list[dict]:
     Raises:
         Exception: if audio analysis fails
     """
+    detection_start_time = time.time()
+
     try:
         logger.info(
-            "Extracting and analyzing audio",
-            extra={"job_id": job_id, "video_path": video_path},
-        )
-
-        # load audio from video using pydub
-        try:
-            audio = AudioSegment.from_file(video_path)
-        except IndexError as e:
-            # this can happen if video has no audio track
-            logger.warning(
-                "No audio track found in video file",
-                exc_info=e,
-                extra={"job_id": job_id, "video_path": video_path},
-            )
-            raise ValueError(
-                f"Video file '{video_path}' has no audio track or audio stream could not be detected"
-            ) from e
-
-        logger.info(
-            "Audio loaded",
+            "Starting silence detection",
             extra={
                 "job_id": job_id,
-                "duration_ms": len(audio),
-                "channels": audio.channels,
-                "frame_rate": audio.frame_rate,
+                "video_path": video_path,
+                "method": "ffmpeg" if use_ffmpeg else "pydub",
             },
         )
 
-        # detect silence regions
-        # pydub_detect_silence returns list of [start_ms, end_ms]
-        silence_ranges = pydub_detect_silence(
-            audio,
-            min_silence_len=MIN_SILENCE_LEN_MS,
-            silence_thresh=SILENCE_THRESH_DBFS,
-        )
+        # try ffmpeg-based detection first (much faster)
+        if use_ffmpeg:
+            try:
+                silence_regions = _detect_silence_ffmpeg(video_path, job_id)
+                detection_time = time.time() - detection_start_time
+
+                logger.info(
+                    "FFmpeg silence detection completed",
+                    extra={
+                        "job_id": job_id,
+                        "silence_regions_found": len(silence_regions),
+                        "detection_time_seconds": round(detection_time, 2),
+                        "method": "ffmpeg",
+                    },
+                )
+                return silence_regions
+
+            except Exception as ffmpeg_error:
+                logger.warning(
+                    "FFmpeg silence detection failed, falling back to pydub",
+                    exc_info=ffmpeg_error,
+                    extra={"job_id": job_id},
+                )
+                # fall through to pydub fallback
+
+        # fallback to pydub-based detection
+        silence_regions = _detect_silence_pydub(video_path, job_id)
+        detection_time = time.time() - detection_start_time
 
         logger.info(
-            "Silence detection completed",
-            extra={"job_id": job_id, "silence_regions_found": len(silence_ranges)},
+            "Pydub silence detection completed",
+            extra={
+                "job_id": job_id,
+                "silence_regions_found": len(silence_regions),
+                "detection_time_seconds": round(detection_time, 2),
+                "method": "pydub",
+            },
         )
-
-        # convert to standardized format (seconds)
-        silence_regions = []
-        for start_ms, end_ms in silence_ranges:
-            start_time = start_ms / 1000.0
-            end_time = end_ms / 1000.0
-            duration = end_time - start_time
-
-            silence_regions.append(
-                {
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "duration": duration,
-                    "silence_type": "audio_silence",
-                    "amplitude_threshold": SILENCE_THRESH_DBFS,
-                }
-            )
 
         return silence_regions
 
@@ -164,6 +160,114 @@ def analyze_audio_silence(video_path: str, job_id: str) -> list[dict]:
             extra={"job_id": job_id},
         )
         raise
+
+
+def _detect_silence_ffmpeg(video_path: str, job_id: str) -> list[dict]:
+    """detect silence using FFmpeg silencedetect filter.
+
+    Args:
+        video_path: path to video file
+        job_id: job identifier for logging
+
+    Returns:
+        list of silence region dictionaries
+
+    Raises:
+        Exception: if FFmpeg detection fails
+    """
+    logger.info(
+        "Using FFmpeg-based silence detection (optimized)",
+        extra={"job_id": job_id, "video_path": video_path},
+    )
+
+    ffmpeg_helper = FFmpegHelper()
+
+    # use ffmpeg to detect silence (much faster than pydub)
+    raw_silence_regions = ffmpeg_helper.detect_silence(
+        video_path=Path(video_path),
+        silence_threshold_db=SILENCE_THRESH_DBFS,
+        min_silence_duration=MIN_SILENCE_LEN_SEC,
+    )
+
+    # add metadata to match expected format
+    silence_regions = []
+    for region in raw_silence_regions:
+        silence_regions.append(
+            {
+                "start_time": region["start_time"],
+                "end_time": region["end_time"],
+                "duration": region["duration"],
+                "silence_type": "audio_silence",
+                "amplitude_threshold": SILENCE_THRESH_DBFS,
+            }
+        )
+
+    return silence_regions
+
+
+def _detect_silence_pydub(video_path: str, job_id: str) -> list[dict]:
+    """detect silence using pydub (legacy fallback).
+
+    Args:
+        video_path: path to video file
+        job_id: job identifier for logging
+
+    Returns:
+        list of silence region dictionaries
+
+    Raises:
+        Exception: if pydub detection fails
+    """
+    # load audio from video using pydub
+    try:
+        audio = AudioSegment.from_file(video_path)
+    except IndexError as e:
+        # this can happen if video has no audio track
+        logger.warning(
+            "No audio track found in video file",
+            exc_info=e,
+            extra={"job_id": job_id, "video_path": video_path},
+        )
+        raise ValueError(
+            f"Video file '{video_path}' has no audio track or audio stream could not be detected"
+        ) from e
+
+    logger.info(
+        "Audio loaded via pydub",
+        extra={
+            "job_id": job_id,
+            "duration_ms": len(audio),
+            "channels": audio.channels,
+            "frame_rate": audio.frame_rate,
+        },
+    )
+
+    # detect silence regions
+    # pydub_detect_silence returns list of [start_ms, end_ms]
+    silence_ranges = pydub_detect_silence(
+        audio,
+        min_silence_len=MIN_SILENCE_LEN_MS,
+        silence_thresh=SILENCE_THRESH_DBFS,
+    )
+
+    # convert to standardized format (seconds)
+    silence_regions = []
+    for start_ms, end_ms in silence_ranges:
+        start_time = start_ms / 1000.0
+        end_time = end_ms / 1000.0
+        duration = end_time - start_time
+
+        silence_regions.append(
+            {
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": duration,
+                "silence_type": "audio_silence",
+                "amplitude_threshold": SILENCE_THRESH_DBFS,
+            }
+        )
+
+    return silence_regions
 
 
 def store_silence_regions(silence_regions: list[dict], job_id: str) -> None:

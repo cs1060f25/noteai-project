@@ -21,6 +21,7 @@ from agents.transcript_agent import generate_transcript
 from agents.video_compiler import VideoCompiler, compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
+from app.models.database import Job
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
 from app.services.websocket_service import send_completion_sync, send_error_sync, send_progress_sync
@@ -943,12 +944,23 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
     try:
         s3_key = get_job_s3_key(job_id)
 
+        # get rate_limit_mode from job metadata
+        db = get_task_db()
+        try:
+            job = db.query(Job).filter(Job.job_id == job_id).first()
+            rate_limit_mode = True  # default to safe mode
+            if job and job.extra_metadata:
+                rate_limit_mode = job.extra_metadata.get("rate_limit_mode", True)
+        finally:
+            db.close()
+
         logger.info(
             "Starting transcription after silence detection",
             extra={
                 "job_id": job_id,
                 "s3_key": s3_key,
                 "silence_regions_detected": silence_result.get("silence_count", 0),
+                "rate_limit_mode": rate_limit_mode,
             },
         )
 
@@ -964,7 +976,7 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
         # run transcription
         # the transcript agent will automatically retrieve silence regions from DB
         # and only transcribe non-silent parts
-        result = generate_transcript(s3_key, job_id)
+        result = generate_transcript(s3_key, job_id, rate_limit_mode=rate_limit_mode)
 
         # update progress: completed
         self.update_job_progress(

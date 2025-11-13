@@ -62,6 +62,10 @@ class ProcessingConfig(BaseModel):
         default=ProcessingMode.VISION,
         description="Processing mode: audio-only or vision+audio",
     )
+    rate_limit_mode: bool = Field(
+        default=True,
+        description="Enable rate limiting for API calls (recommended for free-tier keys)",
+    )
 
 
 # Request Models
