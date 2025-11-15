@@ -28,6 +28,7 @@ class Job(Base):
     file_size = Column(Integer, nullable=False)
     content_type = Column(String(100), nullable=False)
     original_s3_key = Column(String(500), nullable=False)
+    compiled_video_s3_key = Column(String(500), nullable=True)  # Highlight video (compiled clips)
 
     # Video metadata
     video_duration = Column(Float, nullable=True)

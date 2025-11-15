@@ -14,15 +14,12 @@ import {
   Headphones,
   Settings2,
   Info,
-  CheckCircle2,
-  FileVideo,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -32,6 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   uploadVideo,
   uploadFromYouTube,
@@ -39,8 +38,8 @@ import {
   validateYouTubeUrl,
   UploadError,
 } from '@/services/uploadService';
-import type { ProcessingConfig, ResolutionOption, ProcessingMode } from '@/types/api';
 import { createJobWebSocket, WebSocketService } from '@/services/websocketService';
+import type { ProcessingConfig, ResolutionOption, ProcessingMode } from '@/types/api';
 import type { JobProgress } from '@/types/api';
 
 // Badge helper component
@@ -82,6 +81,7 @@ export const UploadIntegrated = () => {
   const [prompt, setPrompt] = useState('');
   const [resolution, setResolution] = useState<ResolutionOption>('1080p');
   const [processingMode, setProcessingMode] = useState<ProcessingMode>('vision');
+  const [rateLimitMode, setRateLimitMode] = useState(true); // default: enabled for safety
 
   // Cleanup WebSocket on unmount
   useEffect(() => {
@@ -138,86 +138,78 @@ export const UploadIntegrated = () => {
     }
   }, [uploadComplete, uploadedJobId, getToken, navigate]);
 
-  const startUpload = useCallback(
-    async (file: File, config?: ProcessingConfig) => {
-      setErrorMsg(null);
-      setFileName(file.name);
-      setIsUploading(true);
-      setIsProcessing(true);
-      setProcessingStartTime(new Date());
-      setUploadProgress(0);
-      setUploadStage('uploading');
+  const startUpload = useCallback(async (file: File, config?: ProcessingConfig) => {
+    setErrorMsg(null);
+    setFileName(file.name);
+    setIsUploading(true);
+    setIsProcessing(true);
+    setProcessingStartTime(new Date());
+    setUploadProgress(0);
+    setUploadStage('uploading');
 
-      // Set a temporary job ID so ProcessingProgress can render immediately
-      setUploadedJobId('uploading');
+    // Set a temporary job ID so ProcessingProgress can render immediately
+    setUploadedJobId('uploading');
 
-      // Set initial uploading progress
+    // Set initial uploading progress
+    setProcessingProgress({
+      stage: 'uploading',
+      percent: 0,
+      message: 'Preparing to upload...',
+    });
+
+    try {
+      const result = await uploadVideo(
+        file,
+        (percent) => {
+          const p = Math.max(0, Math.min(100, Math.floor(percent)));
+          setUploadProgress(p);
+
+          // Update processing progress for upload stage
+          setProcessingProgress({
+            stage: 'uploading',
+            percent: p,
+            message: `Uploading video... ${p}%`,
+          });
+        },
+        config
+      );
+
+      setUploadedJobId(result.jobId);
+      setUploadedVideoKey(result.s3Key);
+      setUploadProgress(100);
+      setUploadStage('complete');
+      setIsUploading(false);
+      setUploadComplete(true);
+
+      // Upload complete, WebSocket will take over from here
       setProcessingProgress({
         stage: 'uploading',
-        percent: 0,
-        message: 'Preparing to upload...',
+        percent: 100,
+        message: 'Upload complete! Starting processing...',
       });
+    } catch (error) {
+      const msg =
+        error instanceof UploadError ? error.message : 'Failed to upload video. Please try again.';
+      setErrorMsg(msg);
+      setIsUploading(false);
+      setIsProcessing(false);
+      setUploadStage('uploading');
+    }
+  }, []);
 
-      try {
-        const result = await uploadVideo(
-          file,
-          (percent) => {
-            const p = Math.max(0, Math.min(100, Math.floor(percent)));
-            setUploadProgress(p);
-
-            // Update processing progress for upload stage
-            setProcessingProgress({
-              stage: 'uploading',
-              percent: p,
-              message: `Uploading video... ${p}%`,
-            });
-          },
-          config
-        );
-
-        setUploadedJobId(result.jobId);
-        setUploadedVideoKey(result.s3Key);
-        setUploadProgress(100);
-        setUploadStage('complete');
-        setIsUploading(false);
-        setUploadComplete(true);
-
-        // Upload complete, WebSocket will take over from here
-        setProcessingProgress({
-          stage: 'uploading',
-          percent: 100,
-          message: 'Upload complete! Starting processing...',
-        });
-      } catch (error) {
-        const msg =
-          error instanceof UploadError
-            ? error.message
-            : 'Failed to upload video. Please try again.';
-        setErrorMsg(msg);
-        setIsUploading(false);
-        setIsProcessing(false);
-        setUploadStage('uploading');
-      }
-    },
-    []
-  );
-
-  const handleFileSelected = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
-      const validation = validateVideoFile(file);
-      if (!validation.valid) {
-        setErrorMsg(validation.error || 'Invalid file');
-        return;
-      }
-      // Store the file and show configuration panel
-      setSelectedFile(file);
-      setFileName(file.name);
-      setShowConfig(true);
-      setErrorMsg(null);
-    },
-    []
-  );
+  const handleFileSelected = useCallback(async (file: File | null) => {
+    if (!file) return;
+    const validation = validateVideoFile(file);
+    if (!validation.valid) {
+      setErrorMsg(validation.error || 'Invalid file');
+      return;
+    }
+    // Store the file and show configuration panel
+    setSelectedFile(file);
+    setFileName(file.name);
+    setShowConfig(true);
+    setErrorMsg(null);
+  }, []);
 
   const onFilePickerClick = useCallback(() => {
     hiddenInputRef.current?.click();
@@ -267,6 +259,7 @@ export const UploadIntegrated = () => {
       prompt: prompt || undefined,
       resolution,
       processing_mode: processingMode,
+      rate_limit_mode: rateLimitMode,
     };
 
     if (selectedFile) {
@@ -330,7 +323,7 @@ export const UploadIntegrated = () => {
         setUploadStage('uploading');
       }
     }
-  }, [selectedFile, youtubeUrl, startUpload, prompt, resolution, processingMode]);
+  }, [selectedFile, youtubeUrl, startUpload, prompt, resolution, processingMode, rateLimitMode]);
 
   return (
     <div className="h-full flex items-center justify-center p-8 overflow-hidden relative">
@@ -436,7 +429,10 @@ export const UploadIntegrated = () => {
                       </div>
                       <Label className="text-sm">Output Resolution</Label>
                     </div>
-                    <Select value={resolution} onValueChange={setResolution}>
+                    <Select
+                      value={resolution}
+                      onValueChange={(value) => setResolution(value as ResolutionOption)}
+                    >
                       <SelectTrigger className="rounded-xl border-border/50 bg-background/50">
                         <SelectValue />
                       </SelectTrigger>
@@ -448,6 +444,37 @@ export const UploadIntegrated = () => {
                       </SelectContent>
                     </Select>
                   </motion.div>
+                  {/* Rate Limiting Toggle */}
+                  <div className="rounded-xl bg-background/60 backdrop-blur-xl border border-border/50 p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Label htmlFor="rate-limit-mode" className="text-sm cursor-pointer">
+                            Rate Limiting Mode
+                          </Label>
+                          <Badge
+                            className={`text-xs px-2 py-0 border-0 ${
+                              rateLimitMode
+                                ? 'bg-green-500/10 text-green-500'
+                                : 'bg-orange-500/10 text-orange-500'
+                            }`}
+                          >
+                            {rateLimitMode ? 'Safe' : 'Fast'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {rateLimitMode
+                            ? 'Sequential processing with delays to stay under API limits. Recommended for free-tier keys.'
+                            : 'Parallel processing for faster transcription. Use if you have higher API rate limits.'}
+                        </p>
+                      </div>
+                      <Switch
+                        id="rate-limit-mode"
+                        checked={rateLimitMode}
+                        onCheckedChange={setRateLimitMode}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Right Column - Processing Mode */}

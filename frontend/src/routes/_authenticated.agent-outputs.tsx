@@ -520,7 +520,8 @@ const AgentOutputsDetailView = ({ jobId }: { jobId: string }) => {
                     'Screen-only layout (slides/presentation only)'}
                   {state.layoutAnalysis.layout_type === 'camera_only' &&
                     'Camera-only layout (speaker view only)'}
-                  {state.layoutAnalysis.layout_type === 'unknown' && 'Layout type could not be determined'}
+                  {state.layoutAnalysis.layout_type === 'unknown' &&
+                    'Layout type could not be determined'}
                 </p>
 
                 {/* region details */}

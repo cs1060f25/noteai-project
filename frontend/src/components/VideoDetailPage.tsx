@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   ArrowLeft,
@@ -18,6 +18,9 @@ import {
   Edit,
   Trash2,
   ChevronRight,
+  Loader2,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
@@ -32,7 +35,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -43,70 +45,113 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import type { ClipMetadata, ResultsResponse } from '@/types/api';
+
+import { getResults, ResultsError } from '../services/resultsService';
 
 import { ImageWithFallback } from './ImageWithFallback';
+import { VideoPlayer } from './VideoPlayer';
 
 interface VideoDetailPageProps {
-  lectureId: number;
+  lectureId: string;
   onBack: () => void;
 }
 
-const mockLecture = {
-  id: 1,
-  title: 'Introduction to Machine Learning',
-  description:
-    'A comprehensive introduction to machine learning concepts, algorithms, and practical applications.',
-  date: 'Nov 3, 2025',
-  duration: '1:24:30',
-  status: 'completed',
-  clipsGenerated: 12,
-  views: 234,
-  thumbnail:
-    'https://images.unsplash.com/photo-1758413350815-7b06dbbfb9a7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsZWN0dXJlJTIwaGFsbCUyMG1vZGVybnxlbnwxfHx8fDE3NjIzMDQwNDh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-  tags: ['Machine Learning', 'AI', 'Data Science'],
-  processingTime: '3m 24s',
-};
+// Helper function to format duration from seconds to MM:SS or HH:MM:SS
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
 
-const mockClips = [
-  {
-    id: 1,
-    title: 'What is Machine Learning?',
-    duration: '2:45',
-    thumbnail: 'https://images.unsplash.com/photo-1758413350815-7b06dbbfb9a7',
-    views: 89,
-    description: 'Introduction to core ML concepts',
-  },
-  {
-    id: 2,
-    title: 'Supervised vs Unsupervised Learning',
-    duration: '3:12',
-    thumbnail: 'https://images.unsplash.com/photo-1758413350815-7b06dbbfb9a7',
-    views: 76,
-    description: 'Key differences explained',
-  },
-  {
-    id: 3,
-    title: 'Neural Networks Basics',
-    duration: '4:30',
-    thumbnail: 'https://images.unsplash.com/photo-1758413350815-7b06dbbfb9a7',
-    views: 102,
-    description: 'Understanding neural network architecture',
-  },
-  {
-    id: 4,
-    title: 'Training Models',
-    duration: '3:45',
-    thumbnail: 'https://images.unsplash.com/photo-1758413350815-7b06dbbfb9a7',
-    views: 65,
-    description: 'How to train your first model',
-  },
-];
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
 
-export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPageProps) {
+export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
+  const [results, setResults] = useState<ResultsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedClip, setSelectedClip] = useState<ClipMetadata | null>(null);
+  const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
+
   const [podcastDialogOpen, setPodcastDialogOpen] = useState(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [socialDialogOpen, setSocialDialogOpen] = useState(false);
+
+  // Fetch results on mount
+  useEffect(() => {
+    const fetchResults = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getResults(lectureId);
+        setResults(data);
+      } catch (err) {
+        if (err instanceof ResultsError) {
+          // Handle specific error codes
+          if (err.code === 'JOB_NOT_FOUND') {
+            setError('Video not found');
+          } else if (err.code === 'JOB_NOT_COMPLETED') {
+            setError('Your video is still being processed. Check back soon!');
+          } else if (err.code === 'FORBIDDEN') {
+            setError("You don't have access to this video");
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError('Failed to load video details. Please try again.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResults();
+  }, [lectureId]);
+
+  const handleClipClick = (clip: ClipMetadata) => {
+    if (!clip.url) {
+      toast.error('Video URL not available. Please try again later.');
+      return;
+    }
+    setSelectedClip(clip);
+    setVideoPlayerOpen(true);
+  };
+
+  const handleWatchFullVideo = () => {
+    // Prefer highlight video (compiled clips), fall back to original
+    const highlightVideo = results?.metadata?.highlight_video;
+    const originalVideo = results?.metadata?.original_video;
+
+    const videoToPlay = highlightVideo?.url ? highlightVideo : originalVideo;
+
+    if (!videoToPlay?.url) {
+      toast.error('Video not available. Please try again later.');
+      return;
+    }
+
+    // Create a special clip object for the full video
+    const fullVideoClip: ClipMetadata = {
+      clip_id: highlightVideo ? 'highlight' : 'original',
+      title: highlightVideo ? 'Highlight Reel' : (originalVideo?.filename || 'Original Video'),
+      start_time: 0,
+      end_time: originalVideo?.duration || 0,
+      duration: originalVideo?.duration || 0,
+      s3_key: videoToPlay.s3_key,
+      url: videoToPlay.url,
+      thumbnail_url: null,
+    };
+    setSelectedClip(fullVideoClip);
+    setVideoPlayerOpen(true);
+  };
+
+  const handleRetry = () => {
+    window.location.reload();
+  };
 
   const aiFeatures = [
     {
@@ -159,6 +204,83 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
     },
   ];
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="h-full overflow-auto">
+        <div className="max-w-7xl mx-auto p-6">
+          <Button variant="ghost" onClick={onBack} className="mb-4 -ml-2">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Library
+          </Button>
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+            <p className="text-lg text-muted-foreground">Loading video details...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-full overflow-auto">
+        <div className="max-w-7xl mx-auto p-6">
+          <Button variant="ghost" onClick={onBack} className="mb-4 -ml-2">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Library
+          </Button>
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="glass-card rounded-xl border border-border/50 p-8 max-w-md text-center">
+              <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <h2 className="text-xl mb-2">Unable to Load Video</h2>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={onBack} variant="outline" className="glass-card">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Library
+                </Button>
+                <Button onClick={handleRetry} className="glass-button bg-primary">
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state (no clips)
+  if (!results || results.clips.length === 0) {
+    return (
+      <div className="h-full overflow-auto">
+        <div className="max-w-7xl mx-auto p-6">
+          <Button variant="ghost" onClick={onBack} className="mb-4 -ml-2">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Library
+          </Button>
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="glass-card rounded-xl border border-border/50 p-8 max-w-md text-center">
+              <Sparkles className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h2 className="text-xl mb-2">No Clips Generated</h2>
+              <p className="text-muted-foreground mb-6">
+                This video doesn't have any clips yet. The processing may still be in progress.
+              </p>
+              <Button onClick={onBack} variant="outline" className="glass-card">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Library
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const clips = results.clips;
+
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
@@ -170,14 +292,23 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
           </Button>
 
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Video Thumbnail */}
+            {/* Video Thumbnail - Use first clip's thumbnail if available */}
             <div className="lg:w-80 flex-shrink-0">
-              <div className="relative aspect-video rounded-xl overflow-hidden glass-card border border-border/50 group">
-                <ImageWithFallback
-                  src={mockLecture.thumbnail}
-                  alt={mockLecture.title}
-                  className="w-full h-full object-cover"
-                />
+              <div
+                className="relative aspect-video rounded-xl overflow-hidden glass-card border border-border/50 group cursor-pointer"
+                onClick={handleWatchFullVideo}
+              >
+                {clips[0]?.thumbnail_url ? (
+                  <ImageWithFallback
+                    src={clips[0].thumbnail_url}
+                    alt="Video thumbnail"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    <Sparkles className="w-12 h-12 text-muted-foreground" />
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm">
                     <Play className="w-8 h-8 text-black ml-1" />
@@ -190,61 +321,73 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
             <div className="flex-1">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h1 className="mb-2">{mockLecture.title}</h1>
-                  <p className="text-muted-foreground mb-3">{mockLecture.description}</p>
+                  <h1 className="mb-2">Video Lecture</h1>
+                  <p className="text-muted-foreground mb-3">
+                    Processed video with {clips.length} highlight{clips.length !== 1 ? 's' : ''}
+                  </p>
                 </div>
                 <Badge className="bg-green-500/10 text-green-500 border-0">Completed</Badge>
               </div>
 
-              <div className="flex flex-wrap gap-2 mb-4">
-                {mockLecture.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="glass-card">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                <div className="glass-card rounded-lg p-3 border border-border/50">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                    <Clock className="w-4 h-4" />
-                    <span>Duration</span>
-                  </div>
-                  <div className="text-sm">{mockLecture.duration}</div>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                 <div className="glass-card rounded-lg p-3 border border-border/50">
                   <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                     <Sparkles className="w-4 h-4" />
                     <span>Clips</span>
                   </div>
-                  <div className="text-sm">{mockLecture.clipsGenerated} generated</div>
+                  <div className="text-sm">{clips.length} generated</div>
                 </div>
                 <div className="glass-card rounded-lg p-3 border border-border/50">
                   <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                    <Eye className="w-4 h-4" />
-                    <span>Views</span>
+                    <Clock className="w-4 h-4" />
+                    <span>Total Duration</span>
                   </div>
-                  <div className="text-sm">{mockLecture.views}</div>
+                  <div className="text-sm">
+                    {formatDuration(clips.reduce((sum, clip) => sum + clip.duration, 0))}
+                  </div>
                 </div>
                 <div className="glass-card rounded-lg p-3 border border-border/50">
                   <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>Uploaded</span>
+                    <FileText className="w-4 h-4" />
+                    <span>Transcript</span>
                   </div>
-                  <div className="text-sm">{mockLecture.date}</div>
+                  <div className="text-sm">{results.transcript ? 'Available' : 'N/A'}</div>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <Button className="glass-button bg-primary">
+                <Button className="glass-button bg-primary" onClick={handleWatchFullVideo}>
                   <Play className="w-4 h-4 mr-2" />
                   Watch Full Video
                 </Button>
-                <Button variant="outline" className="glass-card">
+                <Button
+                  variant="outline"
+                  className="glass-card"
+                  onClick={() => {
+                    const originalVideo = results?.metadata?.original_video;
+                    if (originalVideo?.url) {
+                      window.open(originalVideo.url, '_blank');
+                    } else {
+                      toast.error('Download URL not available');
+                    }
+                  }}
+                >
                   <Download className="w-4 h-4 mr-2" />
                   Download
                 </Button>
-                <Button variant="outline" className="glass-card">
+                <Button
+                  variant="outline"
+                  className="glass-card"
+                  onClick={() => {
+                    const originalVideo = results?.metadata?.original_video;
+                    if (originalVideo?.url) {
+                      navigator.clipboard.writeText(originalVideo.url);
+                      toast.success('Link copied to clipboard!');
+                    } else {
+                      toast.error('Share URL not available');
+                    }
+                  }}
+                >
                   <Share2 className="w-4 h-4 mr-2" />
                   Share
                 </Button>
@@ -258,7 +401,7 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
       <div className="max-w-7xl mx-auto p-6">
         <Tabs defaultValue="clips" className="w-full">
           <TabsList className="glass-card border border-border/50 mb-6">
-            <TabsTrigger value="clips">Clips ({mockClips.length})</TabsTrigger>
+            <TabsTrigger value="clips">Clips ({clips.length})</TabsTrigger>
             <TabsTrigger value="ai-features">
               <Sparkles className="w-4 h-4 mr-2" />
               AI Features
@@ -270,20 +413,27 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
           {/* Clips Tab */}
           <TabsContent value="clips">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockClips.map((clip, index) => (
+              {clips.map((clip, index) => (
                 <motion.div
-                  key={clip.id}
+                  key={clip.clip_id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="glass-card rounded-xl border border-border/50 overflow-hidden hover:shadow-lg transition-all group"
+                  className="glass-card rounded-xl border border-border/50 overflow-hidden hover:shadow-lg transition-all group cursor-pointer"
+                  onClick={() => handleClipClick(clip)}
                 >
                   <div className="relative aspect-video bg-muted">
-                    <ImageWithFallback
-                      src={clip.thumbnail}
-                      alt={clip.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    {clip.thumbnail_url ? (
+                      <ImageWithFallback
+                        src={clip.thumbnail_url}
+                        alt={clip.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <Sparkles className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm">
                         <Play className="w-6 h-6 text-black ml-1" />
@@ -291,31 +441,31 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
                     </div>
                     <div className="absolute bottom-2 right-2">
                       <Badge className="bg-black/60 text-white border-0 backdrop-blur-sm">
-                        {clip.duration}
+                        {formatDuration(clip.duration)}
                       </Badge>
                     </div>
                   </div>
                   <div className="p-4">
                     <h3 className="text-sm mb-1 line-clamp-1">{clip.title}</h3>
-                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                      {clip.description}
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {formatDuration(clip.start_time)} - {formatDuration(clip.end_time)}
                     </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" />
-                        <span>{clip.views} views</span>
-                      </div>
-                    </div>
                     <div className="flex gap-1">
-                      <Button variant="outline" size="sm" className="flex-1 glass-card">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 glass-card"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (clip.url) {
+                            window.open(clip.url, '_blank');
+                          } else {
+                            toast.error('Download URL not available');
+                          }
+                        }}
+                      >
                         <Download className="w-3 h-3 mr-1" />
                         Download
-                      </Button>
-                      <Button variant="outline" size="sm" className="glass-card">
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="glass-card text-destructive">
-                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
@@ -378,8 +528,8 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
                     <BarChart3 className="w-5 h-5 text-blue-500" />
                     <h3 className="text-sm">Total Views</h3>
                   </div>
-                  <p className="text-3xl mb-1">{mockLecture.views}</p>
-                  <p className="text-xs text-muted-foreground">Across all clips</p>
+                  <p className="text-3xl mb-1">-</p>
+                  <p className="text-xs text-muted-foreground">Coming soon</p>
                 </div>
 
                 <div className="glass-card rounded-xl border border-border/50 p-6">
@@ -387,8 +537,8 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
                     <Clock className="w-5 h-5 text-green-500" />
                     <h3 className="text-sm">Watch Time</h3>
                   </div>
-                  <p className="text-3xl mb-1">12.4h</p>
-                  <p className="text-xs text-muted-foreground">Cumulative time</p>
+                  <p className="text-3xl mb-1">-</p>
+                  <p className="text-xs text-muted-foreground">Coming soon</p>
                 </div>
 
                 <div className="glass-card rounded-xl border border-border/50 p-6">
@@ -396,23 +546,17 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
                     <Sparkles className="w-5 h-5 text-purple-500" />
                     <h3 className="text-sm">Engagement</h3>
                   </div>
-                  <p className="text-3xl mb-1">87%</p>
-                  <p className="text-xs text-muted-foreground">Average completion</p>
+                  <p className="text-3xl mb-1">-</p>
+                  <p className="text-xs text-muted-foreground">Coming soon</p>
                 </div>
               </div>
 
               <div className="glass-card rounded-xl border border-border/50 p-6">
                 <h3 className="text-sm mb-4">Clip Performance</h3>
                 <div className="space-y-4">
-                  {mockClips.slice(0, 3).map((clip) => (
-                    <div key={clip.id}>
-                      <div className="flex items-center justify-between mb-2 text-sm">
-                        <span className="truncate mr-4">{clip.title}</span>
-                        <span className="text-muted-foreground">{clip.views} views</span>
-                      </div>
-                      <Progress value={(clip.views / mockLecture.views) * 100} className="h-2" />
-                    </div>
-                  ))}
+                  <p className="text-muted-foreground text-sm">
+                    Performance metrics coming soon. Track views, engagement, and completion rates for each clip.
+                  </p>
                 </div>
               </div>
             </div>
@@ -431,24 +575,37 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
                   <Label>Video Title</Label>
                   <input
                     type="text"
-                    defaultValue={mockLecture.title}
+                    defaultValue={results.metadata?.title || 'Video Lecture'}
                     className="w-full mt-2 px-3 py-2 bg-background border border-border/50 rounded-lg"
                   />
                 </div>
 
                 <div>
                   <Label>Description</Label>
-                  <Textarea defaultValue={mockLecture.description} className="mt-2" rows={4} />
+                  <Textarea
+                    defaultValue={results.metadata?.description || 'No description'}
+                    className="mt-2"
+                    rows={4}
+                  />
                 </div>
 
                 <Separator />
 
                 <div className="flex gap-2">
-                  <Button variant="outline" className="glass-card text-destructive">
+                  <Button
+                    variant="outline"
+                    className="glass-card text-destructive"
+                    onClick={() => toast.error('Delete functionality not yet implemented')}
+                  >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Video
                   </Button>
-                  <Button className="ml-auto glass-button bg-primary">Save Changes</Button>
+                  <Button
+                    className="ml-auto glass-button bg-primary"
+                    onClick={() => toast.success('Settings saved!')}
+                  >
+                    Save Changes
+                  </Button>
                 </div>
               </div>
             </div>
@@ -502,14 +659,16 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
                 Select which clips to include in the podcast
               </p>
               <div className="mt-2 space-y-2 max-h-48 overflow-auto">
-                {mockClips.map((clip) => (
+                {clips.map((clip) => (
                   <div
-                    key={clip.id}
+                    key={clip.clip_id}
                     className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent"
                   >
                     <input type="checkbox" defaultChecked className="rounded" />
                     <span className="text-sm flex-1">{clip.title}</span>
-                    <span className="text-xs text-muted-foreground">{clip.duration}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDuration(clip.duration)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -745,6 +904,70 @@ export function VideoDetailPage({ lectureId: _lectureId, onBack }: VideoDetailPa
                 Generate Posts
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Player Modal */}
+      <Dialog open={videoPlayerOpen} onOpenChange={setVideoPlayerOpen}>
+        <DialogContent className="glass-card border-border/50 max-w-[90vw] w-full p-0">
+          <div className="relative">
+            {/* Close button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 z-50 bg-black/70 hover:bg-black/90 text-white rounded-full"
+              onClick={() => setVideoPlayerOpen(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+
+            {/* Video Player */}
+            {selectedClip && selectedClip.url && (
+              <div className="rounded-lg overflow-hidden">
+                <VideoPlayer videoKey={selectedClip.s3_key} />
+                <div className="p-6 bg-background/95 backdrop-blur-sm border-t border-border/50">
+                  <h2 className="text-xl mb-2">{selectedClip.title}</h2>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>
+                      Duration: {formatDuration(selectedClip.duration)}
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {formatDuration(selectedClip.start_time)} -{' '}
+                      {formatDuration(selectedClip.end_time)}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      className="glass-card"
+                      onClick={() => {
+                        if (selectedClip.url) {
+                          window.open(selectedClip.url, '_blank');
+                        }
+                      }}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="glass-card"
+                      onClick={() => {
+                        if (selectedClip.url) {
+                          navigator.clipboard.writeText(selectedClip.url);
+                          toast.success('Link copied to clipboard!');
+                        }
+                      }}
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

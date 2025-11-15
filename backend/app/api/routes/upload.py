@@ -85,6 +85,7 @@ def initiate_upload(
                 "prompt": upload_request.processing_config.prompt,
                 "resolution": upload_request.processing_config.resolution.value,
                 "processing_mode": upload_request.processing_config.processing_mode.value,
+                "rate_limit_mode": upload_request.processing_config.rate_limit_mode,
             }
 
         db_service = DatabaseService(db)
@@ -99,7 +100,9 @@ def initiate_upload(
             current_stage="uploading",
             progress_percent=0.0,
             progress_message="Waiting for file upload to S3",
-            extra_metadata={"processing_config": processing_config_dict} if processing_config_dict else {},
+            extra_metadata=(
+                {"processing_config": processing_config_dict} if processing_config_dict else {}
+            ),
         )
 
         logger.info(
@@ -363,6 +366,7 @@ async def upload_from_youtube(
                 "prompt": youtube_request.processing_config.prompt,
                 "resolution": youtube_request.processing_config.resolution.value,
                 "processing_mode": youtube_request.processing_config.processing_mode.value,
+                "rate_limit_mode": youtube_request.processing_config.rate_limit_mode,
             }
 
         # Create initial job record
@@ -378,7 +382,9 @@ async def upload_from_youtube(
             current_stage="uploading",
             progress_percent=0.0,
             progress_message="Downloading video from YouTube...",
-            extra_metadata={"processing_config": processing_config_dict} if processing_config_dict else {},
+            extra_metadata=(
+                {"processing_config": processing_config_dict} if processing_config_dict else {}
+            ),
         )
 
         # Download and upload to S3

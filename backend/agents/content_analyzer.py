@@ -73,7 +73,9 @@ def build_analysis_prompt(transcript_text: str, layout_info: dict[str, Any] | No
             "camera_only": "The video shows only the speaker/camera without any screen sharing or slides.",
         }
 
-        layout_desc = layout_descriptions.get(layout_type, "The video layout could not be determined.")
+        layout_desc = layout_descriptions.get(
+            layout_type, "The video layout could not be determined."
+        )
 
         if confidence > 0.6:
             layout_context = f"\nVIDEO LAYOUT INFORMATION:\n{layout_desc}\n(Detection confidence: {confidence:.0%})\n"
@@ -497,9 +499,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
             chunk_results = []
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_to_idx = {
-                    executor.submit(
-                        analyze_chunk_with_gemini, chunk, job_id, idx, layout_info
-                    ): idx
+                    executor.submit(analyze_chunk_with_gemini, chunk, job_id, idx, layout_info): idx
                     for idx, chunk in enumerate(chunks)
                 }
 
