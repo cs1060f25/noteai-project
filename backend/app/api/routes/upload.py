@@ -100,9 +100,9 @@ def initiate_upload(
             current_stage="uploading",
             progress_percent=0.0,
             progress_message="Waiting for file upload to S3",
-            extra_metadata={"processing_config": processing_config_dict}
-            if processing_config_dict
-            else {},
+            extra_metadata=(
+                {"processing_config": processing_config_dict} if processing_config_dict else {}
+            ),
         )
 
         logger.info(
