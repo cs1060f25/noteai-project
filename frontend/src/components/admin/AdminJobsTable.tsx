@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
+import { useNavigate } from '@tanstack/react-router';
 import {
   Search,
   ChevronLeft,
@@ -38,6 +39,7 @@ const STATUS_ICONS: Record<JobStatus, React.ComponentType<{ className?: string }
 };
 
 export const AdminJobsTable: React.FC = () => {
+  const navigate = useNavigate({ from: '/admin/jobs' });
   const [jobs, setJobs] = useState<AdminJobResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -105,10 +107,6 @@ export const AdminJobsTable: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <CardTitle className="flex items-center gap-2">
-            <FileVideo className="w-5 h-5" />
-            All Jobs
-          </CardTitle>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {/* Search */}
             <div className="relative flex-1 sm:flex-initial">
@@ -117,7 +115,7 @@ export const AdminJobsTable: React.FC = () => {
                 placeholder="Search by filename or user..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-full sm:w-64"
+                className="pl-9 w-full sm:w-64 border-border border-1 focus-visible:ring-0"
               />
             </div>
 
@@ -194,7 +192,8 @@ export const AdminJobsTable: React.FC = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                      onClick={() => navigate({ to: '/admin/jobs', search: { jobId: job.job_id } })}
+                      className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">

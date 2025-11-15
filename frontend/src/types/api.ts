@@ -28,6 +28,7 @@ export interface ProcessingConfig {
   prompt?: string;
   resolution: ResolutionOption;
   processing_mode: ProcessingMode;
+  rate_limit_mode?: boolean;
 }
 
 export interface UploadRequest {
@@ -59,6 +60,7 @@ export interface JobResponse {
   processing_mode?: ProcessingMode;
   created_at: string;
   updated_at: string;
+  completed_at?: string;
   progress?: JobProgress;
   error_message?: string;
 }
@@ -190,6 +192,24 @@ export interface ResultsResponse {
   transcript: TranscriptSegment[] | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any>;
+}
+
+// processing log types
+
+export interface ProcessingLogEntry {
+  log_id: string;
+  job_id: string;
+  stage: string;
+  agent_name: string | null;
+  status: 'started' | 'completed' | 'failed';
+  duration_seconds: number | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface ProcessingLogListResponse {
+  logs: ProcessingLogEntry[];
+  total: number;
 }
 
 // user types

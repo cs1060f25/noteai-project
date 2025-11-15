@@ -242,8 +242,10 @@ def create_clips(
     Returns:
         list of created Clip objects
     """
-    clips = []
+    create_start = time.time()
+    clip_data_list = []
 
+    # prepare all clip data (no DB operations in loop)
     for order, segment in enumerate(selected_segments, 1):
         logger.info(
             "processing segment",
@@ -274,28 +276,28 @@ def create_clips(
             ),
         }
 
-        # create clip record
+        # prepare clip data for bulk insert
         clip_id = str(uuid.uuid4())
-        clip = db_service.clips.create(
-            clip_id=clip_id,
-            job_id=job_id,
-            content_segment_id=segment.segment_id,
-            title=segment.topic or f"Highlight {order}",
-            topic=segment.topic,
-            importance_score=segment.importance_score,
-            start_time=optimal_start,
-            end_time=optimal_end,
-            duration=optimal_duration,
-            clip_order=order,
-            # placeholder for video_compiler
-            s3_key=f"clips/{job_id}/clip_{order}.mp4",
-            extra_metadata=metadata,
+        clip_data_list.append(
+            {
+                "clip_id": clip_id,
+                "job_id": job_id,
+                "content_segment_id": segment.segment_id,
+                "title": segment.topic or f"Highlight {order}",
+                "topic": segment.topic,
+                "importance_score": segment.importance_score,
+                "start_time": optimal_start,
+                "end_time": optimal_end,
+                "duration": optimal_duration,
+                "clip_order": order,
+                # placeholder for video_compiler
+                "s3_key": f"clips/{job_id}/clip_{order}.mp4",
+                "extra_metadata": metadata,
+            }
         )
 
-        clips.append(clip)
-
         logger.info(
-            "clip created",
+            "clip data prepared",
             extra={
                 "job_id": job_id,
                 "clip_id": clip_id,
@@ -305,6 +307,19 @@ def create_clips(
                 or metadata["optimization"]["end_adjusted"],
             },
         )
+
+    # bulk insert all clips with single commit (much faster!)
+    clips = db_service.clips.bulk_create(clip_data_list)
+
+    create_duration = time.time() - create_start
+    logger.info(
+        "clips created via bulk insert",
+        extra={
+            "job_id": job_id,
+            "clips_created": len(clips),
+            "execution_time_ms": round(create_duration * 1000, 2),
+        },
+    )
 
     return clips
 
@@ -339,7 +354,18 @@ def extract_segments(
             db_service = DatabaseService(db)
 
             # query content segments from database
+            query_start = time.time()
             selected_segments = select_segments(job_id, db_service)
+            query_duration = time.time() - query_start
+
+            logger.info(
+                "content segments queried",
+                extra={
+                    "job_id": job_id,
+                    "selected_count": len(selected_segments),
+                    "query_time_ms": round(query_duration * 1000, 2),
+                },
+            )
 
             if not selected_segments:
                 logger.warning("no valid segments found for extraction", extra={"job_id": job_id})
@@ -354,18 +380,31 @@ def extract_segments(
                 }
 
             # query silence regions from database
+            silence_start = time.time()
             silence_regions = db_service.silence_regions.get_by_job_id(job_id)
+            silence_duration = time.time() - silence_start
 
             logger.info(
                 "silence regions retrieved",
-                extra={"job_id": job_id, "silence_count": len(silence_regions)},
+                extra={
+                    "job_id": job_id,
+                    "silence_count": len(silence_regions),
+                    "query_time_ms": round(silence_duration * 1000, 2),
+                },
             )
 
             # create optimized clips
             clips = create_clips(selected_segments, silence_regions, job_id, db_service)
 
             # commit transaction
+            commit_start = time.time()
             db.commit()
+            commit_duration = time.time() - commit_start
+
+            logger.info(
+                "transaction committed",
+                extra={"job_id": job_id, "commit_time_ms": round(commit_duration * 1000, 2)},
+            )
 
             logger.info(
                 "clips committed to database",

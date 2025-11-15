@@ -63,8 +63,6 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
     { id: 'admin-dashboard', name: 'Admin Dashboard', icon: Shield, path: '/admin' },
     { id: 'admin-jobs', name: 'All Jobs', icon: Briefcase, path: '/admin/jobs' },
     { id: 'admin-users', name: 'User Management', icon: Users, path: '/admin/users' },
-    { id: 'admin-logs', name: 'System Logs', icon: FileText, path: '/admin/logs' },
-    { id: 'agent-outputs', name: 'Agent Outputs', icon: Sparkle, path: '/agent-outputs' },
   ];
 
   const isActivePath = (path: string) => {

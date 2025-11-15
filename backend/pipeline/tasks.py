@@ -21,6 +21,7 @@ from agents.transcript_agent import generate_transcript
 from agents.video_compiler import VideoCompiler, compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
+from app.models.database import Job
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
 from app.services.websocket_service import send_completion_sync, send_error_sync, send_progress_sync
@@ -63,6 +64,90 @@ def get_job_s3_key(job_id: str) -> str:
         )
 
         return job.original_s3_key
+    finally:
+        db.close()
+
+
+def create_processing_log_entry(
+    job_id: str,
+    stage: str,
+    agent_name: str | None,
+    status: str,
+    duration_seconds: float | None = None,
+    error_message: str | None = None,
+) -> None:
+    """create processing log entry in database (standalone function for inline agent calls).
+
+    idempotent - checks for existing log with same job_id + stage + agent_name to prevent duplicates.
+
+    Args:
+        job_id: job identifier
+        stage: processing stage name
+        agent_name: agent name (e.g., 'TranscriptAgent')
+        status: log status ('started', 'completed', 'failed')
+        duration_seconds: execution time in seconds
+        error_message: error message if failed
+    """
+    import uuid
+
+    db = get_task_db()
+    try:
+        from app.models.database import ProcessingLog
+
+        # check if log already exists (idempotency - prevent duplicates from retries)
+        existing_log = (
+            db.query(ProcessingLog)
+            .filter(
+                ProcessingLog.job_id == job_id,
+                ProcessingLog.stage == stage,
+                ProcessingLog.agent_name == agent_name,
+                ProcessingLog.status == "completed",
+            )
+            .first()
+        )
+
+        if existing_log:
+            logger.info(
+                "Processing log already exists, skipping duplicate",
+                extra={
+                    "job_id": job_id,
+                    "stage": stage,
+                    "agent_name": agent_name,
+                    "existing_duration": existing_log.duration_seconds,
+                },
+            )
+            return
+
+        log = ProcessingLog(
+            log_id=str(uuid.uuid4()),
+            job_id=job_id,
+            stage=stage,
+            agent_name=agent_name,
+            status=status,
+            duration_seconds=duration_seconds,
+            error_message=error_message,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(log)
+        db.commit()
+
+        logger.info(
+            "Processing log created",
+            extra={
+                "job_id": job_id,
+                "stage": stage,
+                "agent_name": agent_name,
+                "duration": duration_seconds,
+                "status": status,
+            },
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to create processing log",
+            exc_info=e,
+            extra={"job_id": job_id, "stage": stage},
+        )
+        db.rollback()
     finally:
         db.close()
 
@@ -117,7 +202,8 @@ class BaseProcessingTask(Task):
         self._start_time = time.time()
 
     def on_success(self, retval, task_id, args, kwargs):
-        """track successful task completion metrics."""
+        """track successful task completion metrics and save processing log."""
+        duration = None
         if hasattr(self, "_start_time"):
             duration = time.time() - self._start_time
             task_duration_seconds.labels(task_name=self.name, status="success").observe(duration)
@@ -129,9 +215,137 @@ class BaseProcessingTask(Task):
             extra={
                 "task_id": task_id,
                 "task_name": self.name,
-                "duration": duration if hasattr(self, "_start_time") else None,
+                "duration": duration,
             },
         )
+
+        # save processing log to database (only for actual agent tasks, not wrappers)
+        job_id = kwargs.get("job_id") or (args[0] if args else None)
+        agent_name = self._get_agent_name()
+
+        # only log if this is an actual agent task (not a wrapper/orchestrator)
+        if job_id and duration is not None and agent_name is not None:
+            self._create_processing_log(
+                job_id=job_id,
+                stage=self._get_stage_name(),
+                agent_name=agent_name,
+                status="completed",
+                duration_seconds=duration,
+            )
+
+    def _get_stage_name(self) -> str:
+        """extract stage name from task name."""
+        # map task names to stage names
+        task_to_stage = {
+            "silence_detection_task": "silence_detection",
+            "transcription_task": "transcription",
+            "layout_analysis_task": "layout_analysis",
+            "content_analysis_task": "content_analysis",
+            "segment_extraction_task": "segmentation",
+            "video_compilation_task": "compilation",
+        }
+        task_name = self.name.split(".")[-1] if "." in self.name else self.name
+        return task_to_stage.get(task_name, task_name)
+
+    def _get_agent_name(self) -> str | None:
+        """extract agent name from task name.
+
+        returns None for wrapper/orchestrator tasks that should not be logged.
+        """
+        # wrapper tasks that should NOT create processing logs
+        wrapper_tasks = {
+            "process_video_optimized",
+            "process_audio_only_pipeline",
+            "process_vision_pipeline",
+        }
+
+        task_to_agent = {
+            "silence_detection_task": "SilenceDetector",
+            "transcription_task": "TranscriptAgent",
+            "layout_analysis_task": "LayoutDetector",
+            "content_analysis_task": "ContentAnalyzer",
+            "segment_extraction_task": "SegmentExtractor",
+            "video_compilation_task": "VideoCompiler",
+        }
+        task_name = self.name.split(".")[-1] if "." in self.name else self.name
+
+        # don't log wrapper tasks
+        if task_name in wrapper_tasks:
+            return None
+
+        return task_to_agent.get(task_name)
+
+    def _create_processing_log(
+        self,
+        job_id: str,
+        stage: str,
+        agent_name: str | None,
+        status: str,
+        duration_seconds: float | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """create processing log entry in database (idempotent - prevents duplicates)."""
+        import uuid
+
+        db = get_task_db()
+        try:
+            from app.models.database import ProcessingLog
+
+            # check if log already exists (prevent duplicates from retries/re-runs)
+            existing_log = (
+                db.query(ProcessingLog)
+                .filter(
+                    ProcessingLog.job_id == job_id,
+                    ProcessingLog.stage == stage,
+                    ProcessingLog.agent_name == agent_name,
+                    ProcessingLog.status == "completed",
+                )
+                .first()
+            )
+
+            if existing_log:
+                logger.info(
+                    "Processing log already exists, skipping duplicate",
+                    extra={
+                        "job_id": job_id,
+                        "stage": stage,
+                        "agent_name": agent_name,
+                        "existing_duration": existing_log.duration_seconds,
+                    },
+                )
+                return
+
+            log = ProcessingLog(
+                log_id=str(uuid.uuid4()),
+                job_id=job_id,
+                stage=stage,
+                agent_name=agent_name,
+                status=status,
+                duration_seconds=duration_seconds,
+                error_message=error_message,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(log)
+            db.commit()
+
+            logger.info(
+                "Processing log created",
+                extra={
+                    "job_id": job_id,
+                    "stage": stage,
+                    "agent_name": agent_name,
+                    "duration": duration_seconds,
+                },
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to create processing log",
+                exc_info=e,
+                extra={"job_id": job_id, "stage": stage},
+            )
+            db.rollback()
+        finally:
+            db.close()
 
     def update_job_progress(
         self,
@@ -505,10 +719,26 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
             logger.info("Step 1/5: Silence detection (audio-only)", extra={"job_id": job_id})
 
+            # log start
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="silence_detection",
+                agent_name="SilenceDetector",
+                status="started",
+            )
+
             silence_result = detect_silence(
                 s3_key=None,
                 job_id=job_id,
                 local_video_path=audio_path,  # use audio file
+            )
+
+            # log completion
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="silence_detection",
+                agent_name="SilenceDetector",
+                status="completed",
             )
 
             logger.info(
@@ -525,10 +755,26 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
             logger.info("Step 2/5: Transcription", extra={"job_id": job_id})
 
+            # log start
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="transcription",
+                agent_name="TranscriptAgent",
+                status="started",
+            )
+
             transcript_result = generate_transcript(
                 s3_key=None,
                 job_id=job_id,
                 local_video_path=audio_path,
+            )
+
+            # log completion
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="transcription",
+                agent_name="TranscriptAgent",
+                status="completed",
             )
 
             logger.info(
@@ -548,7 +794,23 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
             logger.info("Step 3/5: Content analysis", extra={"job_id": job_id})
 
+            # log start
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="content_analysis",
+                agent_name="ContentAnalyzer",
+                status="started",
+            )
+
             content_result = analyze_content({}, job_id)
+
+            # log completion
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="content_analysis",
+                agent_name="ContentAnalyzer",
+                status="completed",
+            )
 
             logger.info(
                 "Content analysis complete",
@@ -562,7 +824,23 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
             logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
 
+            # log start
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="segmentation",
+                agent_name="SegmentExtractor",
+                status="started",
+            )
+
             segment_result = extract_segments({}, {}, {}, job_id)
+
+            # log completion
+            create_processing_log_entry(
+                job_id=job_id,
+                stage="segmentation",
+                agent_name="SegmentExtractor",
+                status="completed",
+            )
 
             logger.info(
                 "Segment extraction complete",
@@ -579,6 +857,14 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
         self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
+        # log start
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="compilation",
+            agent_name="VideoCompiler",
+            status="started",
+        )
+
         db = get_task_db()
         try:
             compiler = VideoCompiler(db)
@@ -588,6 +874,14 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
         finally:
             db.close()
+
+        # log completion
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="compilation",
+            agent_name="VideoCompiler",
+            status="completed",
+        )
 
         logger.info(
             "Video compilation complete",
@@ -709,10 +1003,26 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 )
                 logger.info("Audio track: Silence detection", extra={"job_id": job_id})
 
+                # log start
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="silence_detection",
+                    agent_name="SilenceDetector",
+                    status="started",
+                )
+
                 silence_result = detect_silence(
                     s3_key=None,
                     job_id=job_id,
                     local_video_path=audio_path,
+                )
+
+                # log completion
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="silence_detection",
+                    agent_name="SilenceDetector",
+                    status="completed",
                 )
 
                 # transcription
@@ -721,10 +1031,26 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 )
                 logger.info("Audio track: Transcription", extra={"job_id": job_id})
 
+                # log start
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="transcription",
+                    agent_name="TranscriptAgent",
+                    status="started",
+                )
+
                 transcript_result = generate_transcript(
                     s3_key=None,
                     job_id=job_id,
                     local_video_path=audio_path,
+                )
+
+                # log completion
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="transcription",
+                    agent_name="TranscriptAgent",
+                    status="completed",
                 )
 
                 return {
@@ -741,10 +1067,26 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 self.update_job_progress(job_id, "layout_analysis", 15.0, "Analyzing video layout")
                 logger.info("Video track: Layout analysis", extra={"job_id": job_id})
 
+                # log start
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    agent_name="LayoutDetector",
+                    status="started",
+                )
+
                 layout_result = detect_layout(
                     s3_key=None,  # Video already downloaded locally
                     job_id=job_id,
                     local_video_path=video_path,  # Pass local video path
+                )
+
+                # log completion
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    agent_name="LayoutDetector",
+                    status="completed",
                 )
 
                 return {
@@ -777,7 +1119,23 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         )
         logger.info("Step 3/5: Content analysis (vision mode)", extra={"job_id": job_id})
 
+        # log start
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="content_analysis",
+            agent_name="ContentAnalyzer",
+            status="started",
+        )
+
         content_result = analyze_content({}, job_id)
+
+        # log completion
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="content_analysis",
+            agent_name="ContentAnalyzer",
+            status="completed",
+        )
 
         logger.info(
             "Content analysis complete",
@@ -791,7 +1149,23 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
         logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
 
+        # log start
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="segmentation",
+            agent_name="SegmentExtractor",
+            status="started",
+        )
+
         segment_result = extract_segments({}, {}, {}, job_id)
+
+        # log completion
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="segmentation",
+            agent_name="SegmentExtractor",
+            status="completed",
+        )
 
         logger.info(
             "Segment extraction complete",
@@ -805,6 +1179,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
+        # log start
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="compilation",
+            agent_name="VideoCompiler",
+            status="started",
+        )
+
         db = get_task_db()
         try:
             compiler = VideoCompiler(db)
@@ -814,6 +1196,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
             )
         finally:
             db.close()
+
+        # log completion
+        create_processing_log_entry(
+            job_id=job_id,
+            stage="compilation",
+            agent_name="VideoCompiler",
+            status="completed",
+        )
 
         logger.info(
             "Video compilation complete",
@@ -943,12 +1333,23 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
     try:
         s3_key = get_job_s3_key(job_id)
 
+        # get rate_limit_mode from job metadata
+        db = get_task_db()
+        try:
+            job = db.query(Job).filter(Job.job_id == job_id).first()
+            rate_limit_mode = True  # default to safe mode
+            if job and job.extra_metadata:
+                rate_limit_mode = job.extra_metadata.get("rate_limit_mode", True)
+        finally:
+            db.close()
+
         logger.info(
             "Starting transcription after silence detection",
             extra={
                 "job_id": job_id,
                 "s3_key": s3_key,
                 "silence_regions_detected": silence_result.get("silence_count", 0),
+                "rate_limit_mode": rate_limit_mode,
             },
         )
 
@@ -964,7 +1365,7 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
         # run transcription
         # the transcript agent will automatically retrieve silence regions from DB
         # and only transcribe non-silent parts
-        result = generate_transcript(s3_key, job_id)
+        result = generate_transcript(s3_key, job_id, rate_limit_mode=rate_limit_mode)
 
         # update progress: completed
         self.update_job_progress(
