@@ -90,12 +90,8 @@ const formatDuration = (seconds: number): string => {
 
 // helper to calculate agent execution time from timestamp pairs
 const getAgentDuration = (logs: ProcessingLog[], agentName: string): number | null => {
-  const startedLog = logs.find(
-    (l) => l.agent_name === agentName && l.status === 'started'
-  );
-  const completedLog = logs.find(
-    (l) => l.agent_name === agentName && l.status === 'completed'
-  );
+  const startedLog = logs.find((l) => l.agent_name === agentName && l.status === 'started');
+  const completedLog = logs.find((l) => l.agent_name === agentName && l.status === 'completed');
 
   if (startedLog && completedLog) {
     const startTime = new Date(startedLog.created_at).getTime();
@@ -752,11 +748,13 @@ export const JobDetailView = ({ jobId }: JobDetailViewProps) => {
             {/* individual agent times - calculate from timestamp pairs */}
             {(() => {
               // group logs by agent_name to find started/completed pairs
-              const agentDurations: Array<{ agentName: string; duration: number; startTime: number }> = [];
+              const agentDurations: Array<{
+                agentName: string;
+                duration: number;
+                startTime: number;
+              }> = [];
               const agentNames = new Set(
-                state.processingLogs
-                  .filter((log) => log.agent_name)
-                  .map((log) => log.agent_name!)
+                state.processingLogs.filter((log) => log.agent_name).map((log) => log.agent_name!)
               );
 
               agentNames.forEach((agentName) => {
@@ -796,9 +794,7 @@ export const JobDetailView = ({ jobId }: JobDetailViewProps) => {
             {/* total processing time */}
             <div className="px-3 py-2.5 bg-primary/10 border border-primary/20 rounded-md">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">
-                  Total Pipeline Time
-                </span>
+                <span className="text-sm font-semibold text-foreground">Total Pipeline Time</span>
                 <span className="text-sm font-bold text-primary">
                   {(() => {
                     // calculate total from timestamp pairs
