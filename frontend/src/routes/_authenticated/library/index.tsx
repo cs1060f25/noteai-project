@@ -7,7 +7,6 @@ import {
   Search,
   MoreVertical,
   Play,
-  Clock,
   Calendar,
   Filter,
   SortAsc,

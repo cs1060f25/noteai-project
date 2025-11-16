@@ -117,10 +117,10 @@ export const getProcessingLogs = async (
     const queryParams = new URLSearchParams();
 
     if (params?.job_id) {
-      queryParams.append('job_id', params.job_id);
+      queryParams.append('job_id_filter', params.job_id);
     }
     if (params?.stage) {
-      queryParams.append('stage', params.stage);
+      queryParams.append('stage_filter', params.stage);
     }
     if (params?.limit !== undefined) {
       queryParams.append('limit', params.limit.toString());

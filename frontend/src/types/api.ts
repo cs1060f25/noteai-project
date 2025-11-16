@@ -60,6 +60,7 @@ export interface JobResponse {
   processing_mode?: ProcessingMode;
   created_at: string;
   updated_at: string;
+  completed_at?: string;
   progress?: JobProgress;
   error_message?: string;
 }
