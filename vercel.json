@@ -4,6 +4,13 @@
   "outputDirectory": "frontend/dist",
   "installCommand": "npm --prefix frontend ci",
   "framework": "vite",
+  "git": {
+    "deploymentEnabled": false
+  },
+  "github": {
+    "enabled": false,
+    "autoAlias": false
+  },
   "rewrites": [
     {
       "source": "/(.*)",
@@ -20,10 +27,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "VITE_CLERK_PUBLISHABLE_KEY": "@vite-clerk-publishable-key",
-    "VITE_API_URL": "@vite-api-url",
-    "VITE_WS_URL": "@vite-ws-url"
-  }
+  ]
 }

@@ -2,11 +2,20 @@
 
 ## Quick Setup
 
-### 1. Create Vercel Project
+### 1. Create Vercel Project & Disable Auto-Deployments
+
 - Go to [vercel.com](https://vercel.com) → New Project
 - Import GitHub repo
 - Framework: **Vite**
-- **Disable automatic deployments** (we use GitHub Actions)
+
+**⚠️ CRITICAL: Disable Vercel's automatic GitHub deployments:**
+
+Go to **Settings → Git → Ignored Build Step** and enter:
+```bash
+exit 1
+```
+
+This prevents Vercel from auto-deploying. Only our GitHub Actions workflow will deploy.
 
 ### 2. Get Vercel Credentials
 
@@ -56,10 +65,13 @@ Vercel Dashboard → Settings → Environment Variables:
 5. 🚀 Production live
 ```
 
+**Note:** `vercel.json` has `"deploymentEnabled": false` to prevent Vercel's auto-deployments.
+
 ### Important Rules
 
 - **Only deploys on `main` branch**
 - **Only deploys if CI passes**
+- **Only GitHub Actions can deploy** (Vercel auto-deploy disabled)
 - **Automatic rollback if deployment fails**
 
 ---
@@ -107,6 +119,11 @@ git push origin main
 ---
 
 ## Troubleshooting
+
+**Vercel still auto-deploying:**
+- Check Settings → Git → Ignored Build Step = `exit 1`
+- Verify `vercel.json` has `"deploymentEnabled": false`
+- Disconnect and reconnect GitHub integration if needed
 
 **Build fails:**
 - Check GitHub Actions logs
