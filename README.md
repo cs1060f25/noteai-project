@@ -139,6 +139,18 @@ This installs a pre-commit hook that automatically:
 
 See `scripts/README.md` for more details.
 
+### CI/CD Pipeline
+
+**Continuous Integration:**
+- Runs on every PR and push to `main`
+- Checks: linting, formatting, type-checking, tests, build
+- PRs cannot be merged unless all checks pass
+
+**Continuous Deployment:**
+- Deploys to Vercel automatically on merge to `main`
+- Only deploys if CI passes
+- See `DEPLOYMENT.md` for setup instructions
+
 ## Links
 
 | Resource                | URL                                                                                     |
