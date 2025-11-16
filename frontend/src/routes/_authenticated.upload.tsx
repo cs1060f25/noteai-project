@@ -20,7 +20,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ApiKeyWarningBanner } from '@/components/ApiKeyWarningBanner';
 import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { Button } from '@/components/ui/button';
-import { hasCompletedOnboarding } from '@/lib/onboarding';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -33,6 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { hasCompletedOnboarding } from '@/lib/onboarding';
 import {
   uploadVideo,
   uploadFromYouTube,
@@ -60,7 +60,7 @@ export const UploadIntegrated = () => {
   const wsRef = useRef<WebSocketService | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [_isUploading, setIsUploading] = useState(false);
   const [_uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [fileName, setFileName] = useState('');
