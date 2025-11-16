@@ -17,8 +17,10 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { ApiKeyWarningBanner } from '@/components/ApiKeyWarningBanner';
 import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { Button } from '@/components/ui/button';
+import { hasCompletedOnboarding } from '@/lib/onboarding';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -347,6 +349,9 @@ export const UploadIntegrated = () => {
             Transform your video into engaging clips with AI-powered analysis
           </p>
         </motion.div>
+
+        {/* Show warning banner if API key is not set */}
+        {!hasCompletedOnboarding() && <ApiKeyWarningBanner />}
 
         <AnimatePresence mode="wait">
           {showConfig ? (
