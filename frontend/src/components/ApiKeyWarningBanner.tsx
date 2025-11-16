@@ -10,20 +10,14 @@ interface ApiKeyWarningBannerProps {
 
 export function ApiKeyWarningBanner({ onSetupClick }: ApiKeyWarningBannerProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-6"
-    >
+    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
       <div className="rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/20 p-6">
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-semibold mb-2 text-foreground">
-              Gemini API Key Required
-            </h3>
+            <h3 className="text-lg font-semibold mb-2 text-foreground">Gemini API Key Required</h3>
             <p className="text-sm text-muted-foreground mb-4">
               To use AI-powered video processing features, you need to set up your Gemini API key.
               This only takes a minute and unlocks all the powerful features of NoteAI.

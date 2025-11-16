@@ -21,7 +21,6 @@ import { saveGeminiApiKey } from '@/lib/onboarding';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
-
 interface OnboardingPageProps {
   onComplete: () => void;
   onSkip?: () => void;
@@ -208,7 +207,9 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
                           <span className="text-xs text-primary">4</span>
                         </div>
                         <div>
-                          <p className="text-sm">Come back here and paste your key in the next step</p>
+                          <p className="text-sm">
+                            Come back here and paste your key in the next step
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -294,7 +295,9 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
                       <Key className="w-8 h-8 text-primary" />
                     </div>
                     <h2 className="mb-2">Enter Your API Key</h2>
-                    <p className="text-muted-foreground">Paste your Gemini API key below to continue</p>
+                    <p className="text-muted-foreground">
+                      Paste your Gemini API key below to continue
+                    </p>
                   </div>
 
                   <div className="space-y-4">
@@ -316,7 +319,11 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
                           onClick={() => setShowApiKey(!showApiKey)}
                           className="rounded-lg h-10 w-10"
                         >
-                          {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showApiKey ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
                         </Button>
                         {apiKey && (
                           <Button
@@ -409,8 +416,9 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
                   <div>
                     <h3 className="text-sm mb-2">Having trouble?</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                      Your API key should start with "AIzaSy" followed by alphanumeric characters. If
-                      you're having issues, make sure you've created an API key (not an OAuth client).
+                      Your API key should start with "AIzaSy" followed by alphanumeric characters.
+                      If you're having issues, make sure you've created an API key (not an OAuth
+                      client).
                     </p>
                     <a
                       href="https://aistudio.google.com/app/apikey"
@@ -441,8 +449,8 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
             </Button>
           )}
           <p className="text-xs text-muted-foreground">
-            By continuing, you agree to use your own Gemini API key in compliance with Google's terms
-            of service
+            By continuing, you agree to use your own Gemini API key in compliance with Google's
+            terms of service
           </p>
         </motion.div>
       </div>
