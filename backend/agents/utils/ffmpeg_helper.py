@@ -593,12 +593,9 @@ class FFmpegHelper:
         cmd = [
             "ffmpeg",
             "-y",
-            "-ss",
-            str(start_time),
-            "-i",
-            str(input_path),
-            "-t",
-            str(duration),
+            "-ss", str(start_time),
+            "-i", str(input_path),
+            "-t", str(duration),
         ]
 
         # add metadata if provided
@@ -609,24 +606,15 @@ class FFmpegHelper:
         # transcode or copy
         if resolution:
             width, height = resolution
-            cmd.extend(
-                [
-                    "-vf",
-                    f"scale={width}:{height}:force_original_aspect_ratio=decrease",
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "fast",
-                    "-crf",
-                    "23",
-                    "-c:a",
-                    "aac",
-                    "-b:a",
-                    "192k",
-                    "-movflags",
-                    "+faststart",
-                ]
-            )
+            cmd.extend([
+                "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+            ])
         else:
             # fast copy mode (no re-encoding)
             cmd.extend(["-c", "copy"])

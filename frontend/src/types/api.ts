@@ -194,24 +194,6 @@ export interface ResultsResponse {
   metadata: Record<string, any>;
 }
 
-// processing log types
-
-export interface ProcessingLogEntry {
-  log_id: string;
-  job_id: string;
-  stage: string;
-  agent_name: string | null;
-  status: 'started' | 'completed' | 'failed';
-  duration_seconds: number | null;
-  error_message: string | null;
-  created_at: string;
-}
-
-export interface ProcessingLogListResponse {
-  logs: ProcessingLogEntry[];
-  total: number;
-}
-
 // user types
 
 export type UserRole = 'user' | 'admin';

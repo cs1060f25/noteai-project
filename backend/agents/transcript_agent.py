@@ -47,7 +47,8 @@ PARALLEL_PROCESSING_TOKEN_THRESHOLD = 200000  # 80% of TPM limit
 def get_db_session():
     """create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -58,7 +59,8 @@ def validate_gemini_config() -> None:
         ValueError: if gemini api key is not configured
     """
     if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY not configured. Please add it to your .env file.")
+        raise ValueError(
+            "GEMINI_API_KEY not configured. Please add it to your .env file.")
 
     # configure gemini
     genai.configure(api_key=settings.gemini_api_key)
@@ -138,7 +140,8 @@ def get_non_silent_intervals(job_id: str, video_duration: float) -> list[dict]:
         db_service = DatabaseService(db)
 
         # retrieve all silence regions for this job, sorted by start_time
-        silence_regions = db_service.silence_regions.get_by_job_id(job_id, order_by_time=True)
+        silence_regions = db_service.silence_regions.get_by_job_id(
+            job_id, order_by_time=True)
 
         logger.info(
             "Retrieved silence regions from database",
@@ -169,7 +172,8 @@ def get_non_silent_intervals(job_id: str, video_duration: float) -> list[dict]:
 
         # handle remaining time after last silence region
         if current_time < video_duration:
-            non_silent_intervals.append({"start_time": current_time, "end_time": video_duration})
+            non_silent_intervals.append(
+                {"start_time": current_time, "end_time": video_duration})
 
         # calculate statistics
         total_non_silent_duration = sum(
@@ -343,9 +347,11 @@ def extract_and_segment_audio(
         if needs_chunking:
             reason = []
             if file_size_mb > MAX_AUDIO_SIZE_MB:
-                reason.append(f"size {file_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB")
+                reason.append(
+                    f"size {file_size_mb:.2f}MB > {MAX_AUDIO_SIZE_MB}MB")
             if duration_seconds > MAX_AUDIO_DURATION_SECONDS:
-                reason.append(f"duration {duration_seconds:.1f}s > {MAX_AUDIO_DURATION_SECONDS}s")
+                reason.append(
+                    f"duration {duration_seconds:.1f}s > {MAX_AUDIO_DURATION_SECONDS}s")
 
             logger.warning(
                 "Audio exceeds API limits, will use chunking",
@@ -421,11 +427,13 @@ def chunk_and_transcribe_audio(
     if use_parallel:
         strategy = "PARALLEL"
         max_workers = 3
-        estimated_time_minutes = (num_chunks / max_workers) * 0.5  # rough estimate
+        estimated_time_minutes = (
+            num_chunks / max_workers) * 0.5  # rough estimate
     else:
         strategy = "SEQUENTIAL"
         max_workers = 1
-        estimated_time_minutes = (num_chunks * INTER_CHUNK_DELAY_SECONDS) / 60.0
+        estimated_time_minutes = (
+            num_chunks * INTER_CHUNK_DELAY_SECONDS) / 60.0
 
     logger.info(
         f"Starting {strategy} chunked transcription ({'adaptive' if not rate_limit_mode else 'rate-limited'} strategy)",
@@ -516,7 +524,8 @@ def chunk_and_transcribe_audio(
             # PARALLEL: fast processing for short videos
             logger.info(
                 "Starting PARALLEL transcription (3 workers)",
-                extra={"job_id": job_id, "max_workers": 3, "num_chunks": num_chunks},
+                extra={"job_id": job_id, "max_workers": 3,
+                       "num_chunks": num_chunks},
             )
 
             chunk_results = [None] * num_chunks  # preserve order
@@ -602,12 +611,14 @@ def chunk_and_transcribe_audio(
                             "job_id": job_id,
                             "chunk_duration_s": round(chunk["duration_seconds"], 2),
                             "estimated_tokens": int(
-                                chunk["duration_seconds"] * ESTIMATED_TOKENS_PER_AUDIO_SECOND
+                                chunk["duration_seconds"] *
+                                ESTIMATED_TOKENS_PER_AUDIO_SECOND
                             ),
                         },
                     )
 
-                    chunk_result = transcribe_with_gemini(chunk["path"], job_id)
+                    chunk_result = transcribe_with_gemini(
+                        chunk["path"], job_id)
 
                     # adjust timestamps for this chunk's position
                     adjusted_segments = []
@@ -616,7 +627,8 @@ def chunk_and_transcribe_audio(
                         adjusted_segment["start"] = round(
                             segment["start"] + chunk["start_seconds"], 2
                         )
-                        adjusted_segment["end"] = round(segment["end"] + chunk["start_seconds"], 2)
+                        adjusted_segment["end"] = round(
+                            segment["end"] + chunk["start_seconds"], 2)
                         adjusted_segments.append(adjusted_segment)
 
                     # append results
@@ -756,7 +768,8 @@ without any formatting, timestamps, or additional commentary. Just return the sp
                     if total_chars > 0
                     else duration_seconds
                 )
-                end_time = min(current_time + sentence_duration, duration_seconds)
+                end_time = min(current_time + sentence_duration,
+                               duration_seconds)
 
                 segments.append(
                     {
@@ -835,7 +848,8 @@ without any formatting, timestamps, or additional commentary. Just return the sp
                 delay = base_delay * (3**attempt)
                 logger.warning(
                     f"Rate limit detected, using aggressive backoff: {delay}s",
-                    extra={"job_id": job_id, "delay": delay, "attempt": attempt + 1},
+                    extra={"job_id": job_id, "delay": delay,
+                           "attempt": attempt + 1},
                 )
             else:
                 # standard exponential backoff
@@ -843,7 +857,8 @@ without any formatting, timestamps, or additional commentary. Just return the sp
 
             logger.info(
                 f"Retrying in {delay} seconds",
-                extra={"job_id": job_id, "delay": delay, "is_rate_limit": is_rate_limit},
+                extra={"job_id": job_id, "delay": delay,
+                       "is_rate_limit": is_rate_limit},
             )
             time.sleep(delay)
 
@@ -897,7 +912,8 @@ def remap_timestamps_to_original(
                 proportion = (
                     offset_from_start / compressed_duration if compressed_duration > 0 else 0
                 )
-                original_start = map_orig_start + (proportion * original_duration)
+                original_start = map_orig_start + \
+                    (proportion * original_duration)
 
             # check if segment end falls within this mapping interval
             if map_comp_start <= compressed_end <= map_comp_end:
@@ -905,7 +921,8 @@ def remap_timestamps_to_original(
                 proportion = (
                     offset_from_start / compressed_duration if compressed_duration > 0 else 0
                 )
-                original_end = map_orig_start + (proportion * original_duration)
+                original_end = map_orig_start + \
+                    (proportion * original_duration)
 
             # if we found both timestamps, we can stop searching
             if original_start is not None and original_end is not None:
@@ -957,7 +974,8 @@ def store_transcript_segments(segments: list[dict], job_id: str) -> None:
         Exception: if database operation fails
     """
     if not segments:
-        logger.info("No transcript segments to store", extra={"job_id": job_id})
+        logger.info("No transcript segments to store",
+                    extra={"job_id": job_id})
         return
 
     db = get_db_session()
@@ -1051,7 +1069,8 @@ def generate_transcript(
         else:
             # fallback to s3 download
             if not s3_key:
-                raise ValueError("Either local_video_path or s3_key must be provided")
+                raise ValueError(
+                    "Either local_video_path or s3_key must be provided")
             temp_video_path = download_video_from_s3(s3_key, job_id)
             cleanup_required = True
 
@@ -1141,7 +1160,8 @@ def generate_transcript(
         else:
             # audio fits in single request
             temp_audio_path = audio_or_path
-            transcription_result = transcribe_with_gemini(temp_audio_path, job_id)
+            transcription_result = transcribe_with_gemini(
+                temp_audio_path, job_id)
 
         logger.info(
             "Transcription received from Gemini API",
@@ -1166,7 +1186,8 @@ def generate_transcript(
             seg["end_time"] - seg["start_time"] for seg in remapped_segments
         )
         avg_confidence = (
-            sum(seg["confidence"] for seg in remapped_segments if seg["confidence"] is not None)
+            sum(seg["confidence"]
+                for seg in remapped_segments if seg["confidence"] is not None)
             / len([seg for seg in remapped_segments if seg["confidence"] is not None])
             if any(seg["confidence"] is not None for seg in remapped_segments)
             else None
