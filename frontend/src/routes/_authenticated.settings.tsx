@@ -3,7 +3,26 @@ import { useState, useEffect } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LogOut, Sun, Moon, User, Bell, Lock, CreditCard } from 'lucide-react';
+import {
+  LogOut,
+  Sun,
+  Moon,
+  User,
+  Bell,
+  Lock,
+  CreditCard,
+  Key,
+  Eye,
+  EyeOff,
+  Trash2,
+  Plus,
+  AlertTriangle,
+  Copy,
+  Check,
+  ExternalLink,
+  Loader2,
+  CheckCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,6 +50,14 @@ export function SettingsComponent() {
   const [organization, setOrganization] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [processingNotifications, setProcessingNotifications] = useState(true);
+
+  // API key management state (mocked)
+  const [apiKey, setApiKey] = useState<string | null>('AIzaSyB1234567890abcdefghijklmnopqrstuv');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isAddingKey, setIsAddingKey] = useState(false);
+  const [newApiKey, setNewApiKey] = useState('');
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   // Load user profile
   useEffect(() => {
@@ -97,6 +124,74 @@ export function SettingsComponent() {
   const handleLogout = () => {
     signOut();
     navigate({ to: '/login' });
+  };
+
+  // Utility function to mask API key
+  const getMaskedApiKey = (key: string): string => {
+    if (key.length <= 10) return key;
+    const prefix = key.substring(0, 4);
+    const suffix = key.substring(key.length - 6);
+    return `${prefix}...${suffix}`;
+  };
+
+  // API key handlers (mocked)
+  const handleCopyApiKey = () => {
+    if (apiKey) {
+      navigator.clipboard.writeText(apiKey);
+      setCopiedKey(true);
+      toast.success('API key copied to clipboard');
+      setTimeout(() => setCopiedKey(false), 2000);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!apiKey) return;
+
+    setIsTestingConnection(true);
+    try {
+      // Simulate API call to test connection
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // Mock validation - in real app, this would call the backend
+      if (apiKey.startsWith('AIzaSy')) {
+        toast.success('Connection successful! API key is valid.');
+      } else {
+        toast.error('Connection failed. Invalid API key.');
+      }
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      toast.error('Failed to test connection. Please try again.');
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const handleDeleteApiKey = () => {
+    setApiKey(null);
+    setShowApiKey(false);
+    toast.success('API key deleted successfully');
+  };
+
+  const handleAddApiKey = () => {
+    if (!newApiKey.trim()) {
+      toast.error('Please enter an API key');
+      return;
+    }
+
+    if (!newApiKey.startsWith('AIzaSy')) {
+      toast.error('Invalid Gemini API key format');
+      return;
+    }
+
+    setApiKey(newApiKey);
+    setNewApiKey('');
+    setIsAddingKey(false);
+    toast.success('API key added successfully');
+  };
+
+  const handleCancelAddKey = () => {
+    setNewApiKey('');
+    setIsAddingKey(false);
   };
 
   // Get user initials for avatar
@@ -197,6 +292,7 @@ export function SettingsComponent() {
             <div className="grid gap-2">
               <form autoComplete="off">
                 <Label htmlFor="organization">Organization</Label>
+                <div className="h-2"></div>
                 <Input
                   id="organization"
                   name="organization-name"
@@ -380,6 +476,232 @@ export function SettingsComponent() {
                 your password.
               </p>
             </>
+          )}
+        </div>
+
+        {/* API Key Management Section */}
+        <div className="glass-card rounded-xl border border-border/50 p-6 space-y-6">
+          <div className="flex items-center gap-2">
+            <Key className="w-5 h-5 text-muted-foreground" />
+            <h2>API Key</h2>
+          </div>
+          <Separator />
+
+          {apiKey ? (
+            // User has an API key
+            <div className="space-y-4">
+              <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-green-100 dark:bg-green-900/50 p-2">
+                    <Key className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="mb-1 font-medium text-green-900 dark:text-green-100">
+                      API Key Active
+                    </h4>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Your Gemini API key is configured and ready to use for AI processing.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4>Your API Key</h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="h-8"
+                    >
+                      {showApiKey ? (
+                        <>
+                          <EyeOff className="w-4 h-4 mr-2" />
+                          Hide
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Show
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopyApiKey}
+                      className="h-8"
+                      disabled={copiedKey}
+                    >
+                      {copiedKey ? (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-lg p-4 border border-border/50 bg-muted/30">
+                  <code className="text-sm break-all">
+                    {showApiKey ? apiKey : getMaskedApiKey(apiKey)}
+                  </code>
+                </div>
+
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    Keep your API key secure. Never share it publicly or commit it to version
+                    control.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleTestConnection}
+                  disabled={isTestingConnection}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isTestingConnection ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Testing Connection...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Test Connection
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <Separator />
+
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Need to update your API key?
+                  </h4>
+                  <div className="text-sm text-blue-700 dark:text-blue-300 space-y-2">
+                    <p>To replace your current API key with a new one:</p>
+                    <ol className="list-decimal list-inside space-y-1.5 ml-2">
+                      <li>
+                        Get a new API key from{' '}
+                        <a
+                          href="https://aistudio.google.com/app/apikey"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                        >
+                          Google AI Studio
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </li>
+                      <li>Delete your current API key using the button below</li>
+                      <li>Add your new API key</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-destructive">Delete API Key</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Remove your API key from the system
+                  </p>
+                </div>
+                <Button
+                  onClick={handleDeleteApiKey}
+                  variant="outline"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Key
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // User doesn't have an API key
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-amber-100 dark:bg-amber-900/50 p-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="mb-1 font-medium text-amber-900 dark:text-amber-100">
+                      No API Key Configured
+                    </h4>
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      You need to add a Gemini API key to enable AI features like transcription and
+                      content generation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {isAddingKey ? (
+                // Adding new key form
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="new-api-key">Gemini API Key</Label>
+                    <div className="h-1"></div>
+                    <Input
+                      id="new-api-key"
+                      type="password"
+                      value={newApiKey}
+                      onChange={(e) => setNewApiKey(e.target.value)}
+                      placeholder="AIzaSy..."
+                      className="glass-card border-border/50"
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Get your API key from{' '}
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Google AI Studio
+                      </a>
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddApiKey} className="flex-1">
+                      <Key className="w-4 h-4 mr-2" />
+                      Add API Key
+                    </Button>
+                    <Button onClick={handleCancelAddKey} variant="outline" className="flex-1">
+                      Cancel
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : (
+                // Add key button
+                <Button onClick={() => setIsAddingKey(true)} className="w-full">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add API Key
+                </Button>
+              )}
+            </div>
           )}
         </div>
 

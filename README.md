@@ -123,6 +123,34 @@ This project leverages distributed processing with Celery, integrates Google Gem
 * **Team Google Drive Folder:** [Link to Design Folder]([https://drive.google.com/drive/folder/...](https://drive.google.com/drive/folders/1_EZt-vSreHZA9UMcIAoyl-5W0WhwjE9Q?usp=drive_link))
 * **Linear Project Board:** [Link to Linear Project]([https://linear.app/...](https://linear.app/cs1060f25/team/NOTEAI/all))
 
+## Development Setup
+
+### Git Hooks Installation
+
+After cloning the repository, install git hooks to ensure code quality:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+This installs a pre-commit hook that automatically:
+- **Frontend**: Runs Prettier formatting, ESLint linting, and TypeScript type checking
+- **Backend**: Runs Ruff linting and Black formatting
+
+See `scripts/README.md` for more details.
+
+### CI/CD Pipeline
+
+**Continuous Integration:**
+- Runs on every PR and push to `main`
+- Checks: linting, formatting, type-checking, tests, build
+- PRs cannot be merged unless all checks pass
+
+**Continuous Deployment:**
+- Deploys to Vercel automatically on merge to `main`
+- Only deploys if CI passes
+- See `DEPLOYMENT.md` for setup instructions
+
 ## Links
 
 | Resource                | URL                                                                                     |

@@ -33,8 +33,8 @@ import {
 } from '@/components/ui/select';
 import type { JobResponse } from '@/types/api';
 
-import { getJobs } from '../../../services/uploadService';
 import { getResults } from '../../../services/resultsService';
+import { getJobs } from '../../../services/uploadService';
 
 // Helper function to format date
 function formatDate(dateString: string): string {

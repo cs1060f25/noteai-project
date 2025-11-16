@@ -217,3 +217,26 @@ export interface UserUpdateRequest {
   email_notifications?: boolean;
   processing_notifications?: boolean;
 }
+
+// api key management types
+
+export interface ApiKeyResponse {
+  has_key: boolean;
+  key_preview?: string; // masked version like "AIza...abc123"
+  last_validated?: string;
+  is_valid?: boolean;
+}
+
+export interface ApiKeyAddRequest {
+  api_key: string;
+}
+
+export interface ApiKeyTestRequest {
+  api_key?: string; // optional - if not provided, tests the stored key
+}
+
+export interface ApiKeyTestResponse {
+  is_valid: boolean;
+  message: string;
+  error_code?: string;
+}

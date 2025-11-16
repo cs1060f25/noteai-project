@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { ApiKeyWarningBanner } from '@/components/ApiKeyWarningBanner';
 import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { hasCompletedOnboarding } from '@/lib/onboarding';
 import {
   uploadVideo,
   uploadFromYouTube,
@@ -58,7 +60,7 @@ export const UploadIntegrated = () => {
   const wsRef = useRef<WebSocketService | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [_isUploading, setIsUploading] = useState(false);
   const [_uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [fileName, setFileName] = useState('');
@@ -347,6 +349,9 @@ export const UploadIntegrated = () => {
             Transform your video into engaging clips with AI-powered analysis
           </p>
         </motion.div>
+
+        {/* Show warning banner if API key is not set */}
+        {!hasCompletedOnboarding() && <ApiKeyWarningBanner />}
 
         <AnimatePresence mode="wait">
           {showConfig ? (

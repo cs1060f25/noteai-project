@@ -110,3 +110,4 @@ redis_data/
 
 # Cache
 .cache/
+.vercel

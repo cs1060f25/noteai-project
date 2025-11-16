@@ -44,10 +44,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import type { ClipMetadata, ResultsResponse } from '@/types/api';
 
-import { getResults, ResultsError } from '../services/resultsService';
-
 import { ImageWithFallback } from './ImageWithFallback';
 import { VideoPlayer } from './VideoPlayer';
+import { getResults, ResultsError } from '../services/resultsService';
 
 interface VideoDetailPageProps {
   lectureId: string;
@@ -134,7 +133,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
     // Create a special clip object for the full video
     const fullVideoClip: ClipMetadata = {
       clip_id: highlightVideo ? 'highlight' : 'original',
-      title: highlightVideo ? 'Highlight Reel' : (originalVideo?.filename || 'Original Video'),
+      title: highlightVideo ? 'Highlight Reel' : originalVideo?.filename || 'Original Video',
       start_time: 0,
       end_time: originalVideo?.duration || 0,
       duration: originalVideo?.duration || 0,
@@ -552,7 +551,8 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 <h3 className="text-sm mb-4">Clip Performance</h3>
                 <div className="space-y-4">
                   <p className="text-muted-foreground text-sm">
-                    Performance metrics coming soon. Track views, engagement, and completion rates for each clip.
+                    Performance metrics coming soon. Track views, engagement, and completion rates
+                    for each clip.
                   </p>
                 </div>
               </div>
@@ -926,9 +926,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 <div className="p-6 bg-background/95 backdrop-blur-sm border-t border-border/50">
                   <h2 className="text-xl mb-2">{selectedClip.title}</h2>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>
-                      Duration: {formatDuration(selectedClip.duration)}
-                    </span>
+                    <span>Duration: {formatDuration(selectedClip.duration)}</span>
                     <span>•</span>
                     <span>
                       {formatDuration(selectedClip.start_time)} -{' '}
