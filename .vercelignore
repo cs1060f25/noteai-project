@@ -1,0 +1,34 @@
+# Backend directory
+backend/
+
+# Development files
+.env
+.env.local
+.env*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Testing
+coverage/
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+.vscode/
+.idea/
+
+# Git
+.git/
+.github/
+
+# Docs
+docs/
+designs/
+README.md

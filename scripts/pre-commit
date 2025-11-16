@@ -87,17 +87,18 @@ if [ -d "backend" ]; then
         echo ""
     else
         # run linting
-        echo -e "  ${CYAN}🔎 Linting with Ruff...${NC}"
-        if [ -f "scripts/lint.sh" ] && ./scripts/lint.sh > /dev/null 2>&1; then
+        echo -e "  ${CYAN}🔎 Linting with Ruff check...${NC}"
+        if uv run ruff check . > /dev/null 2>&1; then
             echo -e "  ${GREEN}✓ Linting passed${NC}"
         else
             echo -e "  ${RED}✗ Linting failed${NC}"
+            echo -e "  ${YELLOW}  Run: uv run ruff check . --fix${NC}"
             FAILED=1
         fi
 
         # run formatting
-        echo -e "  ${CYAN}✨ Formatting with Black...${NC}"
-        if [ -f "scripts/format.sh" ] && ./scripts/format.sh > /dev/null 2>&1; then
+        echo -e "  ${CYAN}✨ Formatting with Ruff format...${NC}"
+        if uv run ruff format . > /dev/null 2>&1; then
             echo -e "  ${GREEN}✓ Code formatted${NC}"
         else
             echo -e "  ${YELLOW}⚠ Formatting skipped${NC}"
