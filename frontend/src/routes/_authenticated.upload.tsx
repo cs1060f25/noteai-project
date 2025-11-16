@@ -79,7 +79,7 @@ export const UploadIntegrated = () => {
   const [showConfig, setShowConfig] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [resolution, setResolution] = useState<ResolutionOption>('1080p');
+  const [resolution, setResolution] = useState<ResolutionOption>('720p');
   const [processingMode, setProcessingMode] = useState<ProcessingMode>('vision');
   const [rateLimitMode, setRateLimitMode] = useState(true); // default: enabled for safety
 

@@ -13,9 +13,6 @@ import {
   BookOpen,
   BarChart3,
   Clock,
-  Calendar,
-  Eye,
-  Edit,
   Trash2,
   ChevronRight,
   Loader2,
@@ -47,10 +44,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import type { ClipMetadata, ResultsResponse } from '@/types/api';
 
-import { getResults, ResultsError } from '../services/resultsService';
 
 import { ImageWithFallback } from './ImageWithFallback';
 import { VideoPlayer } from './VideoPlayer';
+import { getResults, ResultsError } from '../services/resultsService';
 
 interface VideoDetailPageProps {
   lectureId: string;

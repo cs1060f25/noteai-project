@@ -17,11 +17,9 @@ import {
   Sun,
   Moon,
   Check,
-  Sparkle,
   Shield,
   Briefcase,
   Users,
-  FileText,
 } from 'lucide-react';
 
 import { AdminBadge } from '@/components/admin/AdminBadge';
