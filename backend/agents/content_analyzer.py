@@ -54,6 +54,7 @@ def build_analysis_prompt(
     transcript_text: str,
     layout_info: dict[str, Any] | None = None,
     custom_instructions: str | None = None,
+    visual_content: dict[str, Any] | None = None,
 ) -> str:
     """build Gemini prompt for content analysis.
 
@@ -61,6 +62,7 @@ def build_analysis_prompt(
         transcript_text: formatted transcript with timestamps
         layout_info: optional layout analysis data (type, regions, confidence)
         custom_instructions: optional user-provided AI instructions for focus areas
+        visual_content: optional slide content data (text, visual elements, concepts)
 
     Returns:
         complete prompt string for Gemini
@@ -100,6 +102,34 @@ Please prioritize the above user instructions while maintaining the structured o
 
     prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
 {layout_context}{custom_context}
+"""
+    # build visual content section if available
+    visual_context = ""
+    if visual_content:
+        text_blocks = visual_content.get("text_blocks", [])
+        visual_elements = visual_content.get("visual_elements", [])
+        key_concepts = visual_content.get("key_concepts", [])
+
+        visual_context = "\nVISUAL CONTENT FROM SLIDES:\n"
+
+        if text_blocks:
+            visual_context += f"Extracted text from {len(text_blocks)} slide frames:\n"
+            # Include sample text blocks (limit to avoid prompt bloat)
+            for block in text_blocks[:10]:  # max 10 text blocks
+                timestamp = block.get("timestamp", 0)
+                text = block.get("text", "")
+                visual_context += f"  [{timestamp:.1f}s]: {text[:200]}\n"  # max 200 chars each
+            if len(text_blocks) > 10:
+                visual_context += f"  ... and {len(text_blocks) - 10} more text blocks\n"
+
+        if visual_elements:
+            visual_context += f"Visual elements detected: {', '.join(visual_elements)}\n"
+
+        if key_concepts:
+            visual_context += f"Key concepts identified visually: {', '.join(key_concepts)}\n"
+
+    prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
+{layout_context}{visual_context}
 TRANSCRIPT (time-stamped):
 {transcript_text}
 
@@ -330,6 +360,8 @@ def analyze_chunk_with_gemini(
     api_key: str,
     layout_info: dict[str, Any] | None = None,
     custom_instructions: str | None = None,
+    layout_info: dict[str, Any] | None = None,
+    visual_content: dict[str, Any] | None = None,
 ) -> list[dict]:
     """analyze a single transcript chunk with Gemini API.
 
@@ -340,6 +372,7 @@ def analyze_chunk_with_gemini(
         api_key: Gemini API key
         layout_info: optional layout analysis data to provide context
         custom_instructions: optional user-provided AI instructions
+        visual_content: optional slide content data to provide context
 
     Returns:
         list of segment dictionaries from Gemini
@@ -354,6 +387,7 @@ def analyze_chunk_with_gemini(
     )
 
     prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions)
+    prompt = build_analysis_prompt(chunk_text, layout_info, visual_content)
 
     # log prompt details for debugging (first 800 chars only for chunks)
     prompt_preview = prompt[:800] + "..." if len(prompt) > 800 else prompt
@@ -530,6 +564,32 @@ def analyze_content(
                     extra={"job_id": job_id},
                 )
 
+            # query slide content if available (Image Agent in vision pipeline)
+            slide_content = db_service.slide_content.get_by_job_id(job_id)
+            visual_content = None
+
+            if slide_content:
+                visual_content = {
+                    "frames_analyzed": slide_content.frames_analyzed,
+                    "text_blocks": slide_content.text_blocks,
+                    "visual_elements": slide_content.visual_elements,
+                    "key_concepts": slide_content.key_concepts,
+                }
+
+                logger.info(
+                    "slide content retrieved",
+                    extra={
+                        "job_id": job_id,
+                        "frames_analyzed": slide_content.frames_analyzed,
+                        "text_blocks": len(slide_content.text_blocks),
+                    },
+                )
+            else:
+                logger.info(
+                    "no slide content found (audio pipeline or Image Agent not yet complete)",
+                    extra={"job_id": job_id},
+                )
+
         finally:
             db.close()
 
@@ -575,6 +635,7 @@ def analyze_content(
                         api_key,
                         layout_info,
                         custom_prompt,
+                        analyze_chunk_with_gemini, chunk, job_id, idx, layout_info, visual_content
                     ): idx
                     for idx, chunk in enumerate(chunks)
                 }
@@ -615,6 +676,7 @@ def analyze_content(
             )
 
             prompt = build_analysis_prompt(transcript_text, layout_info, custom_prompt)
+            prompt = build_analysis_prompt(transcript_text, layout_info, visual_content)
 
             # log the actual prompt being sent to Gemini (for debugging)
             prompt_preview = prompt[:1200] + "..." if len(prompt) > 1200 else prompt

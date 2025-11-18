@@ -62,6 +62,9 @@ class Job(Base):
     layout_analysis = relationship(
         "LayoutAnalysis", back_populates="job", uselist=False, cascade="all, delete-orphan"
     )
+    slide_content = relationship(
+        "SlideContent", back_populates="job", uselist=False, cascade="all, delete-orphan"
+    )
     content_segments = relationship(
         "ContentSegment", back_populates="job", cascade="all, delete-orphan"
     )
@@ -272,6 +275,46 @@ class ContentSegment(Base):
             "keywords": self.keywords,
             "concepts": self.concepts,
             "segment_order": self.segment_order,
+            "created_at": self.created_at,
+        }
+
+
+class SlideContent(Base):
+    """Slide content database model for Image Agent visual analysis."""
+
+    __tablename__ = "slide_content"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content_id = Column(String(100), unique=True, index=True, nullable=False)
+    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, unique=True, index=True)
+
+    # Analysis results
+    frames_analyzed = Column(Integer, nullable=False)
+    text_blocks = Column(JSON, nullable=False)  # [{timestamp, text}, ...]
+    visual_elements = Column(JSON, nullable=False)  # ["diagram", "chart", ...]
+    key_concepts = Column(JSON, nullable=False)  # ["concept1", "concept2", ...]
+    frame_data = Column(JSON, nullable=False)  # per-frame summary data
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    job = relationship("Job", back_populates="slide_content")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert model to dictionary.
+
+        Returns:
+            Dictionary representation of the slide content
+        """
+        return {
+            "content_id": self.content_id,
+            "job_id": self.job_id,
+            "frames_analyzed": self.frames_analyzed,
+            "text_blocks": self.text_blocks,
+            "visual_elements": self.visual_elements,
+            "key_concepts": self.key_concepts,
+            "frame_data": self.frame_data,
             "created_at": self.created_at,
         }
 
