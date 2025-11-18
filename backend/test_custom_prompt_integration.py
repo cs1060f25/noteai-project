@@ -5,6 +5,10 @@ This script helps verify that user-provided AI instructions are actually
 being used by the Gemini API during content analysis.
 """
 
+from app.services.db_service import DatabaseService
+from app.core.settings import settings
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
 import json
 import sys
 from pathlib import Path
@@ -12,17 +16,12 @@ from pathlib import Path
 # add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.core.settings import settings
-from app.services.db_service import DatabaseService
-
 
 def get_db_session():
     """Create database session."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -226,7 +225,8 @@ def analyze_segment_keywords(job_id: str, expected_keyword: str | None = None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python test_custom_prompt_integration.py <job_id> [expected_keyword]")
+        print(
+            "Usage: python test_custom_prompt_integration.py <job_id> [expected_keyword]")
         print("\nOr: python test_custom_prompt_integration.py --suggest")
         print("    to see suggested test prompts")
         sys.exit(1)

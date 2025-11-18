@@ -624,6 +624,7 @@ def analyze_content(
                 transcript_text, layout_info, custom_prompt)
 
             # log the actual prompt being sent to Gemini (for debugging)
+<< << << < HEAD
             prompt_preview = prompt[:1200] + \
                 "..." if len(prompt) > 1200 else prompt
             logger.info(
@@ -634,6 +635,21 @@ def analyze_content(
             )
 
             genai.configure(api_key=api_key)
+== == == =
+            prompt_preview = prompt[:1000] + \
+                "..." if len(prompt) > 1000 else prompt
+            logger.info(
+                "Prompt built for Gemini API",
+                extra={
+                    "job_id": job_id,
+                    "prompt_length": len(prompt),
+                    "has_custom_instructions": bool(custom_prompt),
+                    "prompt_preview": prompt_preview,
+                },
+            )
+
+            genai.configure(api_key=settings.gemini_api_key)
+>>>>>> > 65137d5([NOTEAI-127] Add detailed logging and testing tools for custom prompt verification)
             model = genai.GenerativeModel(settings.gemini_model)
 
             response = model.generate_content(prompt)
