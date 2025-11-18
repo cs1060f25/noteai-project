@@ -353,11 +353,11 @@ def analyze_chunk_with_gemini(
 
     prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions)
 
-    # log prompt details for debugging (first 500 chars only for chunks)
-    prompt_preview = prompt[:500] + "..." if len(prompt) > 500 else prompt
-    logger.debug(
-        f"Chunk {chunk_idx + 1} prompt preview",
-        extra={"job_id": job_id, "prompt_preview": prompt_preview},
+    # log prompt details for debugging (first 800 chars only for chunks)
+    prompt_preview = prompt[:800] + "..." if len(prompt) > 800 else prompt
+    logger.info(
+        f"Chunk {chunk_idx + 1} prompt (has_custom_instructions={bool(custom_instructions)}):\n{prompt_preview}",
+        extra={"job_id": job_id},
     )
 
     genai.configure(api_key=settings.gemini_api_key)
@@ -603,15 +603,12 @@ def analyze_content(_transcript_data: dict, job_id: str, config: dict | None = N
             prompt = build_analysis_prompt(transcript_text, layout_info, custom_prompt)
 
             # log the actual prompt being sent to Gemini (for debugging)
-            prompt_preview = prompt[:1000] + "..." if len(prompt) > 1000 else prompt
+            prompt_preview = prompt[:1200] + "..." if len(prompt) > 1200 else prompt
             logger.info(
-                "Prompt built for Gemini API",
-                extra={
-                    "job_id": job_id,
-                    "prompt_length": len(prompt),
-                    "has_custom_instructions": bool(custom_prompt),
-                    "prompt_preview": prompt_preview,
-                },
+                f"Prompt built for Gemini API (length={len(prompt)}, "
+                f"has_custom_instructions={bool(custom_prompt)})\n"
+                f"PROMPT PREVIEW:\n{prompt_preview}",
+                extra={"job_id": job_id},
             )
 
             genai.configure(api_key=settings.gemini_api_key)
