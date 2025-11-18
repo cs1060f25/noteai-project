@@ -406,9 +406,7 @@ def parse_gemini_vision_response(response_text: str, timestamp: float) -> dict[s
         }
 
 
-def aggregate_visual_content(
-    frame_contents: list[dict[str, Any]], job_id: str
-) -> dict[str, Any]:
+def aggregate_visual_content(frame_contents: list[dict[str, Any]], job_id: str) -> dict[str, Any]:
     """Aggregate visual content from multiple frames into a summary.
 
     Args:
@@ -473,9 +471,7 @@ def aggregate_visual_content(
     return result
 
 
-def store_visual_content_in_database(
-    visual_content: dict[str, Any], job_id: str
-) -> None:
+def store_visual_content_in_database(visual_content: dict[str, Any], job_id: str) -> None:
     """Store extracted visual content in database.
 
     Args:
