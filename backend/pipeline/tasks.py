@@ -36,7 +36,8 @@ logger = get_logger(__name__)
 def get_task_db():
     """create database session for celery tasks."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -99,7 +100,8 @@ def get_user_api_key(job_id: str) -> str:
             )
             return api_key
         except Exception as e:
-            logger.error("Failed to decrypt API key", exc_info=e, extra={"job_id": job_id})
+            logger.error("Failed to decrypt API key",
+                         exc_info=e, extra={"job_id": job_id})
             raise ValueError("Invalid API key configuration") from e
     finally:
         db.close()
@@ -243,7 +245,8 @@ class BaseProcessingTask(Task):
         duration = None
         if hasattr(self, "_start_time"):
             duration = time.time() - self._start_time
-            task_duration_seconds.labels(task_name=self.name, status="success").observe(duration)
+            task_duration_seconds.labels(
+                task_name=self.name, status="success").observe(duration)
 
         task_counter.labels(task_name=self.name, status="success").inc()
 
@@ -517,7 +520,8 @@ class BaseProcessingTask(Task):
         # track failure metrics
         if hasattr(self, "_start_time"):
             duration = time.time() - self._start_time
-            task_duration_seconds.labels(task_name=self.name, status="failure").observe(duration)
+            task_duration_seconds.labels(
+                task_name=self.name, status="failure").observe(duration)
 
         task_counter.labels(task_name=self.name, status="failure").inc()
 
@@ -584,7 +588,8 @@ def download_audio_from_s3_to_temp(s3_key: str, job_id: str) -> str:
     file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
     logger.info(
         "Audio downloaded successfully",
-        extra={"s3_key": s3_key, "file_size_mb": round(file_size_mb, 2), "job_id": job_id},
+        extra={"s3_key": s3_key, "file_size_mb": round(
+            file_size_mb, 2), "job_id": job_id},
     )
 
     return temp_path
@@ -607,7 +612,8 @@ def download_video_from_s3_to_temp(s3_key: str, job_id: str, transcode_720p: boo
     temp_dir = f"/tmp/lecture_extractor_{job_id}"
     os.makedirs(temp_dir, exist_ok=True)
 
-    temp_path = os.path.join(temp_dir, "video_720p.mp4" if transcode_720p else "original.mp4")
+    temp_path = os.path.join(
+        temp_dir, "video_720p.mp4" if transcode_720p else "original.mp4")
 
     logger.info(
         "Downloading video from S3 (optimized pipeline)",
@@ -651,7 +657,8 @@ def download_video_from_s3_to_temp(s3_key: str, job_id: str, transcode_720p: boo
         file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
         logger.info(
             "Video downloaded and transcoded to 720p",
-            extra={"s3_key": s3_key, "file_size_mb": round(file_size_mb, 2), "job_id": job_id},
+            extra={"s3_key": s3_key, "file_size_mb": round(
+                file_size_mb, 2), "job_id": job_id},
         )
     else:
         # download without transcoding
@@ -665,7 +672,8 @@ def download_video_from_s3_to_temp(s3_key: str, job_id: str, transcode_720p: boo
         file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
         logger.info(
             "Video downloaded successfully",
-            extra={"s3_key": s3_key, "file_size_mb": round(file_size_mb, 2), "job_id": job_id},
+            extra={"s3_key": s3_key, "file_size_mb": round(
+                file_size_mb, 2), "job_id": job_id},
         )
 
     return temp_path
@@ -701,7 +709,8 @@ def process_video_optimized(self, job_id: str) -> dict[str, Any]:
 
         logger.info(
             "Routing to pipeline",
-            extra={"job_id": job_id, "processing_mode": processing_mode, "config": config},
+            extra={"job_id": job_id,
+                   "processing_mode": processing_mode, "config": config},
         )
 
         # route to appropriate pipeline
@@ -746,7 +755,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
     audio_path = None
     video_path = None
 
-    logger.info("Starting AUDIO-ONLY pipeline", extra={"job_id": job_id, "config": config})
+    logger.info("Starting AUDIO-ONLY pipeline",
+                extra={"job_id": job_id, "config": config})
 
     try:
         # update status
@@ -762,8 +772,10 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
 
         # parallel download: audio + video
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            audio_future = executor.submit(download_audio_from_s3_to_temp, s3_key, job_id)
-            video_future = executor.submit(download_video_from_s3_to_temp, s3_key, job_id)
+            audio_future = executor.submit(
+                download_audio_from_s3_to_temp, s3_key, job_id)
+            video_future = executor.submit(
+                download_video_from_s3_to_temp, s3_key, job_id)
 
             # process audio path first (fast)
             audio_path = audio_future.result()
@@ -774,7 +786,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             self.update_job_progress(
                 job_id, "silence_detection", 10.0, "Detecting silence regions (audio-only mode)"
             )
-            logger.info("Step 1/5: Silence detection (audio-only)", extra={"job_id": job_id})
+            logger.info("Step 1/5: Silence detection (audio-only)",
+                        extra={"job_id": job_id})
 
             # log start
             create_processing_log_entry(
@@ -824,7 +837,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             try:
                 api_key = get_user_api_key(job_id)
             except Exception as e:
-                logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+                logger.error("Failed to get API key", exc_info=e,
+                             extra={"job_id": job_id})
                 raise
 
             transcript_result = generate_transcript(
@@ -868,7 +882,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
 
             # API key already fetched above
-            content_result = analyze_content({}, job_id, api_key=api_key, config=config)
+            content_result = analyze_content(
+                {}, job_id, api_key=api_key, config=config)
 
             # log completion
             create_processing_log_entry(
@@ -887,8 +902,10 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
 
             # step 4: segment extraction
-            self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
-            logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
+            self.update_job_progress(
+                job_id, "segmentation", 60.0, "Extracting highlight segments")
+            logger.info("Step 4/5: Segment extraction",
+                        extra={"job_id": job_id})
 
             # log start
             create_processing_log_entry(
@@ -920,7 +937,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             video_path = video_future.result()
 
         # step 5: video compilation
-        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        self.update_job_progress(
+            job_id, "compilation", 80.0, "Compiling final clips")
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
         # log start
@@ -993,7 +1011,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             if path and os.path.exists(path):
                 try:
                     os.unlink(path)
-                    logger.info("Cleaned up temp file", extra={"job_id": job_id, "path": path})
+                    logger.info("Cleaned up temp file", extra={
+                                "job_id": job_id, "path": path})
                 except Exception as cleanup_error:
                     logger.warning(
                         "Failed to cleanup temp file",
@@ -1006,7 +1025,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
         if os.path.exists(temp_dir) and os.path.isdir(temp_dir):
             try:
                 os.rmdir(temp_dir)
-                logger.info("Cleaned up temp directory", extra={"job_id": job_id, "dir": temp_dir})
+                logger.info("Cleaned up temp directory", extra={
+                            "job_id": job_id, "dir": temp_dir})
             except Exception as cleanup_error:
                 logger.warning(
                     "Failed to cleanup temp directory",
@@ -1042,7 +1062,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
     audio_path = None
     video_path = None
 
-    logger.info("Starting VISION pipeline", extra={"job_id": job_id, "config": config})
+    logger.info("Starting VISION pipeline", extra={
+                "job_id": job_id, "config": config})
 
     try:
         # update status
@@ -1060,7 +1081,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         try:
             api_key = get_user_api_key(job_id)
         except Exception as e:
-            logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+            logger.error("Failed to get API key", exc_info=e,
+                         extra={"job_id": job_id})
             raise
 
         # parallel download and processing
@@ -1074,7 +1096,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 self.update_job_progress(
                     job_id, "silence_detection", 10.0, "Detecting silence regions"
                 )
-                logger.info("Audio track: Silence detection", extra={"job_id": job_id})
+                logger.info("Audio track: Silence detection",
+                            extra={"job_id": job_id})
 
                 # log start
                 create_processing_log_entry(
@@ -1102,7 +1125,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 self.update_job_progress(
                     job_id, "transcription", 20.0, "Transcribing audio (parallel chunks)"
                 )
-                logger.info("Audio track: Transcription", extra={"job_id": job_id})
+                logger.info("Audio track: Transcription",
+                            extra={"job_id": job_id})
 
                 # log start
                 create_processing_log_entry(
@@ -1138,8 +1162,10 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 video_path = download_video_from_s3_to_temp(s3_key, job_id)
 
                 # layout analysis
-                self.update_job_progress(job_id, "layout_analysis", 15.0, "Analyzing video layout")
-                logger.info("Video track: Layout analysis", extra={"job_id": job_id})
+                self.update_job_progress(
+                    job_id, "layout_analysis", 15.0, "Analyzing video layout")
+                logger.info("Video track: Layout analysis",
+                            extra={"job_id": job_id})
 
                 # log start
                 create_processing_log_entry(
@@ -1191,7 +1217,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
             40.0,
             "Analyzing content with AI (vision mode)",
         )
-        logger.info("Step 3/5: Content analysis (vision mode)", extra={"job_id": job_id})
+        logger.info("Step 3/5: Content analysis (vision mode)",
+                    extra={"job_id": job_id})
 
         # log start
         create_processing_log_entry(
@@ -1203,7 +1230,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
         # API key already fetched above
 
-        content_result = analyze_content({}, job_id, api_key=api_key, config=config)
+        content_result = analyze_content(
+            {}, job_id, api_key=api_key, config=config)
 
         # log completion
         create_processing_log_entry(
@@ -1222,7 +1250,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         )
 
         # step 4: segment extraction
-        self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
+        self.update_job_progress(
+            job_id, "segmentation", 60.0, "Extracting highlight segments")
         logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
 
         # log start
@@ -1252,7 +1281,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         )
 
         # step 5: video compilation
-        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        self.update_job_progress(
+            job_id, "compilation", 80.0, "Compiling final clips")
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
         # log start
@@ -1325,7 +1355,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
             if path and os.path.exists(path):
                 try:
                     os.unlink(path)
-                    logger.info("Cleaned up temp file", extra={"job_id": job_id, "path": path})
+                    logger.info("Cleaned up temp file", extra={
+                                "job_id": job_id, "path": path})
                 except Exception as cleanup_error:
                     logger.warning(
                         "Failed to cleanup temp file",
@@ -1338,7 +1369,8 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         if os.path.exists(temp_dir) and os.path.isdir(temp_dir):
             try:
                 os.rmdir(temp_dir)
-                logger.info("Cleaned up temp directory", extra={"job_id": job_id, "dir": temp_dir})
+                logger.info("Cleaned up temp directory", extra={
+                            "job_id": job_id, "dir": temp_dir})
             except Exception as cleanup_error:
                 logger.warning(
                     "Failed to cleanup temp directory",
@@ -1415,7 +1447,8 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
             job = db.query(Job).filter(Job.job_id == job_id).first()
             rate_limit_mode = True  # default to safe mode
             if job and job.extra_metadata:
-                rate_limit_mode = job.extra_metadata.get("rate_limit_mode", True)
+                rate_limit_mode = job.extra_metadata.get(
+                    "rate_limit_mode", True)
         finally:
             db.close()
 
@@ -1441,7 +1474,8 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
         # run transcription
         # the transcript agent will automatically retrieve silence regions from DB
         # and only transcribe non-silent parts
-        result = generate_transcript(s3_key, job_id, rate_limit_mode=rate_limit_mode)
+        result = generate_transcript(
+            s3_key, job_id, rate_limit_mode=rate_limit_mode)
 
         # update progress: completed
         self.update_job_progress(
@@ -1505,7 +1539,8 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
     try:
         api_key = get_user_api_key(job_id)
     except Exception as e:
-        logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+        logger.error("Failed to get API key", exc_info=e,
+                     extra={"job_id": job_id})
         self.mark_job_failed(job_id, f"API Key Error: {e!s}")
         raise
 
@@ -1624,7 +1659,8 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
         # mark job as completed (final step)
         self.mark_job_completed(job_id)
 
-        logger.info("processing pipeline completed successfully", extra={"job_id": job_id})
+        logger.info("processing pipeline completed successfully",
+                    extra={"job_id": job_id})
 
         return result
     finally:

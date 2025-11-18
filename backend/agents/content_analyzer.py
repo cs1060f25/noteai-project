@@ -25,7 +25,8 @@ MAX_SEGMENT_DURATION = 300  # maximum 5 minutes
 def get_db_session():
     """create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -353,7 +354,8 @@ def analyze_chunk_with_gemini(
         },
     )
 
-    prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions)
+    prompt = build_analysis_prompt(
+        chunk_text, layout_info, custom_instructions)
 
     # log prompt details for debugging (first 800 chars only for chunks)
     prompt_preview = prompt[:800] + "..." if len(prompt) > 800 else prompt
@@ -402,7 +404,8 @@ def merge_and_deduplicate_segments(
         is_duplicate = False
 
         for existing in deduplicated:
-            time_diff = abs(segment.get("start_time", 0) - existing.get("start_time", 0))
+            time_diff = abs(segment.get("start_time", 0) -
+                            existing.get("start_time", 0))
             if time_diff < overlap_threshold:
                 # keep segment with higher importance score
                 if segment.get("importance_score", 0) > existing.get("importance_score", 0):
@@ -456,7 +459,8 @@ def analyze_content(
             db_service_temp = DatabaseService(db_temp)
             job = db_service_temp.jobs.get_by_id(job_id)
             if job and job.extra_metadata:
-                processing_config = job.extra_metadata.get("processing_config", {})
+                processing_config = job.extra_metadata.get(
+                    "processing_config", {})
                 custom_prompt = processing_config.get("prompt")
         except Exception as e:
             logger.warning(
@@ -482,7 +486,8 @@ def analyze_content(
             api_key = settings.gemini_api_key
 
         if not api_key:
-            raise ValueError("Gemini API key is missing. Please add your API key in Settings.")
+            raise ValueError(
+                "Gemini API key is missing. Please add your API key in Settings.")
 
         # create database session and query transcripts + layout
         db = get_db_session()
@@ -556,7 +561,8 @@ def analyze_content(
             )
 
             # split into overlapping chunks
-            chunks = split_transcript_into_chunks(transcript_text, chunk_size=5000, overlap=500)
+            chunks = split_transcript_into_chunks(
+                transcript_text, chunk_size=5000, overlap=500)
 
             logger.info(
                 f"Split transcript into {len(chunks)} chunks",
@@ -614,10 +620,12 @@ def analyze_content(
                 },
             )
 
-            prompt = build_analysis_prompt(transcript_text, layout_info, custom_prompt)
+            prompt = build_analysis_prompt(
+                transcript_text, layout_info, custom_prompt)
 
             # log the actual prompt being sent to Gemini (for debugging)
-            prompt_preview = prompt[:1200] + "..." if len(prompt) > 1200 else prompt
+            prompt_preview = prompt[:1200] + \
+                "..." if len(prompt) > 1200 else prompt
             logger.info(
                 f"Prompt built for Gemini API (length={len(prompt)}, "
                 f"has_custom_instructions={bool(custom_prompt)})\n"
@@ -679,5 +687,6 @@ def analyze_content(
         return result
 
     except Exception as e:
-        logger.error("content analysis failed", exc_info=e, extra={"job_id": job_id})
+        logger.error("content analysis failed",
+                     exc_info=e, extra={"job_id": job_id})
         raise
