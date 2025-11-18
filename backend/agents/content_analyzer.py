@@ -145,7 +145,9 @@ Please prioritize the above user instructions while maintaining the structured o
                 visual_context += f"  ... and {len(text_blocks_list) - 10} more text blocks\n"
 
         if visual_elements_list:
-            visual_context += f"Visual elements detected: {', '.join(str(e) for e in visual_elements_list)}\n"
+            visual_context += (
+                f"Visual elements detected: {', '.join(str(e) for e in visual_elements_list)}\n"
+            )
 
         if key_concepts_list:
             visual_context += f"Key concepts identified visually: {', '.join(str(c) for c in key_concepts_list)}\n"
