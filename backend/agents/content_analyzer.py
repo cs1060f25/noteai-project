@@ -431,8 +431,8 @@ def analyze_content(
     Args:
         _transcript_data: unused (queries database directly)
         job_id: job identifier
-        config: optional processing configuration (includes custom prompt)
         api_key: Gemini API key (required)
+        config: optional processing configuration (includes custom prompt)
 
     Returns:
         result dictionary with analysis statistics
@@ -626,7 +626,6 @@ def analyze_content(
             )
 
             genai.configure(api_key=api_key)
-
             model = genai.GenerativeModel(settings.gemini_model)
 
             response = model.generate_content(prompt)
