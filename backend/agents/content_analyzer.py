@@ -536,13 +536,12 @@ def analyze_content(
         # format transcripts for Gemini
         transcript_text = format_transcript_for_gemini(transcripts)
 
+        # log transcript preview for debugging
+        transcript_preview = transcript_text[:2000] + "..." if len(transcript_text) > 2000 else transcript_text
         logger.info(
-            "transcripts formatted for analysis",
-            extra={
-                "job_id": job_id,
-                "transcript_length": len(transcript_text),
-                "transcript_segments": len(transcripts),
-            },
+            f"transcripts formatted for analysis (length={len(transcript_text)}, "
+            f"segments={len(transcripts)})\nTRANSCRIPT PREVIEW:\n{transcript_preview}",
+            extra={"job_id": job_id},
         )
 
         # parallel processing for large transcripts (> 15000 chars ~ 20+ min video)
