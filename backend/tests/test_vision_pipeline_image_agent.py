@@ -7,7 +7,7 @@ Bug: Vision pipeline only uses Layout Agent, missing Image Agent for slide conte
 """
 
 import os
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -162,9 +162,9 @@ class TestVisionPipelineImageAgent:
         mock_db_service_class.return_value = mock_service
 
         # Check if analyze_content signature includes visual_content parameter
-        from agents.content_analyzer import analyze_content
-
         import inspect
+
+        from agents.content_analyzer import analyze_content
 
         sig = inspect.signature(analyze_content)
         params = list(sig.parameters.keys())
@@ -186,16 +186,13 @@ class TestVisionPipelineImageAgent:
             from app.models.database import SlideContent  # noqa: F401
 
             model_exists = True
-            model_name = "SlideContent"
         except ImportError:
             try:
                 from app.models.database import VisualContent  # noqa: F401
 
                 model_exists = True
-                model_name = "VisualContent"
             except ImportError:
                 model_exists = False
-                model_name = None
 
         assert model_exists, (
             "Database model for visual/slide content does not exist. "
@@ -224,10 +221,10 @@ class TestVisionPipelineImageAgent:
 
         # Try to import and use Image Agent
         try:
-            from agents.image_agent import extract_slide_content
-
             # If it exists, verify it accepts layout_info parameter
             import inspect
+
+            from agents.image_agent import extract_slide_content
 
             sig = inspect.signature(extract_slide_content)
             params = list(sig.parameters.keys())
