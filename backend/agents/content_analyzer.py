@@ -50,12 +50,17 @@ def format_transcript_for_gemini(transcripts: list[Any]) -> str:
     return "\n".join(lines)
 
 
-def build_analysis_prompt(transcript_text: str, layout_info: dict[str, Any] | None = None) -> str:
+def build_analysis_prompt(
+    transcript_text: str,
+    layout_info: dict[str, Any] | None = None,
+    custom_instructions: str | None = None
+) -> str:
     """build Gemini prompt for content analysis.
 
     Args:
         transcript_text: formatted transcript with timestamps
         layout_info: optional layout analysis data (type, regions, confidence)
+        custom_instructions: optional user-provided AI instructions for focus areas
 
     Returns:
         complete prompt string for Gemini
@@ -83,8 +88,18 @@ def build_analysis_prompt(transcript_text: str, layout_info: dict[str, Any] | No
             layout_context = f"\nVIDEO LAYOUT INFORMATION:\n{layout_desc}\n(Low confidence detection - layout may vary)\n"
         # if confidence is 0.0, it's a fallback default, so don't mention it
 
+    # build custom instructions context section if provided
+    custom_context = ""
+    if custom_instructions:
+        custom_context = f"""
+USER INSTRUCTIONS (High Priority):
+{custom_instructions}
+
+Please prioritize the above user instructions while maintaining the structured output format below.
+"""
+
     prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
-{layout_context}
+{layout_context}{custom_context}
 TRANSCRIPT (time-stamped):
 {transcript_text}
 
@@ -309,7 +324,11 @@ def split_transcript_into_chunks(
 
 
 def analyze_chunk_with_gemini(
-    chunk_text: str, job_id: str, chunk_idx: int, layout_info: dict[str, Any] | None = None
+    chunk_text: str,
+    job_id: str,
+    chunk_idx: int,
+    layout_info: dict[str, Any] | None = None,
+    custom_instructions: str | None = None
 ) -> list[dict]:
     """analyze a single transcript chunk with Gemini API.
 
@@ -318,6 +337,7 @@ def analyze_chunk_with_gemini(
         job_id: job identifier for logging
         chunk_idx: index of this chunk
         layout_info: optional layout analysis data to provide context
+        custom_instructions: optional user-provided AI instructions
 
     Returns:
         list of segment dictionaries from Gemini
@@ -327,7 +347,7 @@ def analyze_chunk_with_gemini(
         extra={"job_id": job_id, "chunk_size": len(chunk_text)},
     )
 
-    prompt = build_analysis_prompt(chunk_text, layout_info)
+    prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions)
 
     genai.configure(api_key=settings.gemini_api_key)
     model = genai.GenerativeModel(settings.gemini_model)
@@ -387,7 +407,7 @@ def merge_and_deduplicate_segments(
     return deduplicated
 
 
-def analyze_content(_transcript_data: dict, job_id: str) -> dict:
+def analyze_content(_transcript_data: dict, job_id: str, config: dict | None = None) -> dict:
     """analyze transcript content and extract topics using Gemini.
 
     this agent processes video transcripts to identify key educational segments,
@@ -396,6 +416,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
     Args:
         _transcript_data: unused (queries database directly)
         job_id: job identifier
+        config: optional processing configuration (includes custom prompt)
 
     Returns:
         result dictionary with analysis statistics
@@ -407,6 +428,36 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
     start_time = time.time()
 
     logger.info("content analysis started", extra={"job_id": job_id})
+
+    # retrieve custom prompt from config or database
+    custom_prompt = None
+    if config:
+        custom_prompt = config.get("prompt")
+    else:
+        # fallback: retrieve from database if config not provided
+        db_temp = get_db_session()
+        try:
+            db_service_temp = DatabaseService(db_temp)
+            job = db_service_temp.jobs.get_by_id(job_id)
+            if job and job.extra_metadata:
+                processing_config = job.extra_metadata.get("processing_config", {})
+                custom_prompt = processing_config.get("prompt")
+        except Exception as e:
+            logger.warning(
+                "Failed to retrieve custom prompt from database, using default",
+                exc_info=e,
+                extra={"job_id": job_id},
+            )
+        finally:
+            db_temp.close()
+
+    if custom_prompt:
+        logger.info(
+            "Using custom AI instructions",
+            extra={"job_id": job_id, "prompt_preview": custom_prompt[:100]},
+        )
+    else:
+        logger.info("Using default AI instructions", extra={"job_id": job_id})
 
     try:
         # validate Gemini API key
@@ -499,7 +550,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
             chunk_results = []
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_to_idx = {
-                    executor.submit(analyze_chunk_with_gemini, chunk, job_id, idx, layout_info): idx
+                    executor.submit(analyze_chunk_with_gemini, chunk, job_id, idx, layout_info, custom_prompt): idx
                     for idx, chunk in enumerate(chunks)
                 }
 
@@ -538,7 +589,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
                 },
             )
 
-            prompt = build_analysis_prompt(transcript_text, layout_info)
+            prompt = build_analysis_prompt(transcript_text, layout_info, custom_prompt)
 
             genai.configure(api_key=settings.gemini_api_key)
             model = genai.GenerativeModel(settings.gemini_model)

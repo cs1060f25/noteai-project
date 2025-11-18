@@ -802,7 +802,7 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
                 status="started",
             )
 
-            content_result = analyze_content({}, job_id)
+            content_result = analyze_content({}, job_id, config)
 
             # log completion
             create_processing_log_entry(
@@ -1127,7 +1127,7 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
             status="started",
         )
 
-        content_result = analyze_content({}, job_id)
+        content_result = analyze_content({}, job_id, config)
 
         # log completion
         create_processing_log_entry(
