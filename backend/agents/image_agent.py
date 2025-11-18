@@ -4,8 +4,6 @@ This agent analyzes video frames to extract text and visual elements from
 slide regions, complementing the Layout Detector's region identification.
 """
 
-import base64
-import io
 import time
 import uuid
 from typing import Any
