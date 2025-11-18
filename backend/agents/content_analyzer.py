@@ -344,10 +344,21 @@ def analyze_chunk_with_gemini(
     """
     logger.info(
         f"Analyzing chunk {chunk_idx + 1} with Gemini",
-        extra={"job_id": job_id, "chunk_size": len(chunk_text)},
+        extra={
+            "job_id": job_id,
+            "chunk_size": len(chunk_text),
+            "has_custom_instructions": bool(custom_instructions),
+        },
     )
 
     prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions)
+
+    # log prompt details for debugging (first 500 chars only for chunks)
+    prompt_preview = prompt[:500] + "..." if len(prompt) > 500 else prompt
+    logger.debug(
+        f"Chunk {chunk_idx + 1} prompt preview",
+        extra={"job_id": job_id, "prompt_preview": prompt_preview},
+    )
 
     genai.configure(api_key=settings.gemini_api_key)
     model = genai.GenerativeModel(settings.gemini_model)
@@ -590,6 +601,18 @@ def analyze_content(_transcript_data: dict, job_id: str, config: dict | None = N
             )
 
             prompt = build_analysis_prompt(transcript_text, layout_info, custom_prompt)
+
+            # log the actual prompt being sent to Gemini (for debugging)
+            prompt_preview = prompt[:1000] + "..." if len(prompt) > 1000 else prompt
+            logger.info(
+                "Prompt built for Gemini API",
+                extra={
+                    "job_id": job_id,
+                    "prompt_length": len(prompt),
+                    "has_custom_instructions": bool(custom_prompt),
+                    "prompt_preview": prompt_preview,
+                },
+            )
 
             genai.configure(api_key=settings.gemini_api_key)
             model = genai.GenerativeModel(settings.gemini_model)
