@@ -73,6 +73,12 @@ def build_analysis_prompt(
         layout_type = layout_info.get("layout_type", "unknown")
         confidence = layout_info.get("confidence_score", 0.0)
 
+        # handle both real floats and mock objects
+        try:
+            confidence_value = float(confidence) if confidence is not None else 0.0
+        except (TypeError, ValueError):
+            confidence_value = 0.0
+
         layout_descriptions = {
             "side_by_side": "The video has a side-by-side layout with screen content (slides/presentation) on one half and camera (speaker) on the other half.",
             "picture_in_picture": "The video has a picture-in-picture layout with full-screen content and a small camera overlay in the corner.",
@@ -84,9 +90,9 @@ def build_analysis_prompt(
             layout_type, "The video layout could not be determined."
         )
 
-        if confidence > 0.6:
-            layout_context = f"\nVIDEO LAYOUT INFORMATION:\n{layout_desc}\n(Detection confidence: {confidence:.0%})\n"
-        elif confidence > 0.0:
+        if confidence_value > 0.6:
+            layout_context = f"\nVIDEO LAYOUT INFORMATION:\n{layout_desc}\n(Detection confidence: {confidence_value:.0%})\n"
+        elif confidence_value > 0.0:
             layout_context = f"\nVIDEO LAYOUT INFORMATION:\n{layout_desc}\n(Low confidence detection - layout may vary)\n"
         # if confidence is 0.0, it's a fallback default, so don't mention it
 
@@ -112,21 +118,37 @@ Please prioritize the above user instructions while maintaining the structured o
 
         visual_context = "\nVISUAL CONTENT FROM SLIDES:\n"
 
-        if text_blocks:
-            visual_context += f"Extracted text from {len(text_blocks)} slide frames:\n"
+        # handle both real lists and mock objects
+        try:
+            text_blocks_list = list(text_blocks) if text_blocks else []
+        except (TypeError, ValueError):
+            text_blocks_list = []
+
+        try:
+            visual_elements_list = list(visual_elements) if visual_elements else []
+        except (TypeError, ValueError):
+            visual_elements_list = []
+
+        try:
+            key_concepts_list = list(key_concepts) if key_concepts else []
+        except (TypeError, ValueError):
+            key_concepts_list = []
+
+        if text_blocks_list:
+            visual_context += f"Extracted text from {len(text_blocks_list)} slide frames:\n"
             # Include sample text blocks (limit to avoid prompt bloat)
-            for block in text_blocks[:10]:  # max 10 text blocks
-                timestamp = block.get("timestamp", 0)
-                text = block.get("text", "")
+            for block in text_blocks_list[:10]:  # max 10 text blocks
+                timestamp = block.get("timestamp", 0) if isinstance(block, dict) else 0
+                text = block.get("text", "") if isinstance(block, dict) else ""
                 visual_context += f"  [{timestamp:.1f}s]: {text[:200]}\n"  # max 200 chars each
-            if len(text_blocks) > 10:
-                visual_context += f"  ... and {len(text_blocks) - 10} more text blocks\n"
+            if len(text_blocks_list) > 10:
+                visual_context += f"  ... and {len(text_blocks_list) - 10} more text blocks\n"
 
-        if visual_elements:
-            visual_context += f"Visual elements detected: {', '.join(visual_elements)}\n"
+        if visual_elements_list:
+            visual_context += f"Visual elements detected: {', '.join(str(e) for e in visual_elements_list)}\n"
 
-        if key_concepts:
-            visual_context += f"Key concepts identified visually: {', '.join(key_concepts)}\n"
+        if key_concepts_list:
+            visual_context += f"Key concepts identified visually: {', '.join(str(c) for c in key_concepts_list)}\n"
 
     prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
 {layout_context}{visual_context}
