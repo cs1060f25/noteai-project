@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "lecture-highlight-extractor"
 version = "0.1.0"
@@ -137,3 +141,8 @@ warn_unused_configs = true
 testpaths = ["tests"]
 python_files = "test_*.py"
 addopts = "-ra"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "agents*", "pipeline*"]
+exclude = ["tests*", "alembic*", "data*", "grafana*", "loki*", "output_debug*", "prometheus*"]
