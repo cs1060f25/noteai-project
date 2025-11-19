@@ -106,9 +106,6 @@ USER INSTRUCTIONS (High Priority):
 Please prioritize the above user instructions while maintaining the structured output format below.
 """
 
-    prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
-{layout_context}{custom_context}
-"""
     # build visual content section if available
     visual_context = ""
     if visual_content:
@@ -153,7 +150,7 @@ Please prioritize the above user instructions while maintaining the structured o
             visual_context += f"Key concepts identified visually: {', '.join(str(c) for c in key_concepts_list)}\n"
 
     prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
-{layout_context}{visual_context}
+{layout_context}{custom_context}{visual_context}
 TRANSCRIPT (time-stamped):
 {transcript_text}
 
@@ -384,7 +381,6 @@ def analyze_chunk_with_gemini(
     api_key: str,
     layout_info: dict[str, Any] | None = None,
     custom_instructions: str | None = None,
-    layout_info: dict[str, Any] | None = None,
     visual_content: dict[str, Any] | None = None,
 ) -> list[dict]:
     """analyze a single transcript chunk with Gemini API.
@@ -410,8 +406,7 @@ def analyze_chunk_with_gemini(
         },
     )
 
-    prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions)
-    prompt = build_analysis_prompt(chunk_text, layout_info, visual_content)
+    prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions, visual_content)
 
     # log prompt details for debugging (first 800 chars only for chunks)
     prompt_preview = prompt[:800] + "..." if len(prompt) > 800 else prompt
@@ -659,7 +654,7 @@ def analyze_content(
                         api_key,
                         layout_info,
                         custom_prompt,
-                        analyze_chunk_with_gemini, chunk, job_id, idx, layout_info, visual_content
+                        visual_content
                     ): idx
                     for idx, chunk in enumerate(chunks)
                 }
@@ -699,8 +694,7 @@ def analyze_content(
                 },
             )
 
-            prompt = build_analysis_prompt(transcript_text, layout_info, custom_prompt)
-            prompt = build_analysis_prompt(transcript_text, layout_info, visual_content)
+            prompt = build_analysis_prompt(transcript_text, layout_info, custom_prompt, visual_content)
 
             # log the actual prompt being sent to Gemini (for debugging)
             prompt_preview = prompt[:1200] + "..." if len(prompt) > 1200 else prompt
