@@ -16,6 +16,9 @@ NC='\033[0m' # no color
 # track if any checks failed
 FAILED=0
 
+# debug trap to catch unexpected exits
+trap 'RET=$?; if [ $RET -ne 0 ] && [ $RET -ne 1 ]; then echo -e "${RED}❌ Script crashed with exit code $RET on line $LINENO${NC}"; fi' EXIT
+
 echo ""
 echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BOLD}${CYAN}🔍  PRE-COMMIT QUALITY CHECKS${NC}"
@@ -35,39 +38,61 @@ if [ -d "frontend" ]; then
     else
         # auto-format with prettier
         echo -e "  ${CYAN}✨ Formatting with Prettier...${NC}"
-        if npm run format > /dev/null 2>&1; then
+        
+        # use temp file for output to avoid subshell exit issues
+        TMP_OUT=$(mktemp)
+        set +e
+        npm run format > "$TMP_OUT" 2>&1
+        FORMAT_EXIT_CODE=$?
+        set -e
+        
+        if [ $FORMAT_EXIT_CODE -eq 0 ]; then
             echo -e "  ${GREEN}✓ Code formatted${NC}"
         else
             echo -e "  ${RED}✗ Formatting failed${NC}"
+            cat "$TMP_OUT"
             FAILED=1
         fi
+        rm -f "$TMP_OUT"
 
         # run linting
         echo -e "  ${CYAN}🔎 Linting with ESLint...${NC}"
-        LINT_OUTPUT=$(npm run lint 2>&1)
+        TMP_OUT=$(mktemp)
+        set +e
+        npm run lint > "$TMP_OUT" 2>&1
         LINT_EXIT_CODE=$?
+        set -e
 
         # check for errors (exit code != 0 means errors, warnings are ok)
         if [ $LINT_EXIT_CODE -ne 0 ]; then
             echo -e "  ${RED}✗ Linting failed (errors found)${NC}"
-            echo "$LINT_OUTPUT"
+            cat "$TMP_OUT"
             FAILED=1
-        elif echo "$LINT_OUTPUT" | grep -q "warning"; then
+        elif grep -q "warning" "$TMP_OUT"; then
             # warnings present but no errors
-            WARN_COUNT=$(echo "$LINT_OUTPUT" | grep -c "warning" || true)
+            WARN_COUNT=$(grep -c "warning" "$TMP_OUT" || true)
             echo -e "  ${YELLOW}⚠ Linting passed (${WARN_COUNT} warnings)${NC}"
         else
             echo -e "  ${GREEN}✓ Linting passed${NC}"
         fi
+        rm -f "$TMP_OUT"
 
         # run type checking
         echo -e "  ${CYAN}🔧 Type checking with TypeScript...${NC}"
-        if npm run type-check > /dev/null 2>&1; then
+        TMP_OUT=$(mktemp)
+        set +e
+        npm run type-check > "$TMP_OUT" 2>&1
+        TYPE_EXIT_CODE=$?
+        set -e
+        
+        if [ $TYPE_EXIT_CODE -eq 0 ]; then
             echo -e "  ${GREEN}✓ Types valid${NC}"
         else
             echo -e "  ${RED}✗ Type errors found${NC}"
+            cat "$TMP_OUT"
             FAILED=1
         fi
+        rm -f "$TMP_OUT"
 
         echo ""
     fi
@@ -88,21 +113,37 @@ if [ -d "backend" ]; then
     else
         # run linting
         echo -e "  ${CYAN}🔎 Linting with Ruff check...${NC}"
-        if uv run ruff check . > /dev/null 2>&1; then
+        TMP_OUT=$(mktemp)
+        set +e
+        uv run ruff check . > "$TMP_OUT" 2>&1
+        LINT_EXIT_CODE=$?
+        set -e
+        
+        if [ $LINT_EXIT_CODE -eq 0 ]; then
             echo -e "  ${GREEN}✓ Linting passed${NC}"
         else
             echo -e "  ${RED}✗ Linting failed${NC}"
+            cat "$TMP_OUT"
             echo -e "  ${YELLOW}  Run: uv run ruff check . --fix${NC}"
             FAILED=1
         fi
+        rm -f "$TMP_OUT"
 
         # run formatting
         echo -e "  ${CYAN}✨ Formatting with Ruff format...${NC}"
-        if uv run ruff format . > /dev/null 2>&1; then
+        TMP_OUT=$(mktemp)
+        set +e
+        uv run ruff format . > "$TMP_OUT" 2>&1
+        FORMAT_EXIT_CODE=$?
+        set -e
+        
+        if [ $FORMAT_EXIT_CODE -eq 0 ]; then
             echo -e "  ${GREEN}✓ Code formatted${NC}"
         else
-            echo -e "  ${YELLOW}⚠ Formatting skipped${NC}"
+            echo -e "  ${YELLOW}⚠ Formatting skipped (check failed)${NC}"
+            cat "$TMP_OUT"
         fi
+        rm -f "$TMP_OUT"
 
         echo ""
     fi

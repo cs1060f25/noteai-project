@@ -33,6 +33,9 @@ class User(Base):
     # clerk authentication
     clerk_user_id = Column(String(255), unique=True, index=True, nullable=False)
 
+    # api keys
+    gemini_api_key_encrypted = Column(String, nullable=True)
+
     # status flags
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=True, nullable=False)

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -1440,6 +1440,7 @@ dependencies = [
     { name = "boto3" },
     { name = "celery" },
     { name = "clerk-backend-api" },
+    { name = "cryptography" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "google-auth" },
@@ -1496,6 +1497,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.28.0" },
     { name = "celery", specifier = ">=5.3.0" },
     { name = "clerk-backend-api", specifier = ">=1.0.0" },
+    { name = "cryptography", specifier = ">=41.0.0" },
     { name = "email-validator", specifier = ">=2.0.0" },
     { name = "fastapi", specifier = ">=0.104.0" },
     { name = "google-auth", specifier = ">=2.23.0" },

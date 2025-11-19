@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 
 import { useUser } from '@clerk/clerk-react';
+import { AxiosError } from 'axios';
 import {
   Key,
   Sparkles,
@@ -18,7 +19,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
-import { saveGeminiApiKey } from '@/lib/onboarding';
+import { userService } from '@/services/userService';
 
 import InstructionsCard from './onboarding/InstructionCard';
 import { Button } from './ui/button';
@@ -83,7 +84,8 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
     setValidationError('');
 
     try {
-      saveGeminiApiKey(apiKey);
+      // Store API key via backend
+      await userService.storeApiKey(apiKey);
 
       await user.update({
         unsafeMetadata: {
@@ -98,8 +100,12 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
         onComplete();
       }, 500);
     } catch (error) {
-      console.error('Error saving onboarding status:', error);
-      setValidationError('Failed to save. Please try again.');
+      console.error('Error saving API key:', error);
+      const axiosError = error as AxiosError<{ detail: string }>;
+      const message =
+        axiosError.response?.data?.detail ||
+        'Failed to validate and save API key. Please try again.';
+      setValidationError(message);
     } finally {
       setIsValidating(false);
     }
