@@ -846,6 +846,7 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
                 status="started",
             )
 
+            content_result = analyze_content({}, job_id, config)
             # API key already fetched above
 
             content_result = analyze_content({}, job_id, api_key=api_key)
@@ -1183,7 +1184,7 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
         # API key already fetched above
 
-        content_result = analyze_content({}, job_id, api_key=api_key)
+        content_result = analyze_content({}, job_id, api_key=api_key, config=config)
 
         # log completion
         create_processing_log_entry(
