@@ -1184,7 +1184,7 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
         # API key already fetched above
 
-        content_result = analyze_content({}, job_id, api_key=api_key, config)
+        content_result = analyze_content({}, job_id, api_key=api_key, config=config)
 
         # log completion
         create_processing_log_entry(

@@ -327,9 +327,9 @@ def analyze_chunk_with_gemini(
     chunk_text: str,
     job_id: str,
     chunk_idx: int,
-    layout_info: dict[str, Any] | None = None,
-    custom_instructions: str | None = None
     api_key: str,
+    layout_info: dict[str, Any] | None = None,
+    custom_instructions: str | None = None,
 ) -> list[dict]:
     """analyze a single transcript chunk with Gemini API.
 
