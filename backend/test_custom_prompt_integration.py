@@ -12,10 +12,11 @@ from pathlib import Path
 # add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.core.settings import settings
-from app.services.db_service import DatabaseService
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+from app.core.settings import settings
+from app.services.db_service import DatabaseService
 
 
 def get_db_session():
@@ -160,7 +161,7 @@ def suggest_test_prompts():
         print()
 
 
-def analyze_segment_keywords(job_id: str, expected_keyword: str = None):
+def analyze_segment_keywords(job_id: str, expected_keyword: str | None = None):
     """Analyze segment keywords to verify custom instructions were followed.
 
     Args:
