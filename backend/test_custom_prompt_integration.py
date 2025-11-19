@@ -32,9 +32,9 @@ def test_prompt_retrieval(job_id: str):
     Args:
         job_id: Job ID to test
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Testing Custom Prompt Integration for Job: {job_id}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     db = get_db_session()
     try:
@@ -89,6 +89,7 @@ def test_prompt_retrieval(job_id: str):
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -106,9 +107,9 @@ def check_processing_logs(job_id: str):
         db_service = DatabaseService(db)
         logs = db_service.processing_logs.get_by_job_id(job_id)
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Processing Logs for Job: {job_id}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         if not logs:
             print("❌ No processing logs found")
@@ -116,7 +117,9 @@ def check_processing_logs(job_id: str):
 
         print(f"✅ Found {len(logs)} log entries:\n")
         for log in logs:
-            status_emoji = "✅" if log.status == "completed" else "⏳" if log.status == "started" else "❌"
+            status_emoji = (
+                "✅" if log.status == "completed" else "⏳" if log.status == "started" else "❌"
+            )
             print(f"{status_emoji} {log.stage} - {log.agent_name}: {log.status}")
             if log.details:
                 print(f"   Details: {log.details}")
@@ -127,9 +130,9 @@ def check_processing_logs(job_id: str):
 
 def suggest_test_prompts():
     """Suggest specific test prompts that produce verifiable results."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Suggested Test Prompts for Verification")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     tests = [
         {
@@ -156,7 +159,7 @@ def suggest_test_prompts():
 
     for i, test in enumerate(tests, 1):
         print(f"{i}. {test['name']}")
-        print(f"   Prompt: \"{test['prompt']}\"")
+        print(f'   Prompt: "{test["prompt"]}"')
         print(f"   Verification: {test['verification']}")
         print()
 
@@ -168,9 +171,9 @@ def analyze_segment_keywords(job_id: str, expected_keyword: str | None = None):
         job_id: Job ID to analyze
         expected_keyword: Optional keyword to search for
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Keyword Analysis for Job: {job_id}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     db = get_db_session()
     try:
@@ -203,6 +206,7 @@ def analyze_segment_keywords(job_id: str, expected_keyword: str | None = None):
 
         # most common keywords
         from collections import Counter
+
         keyword_counts = Counter(all_keywords)
         print("\n  Top 10 keywords:")
         for keyword, count in keyword_counts.most_common(10):
@@ -239,6 +243,6 @@ if __name__ == "__main__":
     check_processing_logs(job_id)
     analyze_segment_keywords(job_id, expected_keyword)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Test Complete")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")

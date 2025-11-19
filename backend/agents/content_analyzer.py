@@ -53,7 +53,7 @@ def format_transcript_for_gemini(transcripts: list[Any]) -> str:
 def build_analysis_prompt(
     transcript_text: str,
     layout_info: dict[str, Any] | None = None,
-    custom_instructions: str | None = None
+    custom_instructions: str | None = None,
 ) -> str:
     """build Gemini prompt for content analysis.
 
@@ -420,7 +420,9 @@ def merge_and_deduplicate_segments(
     return deduplicated
 
 
-def analyze_content(_transcript_data: dict, job_id: str, api_key: str | None = None, config: dict | None = None) -> dict:
+def analyze_content(
+    _transcript_data: dict, job_id: str, api_key: str | None = None, config: dict | None = None
+) -> dict:
     """analyze transcript content and extract topics using Gemini.
 
     this agent processes video transcripts to identify key educational segments,
@@ -566,7 +568,13 @@ def analyze_content(_transcript_data: dict, job_id: str, api_key: str | None = N
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_to_idx = {
                     executor.submit(
-                        analyze_chunk_with_gemini, chunk, job_id, idx, api_key, layout_info, custom_prompt
+                        analyze_chunk_with_gemini,
+                        chunk,
+                        job_id,
+                        idx,
+                        api_key,
+                        layout_info,
+                        custom_prompt,
                     ): idx
                     for idx, chunk in enumerate(chunks)
                 }
