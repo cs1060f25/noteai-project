@@ -112,6 +112,10 @@ class Settings(BaseSettings):
         default="dev-secret-key-change-in-production",
         description="Secret key for encryption and signatures",
     )
+    api_key_encryption_secret: str | None = Field(
+        default=None,
+        description="Secret key for API key encryption (32 url-safe base64-encoded bytes)",
+    )
 
     # Authentication - Clerk
     clerk_publishable_key: str = Field(

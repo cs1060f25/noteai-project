@@ -10,6 +10,18 @@ from .tasks import process_video_optimized
 logger = get_logger(__name__)
 
 
+def get_db():
+    """Create a new database session."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.core.settings import settings
+
+    engine = create_engine(settings.database_url)
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return session_local()
+
+
 class PipelineOrchestrator:
     """orchestrates the video processing pipeline."""
 
@@ -51,6 +63,41 @@ class PipelineOrchestrator:
                 extra={"job_id": job_id, "s3_key": s3_key},
             )
             raise
+
+        # Verify user has API key
+        db = get_db()
+        try:
+            from app.services.db_service import DatabaseService
+
+            db_service = DatabaseService(db)
+            job = db_service.jobs.get_by_id(job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            if not job.user or not job.user.gemini_api_key_encrypted:
+                error_msg = (
+                    "Missing API Key: Please add your Gemini API key in Settings to process videos."
+                )
+                logger.error(
+                    error_msg,
+                    extra={"job_id": job_id, "user_id": job.user_id if job.user else "unknown"},
+                )
+
+                # Mark job as failed immediately
+                job.status = "failed"
+                job.error_message = error_msg
+                db.commit()
+
+                # Send error notification (if websocket service available here, otherwise task will handle it?
+                # Actually orchestrator runs in API context usually, so we might not have async context for websocket
+                # but we should try to fail fast)
+                raise ValueError(error_msg)
+
+        except Exception as e:
+            logger.error("Failed to validate user API key", exc_info=e, extra={"job_id": job_id})
+            raise
+        finally:
+            db.close()
 
         # start optimized celery task (routes based on processing config)
         task = process_video_optimized.delay(job_id)

@@ -202,6 +202,7 @@ class TestContentAnalyzer:
         mock_transcript.text = "Test lecture content"
 
         mock_service.transcripts.get_by_job_id.return_value = [mock_transcript]
+        mock_service.layout_analysis.get_by_job_id.return_value = None
 
         # mock Gemini API response
         mock_model = MagicMock()
@@ -225,7 +226,7 @@ class TestContentAnalyzer:
         mock_genai.GenerativeModel.return_value = mock_model
 
         # call analyze_content
-        result = analyze_content({}, "test-job-123")
+        result = analyze_content({}, "test-job-123", api_key="test-api-key")
 
         # verify result
         assert result["status"] == "completed"
@@ -240,15 +241,54 @@ class TestContentAnalyzer:
         # verify model was created
         mock_genai.GenerativeModel.assert_called_once_with("gemini-2.5-flash-lite")
 
+    @patch("agents.content_analyzer.genai")
+    @patch("agents.content_analyzer.DatabaseService")
+    @patch("agents.content_analyzer.get_db_session")
+    @patch("agents.content_analyzer.settings")
+    def test_analyze_content_with_passed_api_key(
+        self, mock_settings, mock_db_session, mock_db_service_class, mock_genai
+    ):
+        """test that passed API key is used over settings."""
+        # mock settings with a different key
+        mock_settings.gemini_api_key = "settings-api-key"
+        mock_settings.gemini_model = "gemini-2.5-flash-lite"
+
+        # mock database session
+        mock_session = MagicMock()
+        mock_db_session.return_value = mock_session
+        mock_service = MagicMock()
+        mock_db_service_class.return_value = mock_service
+
+        # mock transcripts
+        mock_transcript = MagicMock()
+        mock_transcript.start_time = 0.0
+        mock_transcript.end_time = 120.0
+        mock_transcript.text = "Test content"
+        mock_service.transcripts.get_by_job_id.return_value = [mock_transcript]
+        mock_service.layout_analysis.get_by_job_id.return_value = None
+
+        # mock Gemini response
+        mock_model = MagicMock()
+        mock_response = Mock()
+        mock_response.text = '{"segments": [{"topic": "Test", "importance_score": 0.8}]}'
+        mock_model.generate_content.return_value = mock_response
+        mock_genai.GenerativeModel.return_value = mock_model
+
+        # call analyze_content with specific key
+        analyze_content({}, "test-job-123", api_key="user-provided-key")
+
+        # verify Gemini was configured with user key
+        mock_genai.configure.assert_called_once_with(api_key="user-provided-key")
+
     @patch("agents.content_analyzer.settings")
     def test_analyze_content_missing_api_key(self, mock_settings):
         """test error when API key is missing."""
         mock_settings.gemini_api_key = None
 
         with pytest.raises(ValueError) as exc_info:
-            analyze_content({}, "test-job-123")
+            analyze_content({}, "test-job-123", api_key=None)
 
-        assert "GEMINI_API_KEY not configured" in str(exc_info.value)
+        assert "Gemini API key is missing" in str(exc_info.value)
 
     @patch("agents.content_analyzer.DatabaseService")
     @patch("agents.content_analyzer.get_db_session")
@@ -267,6 +307,7 @@ class TestContentAnalyzer:
         mock_service = MagicMock()
         mock_db_service_class.return_value = mock_service
         mock_service.transcripts.get_by_job_id.return_value = []
+        mock_service.layout_analysis.get_by_job_id.return_value = None
 
         with pytest.raises(ValueError) as exc_info:
             analyze_content({}, "test-job-123")
@@ -297,6 +338,7 @@ class TestContentAnalyzer:
         mock_transcript.end_time = 120.0
         mock_transcript.text = "Test content"
         mock_service.transcripts.get_by_job_id.return_value = [mock_transcript]
+        mock_service.layout_analysis.get_by_job_id.return_value = None
 
         # mock Gemini response with mixed importance scores
         mock_model = MagicMock()

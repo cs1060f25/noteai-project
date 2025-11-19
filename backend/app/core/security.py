@@ -5,6 +5,36 @@ import hmac
 import secrets
 from datetime import datetime, timezone
 
+from cryptography.fernet import Fernet
+
+
+def encrypt_string(value: str, secret: str) -> str:
+    """Encrypt a string using Fernet.
+
+    Args:
+        value: String to encrypt
+        secret: Secret key (must be 32 url-safe base64-encoded bytes)
+
+    Returns:
+        Encrypted string
+    """
+    f = Fernet(secret)
+    return f.encrypt(value.encode()).decode()
+
+
+def decrypt_string(value: str, secret: str) -> str:
+    """Decrypt a string using Fernet.
+
+    Args:
+        value: Encrypted string
+        secret: Secret key
+
+    Returns:
+        Decrypted string
+    """
+    f = Fernet(secret)
+    return f.decrypt(value.encode()).decode()
+
 
 def generate_random_string(length: int = 32) -> str:
     """Generate a cryptographically secure random string.

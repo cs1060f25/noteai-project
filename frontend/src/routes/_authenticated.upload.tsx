@@ -796,7 +796,18 @@ export const UploadIntegrated = () => {
         {errorMsg && (
           <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 text-destructive p-3 text-sm flex items-center gap-2">
             <XCircle className="w-4 h-4" />
-            <span>{errorMsg}</span>
+            <div className="flex-1">
+              <span>{errorMsg}</span>
+              {(errorMsg.includes('API Key') || errorMsg.includes('API key')) && (
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-destructive underline ml-2"
+                  onClick={() => navigate({ to: '/settings' })}
+                >
+                  Go to Settings
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
