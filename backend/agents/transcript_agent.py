@@ -51,17 +51,20 @@ def get_db_session():
     return session_local()
 
 
-def validate_gemini_config() -> None:
+def validate_gemini_config(api_key: str | None = None) -> None:
     """validate gemini api configuration.
+
+    Args:
+        api_key: optional API key to use (overrides settings)
 
     Raises:
         ValueError: if gemini api key is not configured
     """
-    if not settings.gemini_api_key:
+    if not api_key and not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY not configured. Please add it to your .env file.")
 
     # configure gemini
-    genai.configure(api_key=settings.gemini_api_key)
+    genai.configure(api_key=api_key or settings.gemini_api_key)
 
     logger.info(
         "Gemini API configured successfully",
@@ -375,6 +378,7 @@ def extract_and_segment_audio(
 def chunk_and_transcribe_audio(
     audio: AudioSegment,
     job_id: str,
+    api_key: str | None = None,
     chunk_duration_seconds: int = 180,
     rate_limit_mode: bool = True,
 ) -> dict:
@@ -524,7 +528,7 @@ def chunk_and_transcribe_audio(
             with ThreadPoolExecutor(max_workers=3) as executor:
                 # submit all transcription tasks
                 future_to_chunk = {
-                    executor.submit(transcribe_with_gemini, chunk["path"], job_id): chunk
+                    executor.submit(transcribe_with_gemini, chunk["path"], job_id, api_key): chunk
                     for chunk in chunk_data
                 }
 
@@ -607,7 +611,7 @@ def chunk_and_transcribe_audio(
                         },
                     )
 
-                    chunk_result = transcribe_with_gemini(chunk["path"], job_id)
+                    chunk_result = transcribe_with_gemini(chunk["path"], job_id, api_key)
 
                     # adjust timestamps for this chunk's position
                     adjusted_segments = []
@@ -680,7 +684,7 @@ def chunk_and_transcribe_audio(
     return result
 
 
-def transcribe_with_gemini(audio_path: str, job_id: str) -> dict:
+def transcribe_with_gemini(audio_path: str, job_id: str, api_key: str | None = None) -> dict:
     """transcribe audio file using Google Gemini API with rate limit handling.
 
     Args:
@@ -717,6 +721,9 @@ def transcribe_with_gemini(audio_path: str, job_id: str) -> dict:
             )
 
             # use gemini 2.5 flash for audio transcription
+            if api_key:
+                genai.configure(api_key=api_key)
+
             model = genai.GenerativeModel("gemini-2.5-flash")
 
             # prompt for transcription
@@ -1004,6 +1011,7 @@ def generate_transcript(
     job_id: str,
     local_video_path: str | None = None,
     rate_limit_mode: bool = True,
+    api_key: str | None = None,
 ) -> dict:
     """generate transcript from video audio using Google Gemini API.
 
@@ -1038,7 +1046,7 @@ def generate_transcript(
 
     try:
         # validate gemini api configuration
-        validate_gemini_config()
+        validate_gemini_config(api_key)
 
         # use local video path if provided, otherwise download from s3
         if local_video_path and os.path.exists(local_video_path):
@@ -1135,13 +1143,13 @@ def generate_transcript(
                 extra={"job_id": job_id, "rate_limit_mode": rate_limit_mode},
             )
             transcription_result = chunk_and_transcribe_audio(
-                audio_or_path, job_id, rate_limit_mode=rate_limit_mode
+                audio_or_path, job_id, api_key=api_key, rate_limit_mode=rate_limit_mode
             )
             temp_audio_path = None  # no single file, chunks are handled internally
         else:
             # audio fits in single request
             temp_audio_path = audio_or_path
-            transcription_result = transcribe_with_gemini(temp_audio_path, job_id)
+            transcription_result = transcribe_with_gemini(temp_audio_path, job_id, api_key)
 
         logger.info(
             "Transcription received from Gemini API",

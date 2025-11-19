@@ -309,7 +309,11 @@ def split_transcript_into_chunks(
 
 
 def analyze_chunk_with_gemini(
-    chunk_text: str, job_id: str, chunk_idx: int, layout_info: dict[str, Any] | None = None
+    chunk_text: str,
+    job_id: str,
+    chunk_idx: int,
+    api_key: str,
+    layout_info: dict[str, Any] | None = None,
 ) -> list[dict]:
     """analyze a single transcript chunk with Gemini API.
 
@@ -317,6 +321,7 @@ def analyze_chunk_with_gemini(
         chunk_text: chunk of transcript text
         job_id: job identifier for logging
         chunk_idx: index of this chunk
+        api_key: Gemini API key
         layout_info: optional layout analysis data to provide context
 
     Returns:
@@ -329,7 +334,7 @@ def analyze_chunk_with_gemini(
 
     prompt = build_analysis_prompt(chunk_text, layout_info)
 
-    genai.configure(api_key=settings.gemini_api_key)
+    genai.configure(api_key=api_key)
     model = genai.GenerativeModel(settings.gemini_model)
 
     response = model.generate_content(prompt)
@@ -387,7 +392,7 @@ def merge_and_deduplicate_segments(
     return deduplicated
 
 
-def analyze_content(_transcript_data: dict, job_id: str) -> dict:
+def analyze_content(_transcript_data: dict, job_id: str, api_key: str | None = None) -> dict:
     """analyze transcript content and extract topics using Gemini.
 
     this agent processes video transcripts to identify key educational segments,
@@ -396,6 +401,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
     Args:
         _transcript_data: unused (queries database directly)
         job_id: job identifier
+        api_key: Gemini API key (required)
 
     Returns:
         result dictionary with analysis statistics
@@ -410,11 +416,12 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
 
     try:
         # validate Gemini API key
-        if not settings.gemini_api_key:
-            raise ValueError(
-                "GEMINI_API_KEY not configured in environment. "
-                "Please set GEMINI_API_KEY in your .env file."
-            )
+        if not api_key:
+            # Fallback to settings if not provided (legacy support or system key)
+            api_key = settings.gemini_api_key
+
+        if not api_key:
+            raise ValueError("Gemini API key is missing. Please add your API key in Settings.")
 
         # create database session and query transcripts + layout
         db = get_db_session()
@@ -499,7 +506,9 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
             chunk_results = []
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_to_idx = {
-                    executor.submit(analyze_chunk_with_gemini, chunk, job_id, idx, layout_info): idx
+                    executor.submit(
+                        analyze_chunk_with_gemini, chunk, job_id, idx, api_key, layout_info
+                    ): idx
                     for idx, chunk in enumerate(chunks)
                 }
 
@@ -540,7 +549,7 @@ def analyze_content(_transcript_data: dict, job_id: str) -> dict:
 
             prompt = build_analysis_prompt(transcript_text, layout_info)
 
-            genai.configure(api_key=settings.gemini_api_key)
+            genai.configure(api_key=api_key)
             model = genai.GenerativeModel(settings.gemini_model)
 
             response = model.generate_content(prompt)

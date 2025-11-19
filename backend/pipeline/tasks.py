@@ -68,6 +68,42 @@ def get_job_s3_key(job_id: str) -> str:
         db.close()
 
 
+def get_user_api_key(job_id: str) -> str:
+    """Get decrypted user API key for a job.
+
+    Args:
+        job_id: job identifier
+
+    Returns:
+        Decrypted API key
+
+    Raises:
+        ValueError: if key is missing or invalid
+    """
+    from app.core.security import decrypt_string
+
+    db = get_task_db()
+    try:
+        db_service = DatabaseService(db)
+        job = db_service.jobs.get_by_id(job_id)
+        if not job:
+            raise ValueError(f"Job not found: {job_id}")
+
+        if not job.user or not job.user.gemini_api_key_encrypted:
+            raise ValueError("User API key not found")
+
+        try:
+            api_key = decrypt_string(
+                job.user.gemini_api_key_encrypted, settings.api_key_encryption_secret
+            )
+            return api_key
+        except Exception as e:
+            logger.error("Failed to decrypt API key", exc_info=e, extra={"job_id": job_id})
+            raise ValueError("Invalid API key configuration") from e
+    finally:
+        db.close()
+
+
 def create_processing_log_entry(
     job_id: str,
     stage: str,
@@ -763,10 +799,18 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
                 status="started",
             )
 
+            # fetch API key early for transcription and content analysis
+            try:
+                api_key = get_user_api_key(job_id)
+            except Exception as e:
+                logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+                raise
+
             transcript_result = generate_transcript(
                 s3_key=None,
                 job_id=job_id,
                 local_video_path=audio_path,
+                api_key=api_key,
             )
 
             # log completion
@@ -802,7 +846,9 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
                 status="started",
             )
 
-            content_result = analyze_content({}, job_id)
+            # API key already fetched above
+
+            content_result = analyze_content({}, job_id, api_key=api_key)
 
             # log completion
             create_processing_log_entry(
@@ -990,6 +1036,13 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
         s3_key = get_job_s3_key(job_id)
 
+        # fetch API key early for transcription and content analysis
+        try:
+            api_key = get_user_api_key(job_id)
+        except Exception as e:
+            logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+            raise
+
         # parallel download and processing
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             # audio track processing
@@ -1043,6 +1096,7 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                     s3_key=None,
                     job_id=job_id,
                     local_video_path=audio_path,
+                    api_key=api_key,
                 )
 
                 # log completion
@@ -1127,7 +1181,9 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
             status="started",
         )
 
-        content_result = analyze_content({}, job_id)
+        # API key already fetched above
+
+        content_result = analyze_content({}, job_id, api_key=api_key)
 
         # log completion
         create_processing_log_entry(
@@ -1425,8 +1481,16 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
         eta_seconds=30,
     )
 
+    # fetch API key
+    try:
+        api_key = get_user_api_key(job_id)
+    except Exception as e:
+        logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+        self.mark_job_failed(job_id, f"API Key Error: {e!s}")
+        raise
+
     # agent queries database directly, pass empty dict for legacy signature
-    result = analyze_content({}, job_id)
+    result = analyze_content({}, job_id, api_key=api_key)
 
     logger.info(
         "content analysis completed",
