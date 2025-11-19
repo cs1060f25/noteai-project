@@ -50,24 +50,24 @@ def test_prompt_retrieval(job_id: str):
 
         # check for processing config
         if not job.extra_metadata:
-            print(f"\n❌ No extra_metadata found")
+            print("\n❌ No extra_metadata found")
             return False
 
         processing_config = job.extra_metadata.get("processing_config", {})
         if not processing_config:
-            print(f"\n❌ No processing_config in extra_metadata")
+            print("\n❌ No processing_config in extra_metadata")
             return False
 
-        print(f"\n✅ Processing config found:")
+        print("\n✅ Processing config found:")
         print(f"   {json.dumps(processing_config, indent=2)}")
 
         # check for custom prompt
         custom_prompt = processing_config.get("prompt")
         if not custom_prompt:
-            print(f"\n⚠️  No custom prompt found (this is OK if user didn't provide one)")
+            print("\n⚠️  No custom prompt found (this is OK if user didn't provide one)")
             return True
 
-        print(f"\n✅ Custom prompt found:")
+        print("\n✅ Custom prompt found:")
         print(f"   Length: {len(custom_prompt)} characters")
         print(f"   Preview: {custom_prompt[:200]}...")
 
@@ -75,13 +75,13 @@ def test_prompt_retrieval(job_id: str):
         segments = db_service.content_segments.get_by_job_id(job_id)
         if segments:
             print(f"\n✅ Content segments found: {len(segments)}")
-            print(f"\n   Top 3 segments:")
+            print("\n   Top 3 segments:")
             for i, seg in enumerate(segments[:3], 1):
                 print(f"   {i}. {seg.topic}")
                 print(f"      Score: {seg.importance_score:.2f}")
                 print(f"      Keywords: {', '.join(seg.keywords[:5])}")
         else:
-            print(f"\n⚠️  No content segments found yet (job may still be processing)")
+            print("\n⚠️  No content segments found yet (job may still be processing)")
 
         return True
 
@@ -194,7 +194,7 @@ def analyze_segment_keywords(job_id: str, expected_keyword: str = None):
         avg_score = sum(importance_scores) / len(importance_scores)
         unique_keywords = set(all_keywords)
 
-        print(f"Statistics:")
+        print("Statistics:")
         print(f"  Total segments: {len(segments)}")
         print(f"  Average importance score: {avg_score:.3f}")
         print(f"  Total keywords: {len(all_keywords)}")
@@ -203,7 +203,7 @@ def analyze_segment_keywords(job_id: str, expected_keyword: str = None):
         # most common keywords
         from collections import Counter
         keyword_counts = Counter(all_keywords)
-        print(f"\n  Top 10 keywords:")
+        print("\n  Top 10 keywords:")
         for keyword, count in keyword_counts.most_common(10):
             print(f"    - {keyword}: {count}")
 
@@ -211,9 +211,9 @@ def analyze_segment_keywords(job_id: str, expected_keyword: str = None):
         if expected_keyword:
             print(f"\n  Searching for expected keyword: '{expected_keyword}'")
             if expected_keyword.lower() in [k.lower() for k in all_keywords]:
-                print(f"  ✅ FOUND! Custom instructions were used!")
+                print("  ✅ FOUND! Custom instructions were used!")
             else:
-                print(f"  ❌ NOT FOUND! Custom instructions may not be working!")
+                print("  ❌ NOT FOUND! Custom instructions may not be working!")
 
     finally:
         db.close()
