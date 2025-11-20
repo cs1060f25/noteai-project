@@ -176,7 +176,7 @@ def main():
     # Extract and analyze 3 sample frames
     sample_timestamps = [
         duration * 0.25,  # 25% into video
-        duration * 0.5,   # 50% into video
+        duration * 0.5,  # 50% into video
         duration * 0.75,  # 75% into video
     ]
 
@@ -229,10 +229,12 @@ def main():
             print("   (none detected)")
         print()
 
-        all_results.append({
-            "timestamp": timestamp,
-            "result": result,
-        })
+        all_results.append(
+            {
+                "timestamp": timestamp,
+                "result": result,
+            }
+        )
 
     # Summary
     print("=" * 80)
