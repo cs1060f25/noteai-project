@@ -241,3 +241,34 @@ export interface ApiKeyTestResponse {
   message: string;
   error_code?: string;
 }
+
+// dashboard types
+
+export interface DashboardStats {
+  total_videos: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  total_clips: number;
+  total_storage_bytes: number;
+  videos_last_24h: number;
+  videos_last_7d: number;
+  videos_last_30d: number;
+}
+
+export interface RecentVideo {
+  job_id: string;
+  filename: string;
+  status: JobStatus;
+  clips_count: number;
+  duration: number | null;
+  created_at: string;
+  updated_at: string;
+  current_stage: string | null;
+  progress_percent: number | null;
+}
+
+export interface DashboardData {
+  stats: DashboardStats;
+  recent_videos: RecentVideo[];
+}

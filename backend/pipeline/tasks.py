@@ -448,13 +448,19 @@ class BaseProcessingTask(Task):
                 job.completed_at = datetime.now(timezone.utc)
                 db.commit()
 
-            logger.error(
-                "Job marked as failed",
-                extra={"job_id": job_id, "error": error_message},
-            )
+                logger.error(
+                    "Job marked as failed",
+                    extra={"job_id": job_id, "status": job.status,
+                           "error": error_message},
+                )
 
-            # Send WebSocket error notification
-            send_error_sync(job_id, error_message)
+                # Send WebSocket error notification
+                send_error_sync(job_id, error_message)
+            else:
+                logger.error(
+                    "Cannot mark job as failed - job not found",
+                    extra={"job_id": job_id, "error": error_message},
+                )
 
         except Exception as e:
             logger.error(

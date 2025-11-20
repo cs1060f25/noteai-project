@@ -19,6 +19,7 @@ from app.models.schemas import (
 from app.models.user import User
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
+from app.services.storage_service import StorageService
 from app.services.validation_service import ValidationError, file_validator
 from app.services.youtube_service import (
     DownloadFailedError,
@@ -232,6 +233,10 @@ def confirm_upload(
         # update job status to queued and trigger processing
         db_service.jobs.update_status(job_id=job.job_id, status="queued")
         db.commit()
+
+        # update user storage to include original video size
+        storage_service = StorageService(db)
+        storage_service.increment_user_storage(current_user.user_id, job.file_size)
 
         # trigger optimized celery processing pipeline (single download, parallel sub-tasks)
         task = process_video_optimized.delay(confirm_request.job_id)
