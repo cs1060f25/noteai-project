@@ -18,6 +18,7 @@ from app.models.database import (
     LayoutAnalysis,
     ProcessingLog,
     SilenceRegion,
+    SlideContent,
     Transcript,
 )
 from app.models.user import User
@@ -768,6 +769,89 @@ class LayoutAnalysisRepository:
 
 
 # ============================================================================
+# Slide Content Repository
+# ============================================================================
+
+
+class SlideContentRepository:
+    """Repository for SlideContent model operations."""
+
+    def __init__(self, db: Session):
+        """Initialize repository with database session.
+
+        Args:
+            db: SQLAlchemy database session
+        """
+        self.db = db
+
+    def create(
+        self,
+        content_id: str,
+        job_id: str,
+        frames_analyzed: int,
+        text_blocks: list[dict[str, Any]],
+        visual_elements: list[str],
+        key_concepts: list[str],
+        frame_data: list[dict[str, Any]],
+    ) -> SlideContent:
+        """Create a new slide content record.
+
+        Args:
+            content_id: Unique content identifier
+            job_id: Associated job identifier
+            frames_analyzed: Number of frames analyzed
+            text_blocks: Extracted text blocks with timestamps
+            visual_elements: List of visual element types
+            key_concepts: List of key concepts
+            frame_data: Per-frame analysis data
+
+        Returns:
+            Created SlideContent instance
+        """
+        slide_content = SlideContent(
+            content_id=content_id,
+            job_id=job_id,
+            frames_analyzed=frames_analyzed,
+            text_blocks=text_blocks,
+            visual_elements=visual_elements,
+            key_concepts=key_concepts,
+            frame_data=frame_data,
+        )
+        self.db.add(slide_content)
+        self.db.commit()
+        self.db.refresh(slide_content)
+        return slide_content
+
+    def get_by_job_id(self, job_id: str) -> SlideContent | None:
+        """Get slide content for a job.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            SlideContent instance or None if not found
+        """
+        return self.db.query(SlideContent).filter(SlideContent.job_id == job_id).first()
+
+    def delete_by_job_id(self, job_id: str) -> bool:
+        """Delete slide content for a job.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            True if deleted, False if not found
+        """
+        slide_content = self.get_by_job_id(job_id)
+        if not slide_content:
+            return False
+
+        self.db.delete(slide_content)
+        self.db.commit()
+        return True
+
+
+# ============================================================================
 # Content Segment Repository
 # ============================================================================
 
@@ -1351,6 +1435,7 @@ class DatabaseService:
         self.transcripts = TranscriptRepository(db)
         self.silence_regions = SilenceRegionRepository(db)
         self.layout_analysis = LayoutAnalysisRepository(db)
+        self.slide_content = SlideContentRepository(db)
         self.content_segments = ContentSegmentRepository(db)
         self.clips = ClipRepository(db)
         self.processing_logs = ProcessingLogRepository(db)

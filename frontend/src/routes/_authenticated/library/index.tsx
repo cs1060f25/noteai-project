@@ -223,7 +223,7 @@ export function LibraryPage() {
           </div>
           <div className="flex gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px] glass-card border-border/50">
+              <SelectTrigger className="w-[170px] glass-card border-border/50">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Filter" />
               </SelectTrigger>
@@ -236,7 +236,7 @@ export function LibraryPage() {
             </Select>
 
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[140px] glass-card border-border/50">
+              <SelectTrigger className="w-[170px] glass-card border-border/50">
                 <SortAsc className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
