@@ -300,6 +300,7 @@ class Clip(Base):
 
     # Storage
     s3_key = Column(String(500), nullable=False)
+    file_size_bytes = Column(Integer, nullable=True)  # size of the clip video file
     thumbnail_s3_key = Column(String(500), nullable=True)
     subtitle_s3_key = Column(String(500), nullable=True)
 
@@ -333,6 +334,7 @@ class Clip(Base):
             "end_time": self.end_time,
             "duration": self.duration,
             "s3_key": self.s3_key,
+            "file_size_bytes": self.file_size_bytes,
             "thumbnail_s3_key": self.thumbnail_s3_key,
             "subtitle_s3_key": self.subtitle_s3_key,
             "clip_order": self.clip_order,

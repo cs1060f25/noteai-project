@@ -361,6 +361,25 @@ def detect_silence(s3_key: str | None, job_id: str, local_video_path: str | None
             temp_video_path = download_video_from_s3(s3_key, job_id)
             cleanup_required = True
 
+        # extract video metadata and update job duration if not set
+        db = get_db_session()
+        try:
+            db_service = DatabaseService(db)
+            job = db_service.jobs.get_by_id(job_id)
+
+            if job and job.video_duration is None:
+                # extract media duration using FFmpeg (works for both audio and video)
+                ffmpeg_helper = FFmpegHelper()
+                duration = ffmpeg_helper.get_media_duration(Path(temp_video_path))
+
+                db_service.jobs.update_video_metadata(job_id=job_id, video_duration=duration)
+                logger.info(
+                    "Updated job with media duration",
+                    extra={"job_id": job_id, "duration": duration},
+                )
+        finally:
+            db.close()
+
         # analyze audio for silence
         silence_regions = analyze_audio_silence(temp_video_path, job_id)
 

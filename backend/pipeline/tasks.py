@@ -445,13 +445,18 @@ class BaseProcessingTask(Task):
                 job.completed_at = datetime.now(timezone.utc)
                 db.commit()
 
-            logger.error(
-                "Job marked as failed",
-                extra={"job_id": job_id, "error": error_message},
-            )
+                logger.error(
+                    "Job marked as failed",
+                    extra={"job_id": job_id, "status": job.status, "error": error_message},
+                )
 
-            # Send WebSocket error notification
-            send_error_sync(job_id, error_message)
+                # Send WebSocket error notification
+                send_error_sync(job_id, error_message)
+            else:
+                logger.error(
+                    "Cannot mark job as failed - job not found",
+                    extra={"job_id": job_id, "error": error_message},
+                )
 
         except Exception as e:
             logger.error(
@@ -867,10 +872,8 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
                 status="started",
             )
 
-            content_result = analyze_content({}, job_id, config)
             # API key already fetched above
-
-            content_result = analyze_content({}, job_id, api_key=api_key)
+            content_result = analyze_content({}, job_id, api_key=api_key, config=config)
 
             # log completion
             create_processing_log_entry(

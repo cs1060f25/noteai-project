@@ -38,6 +38,54 @@ class FFmpegHelper:
             logger.error("FFmpeg not found or not working", exc_info=e)
             raise FFmpegError("FFmpeg is not installed or not accessible") from e
 
+    def get_media_duration(self, media_path: Path) -> float:
+        """Get media duration using ffprobe (works for both audio and video files).
+
+        Args:
+            media_path: Path to media file (audio or video)
+
+        Returns:
+            Duration in seconds
+
+        Raises:
+            FFmpegError: If ffprobe fails or no duration found
+        """
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "quiet",
+                    "-print_format",
+                    "json",
+                    "-show_format",
+                    str(media_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=30,
+            )
+
+            probe_data = json.loads(result.stdout)
+            duration = float(probe_data.get("format", {}).get("duration", 0))
+
+            if duration <= 0:
+                raise FFmpegError("Invalid or missing duration in media file")
+
+            return duration
+
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                "FFprobe failed",
+                exc_info=e,
+                extra={"media_path": str(media_path), "stderr": e.stderr},
+            )
+            raise FFmpegError(f"Failed to get media duration: {e.stderr}") from e
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error("Failed to parse ffprobe output", exc_info=e)
+            raise FFmpegError("Failed to parse media duration") from e
+
     def get_video_info(self, video_path: Path) -> dict[str, Any]:
         """Get video metadata using ffprobe.
         Args:
