@@ -1,10 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import * as matchers from '@testing-library/jest-dom/matchers';
-expect.extend(matchers);
+import { createMemoryHistory, createRouter, RouterProvider, createRootRoute } from '@tanstack/react-router';
+import { AgentOutputsDetailView } from '../_authenticated.agent-outputs';
 
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
-import { Route as AgentOutputsRoute } from '../_authenticated.agent-outputs';
+expect.extend(matchers);
 
 // Mock the service calls
 vi.mock('../../services/agentOutputsService', () => ({
@@ -32,7 +32,7 @@ vi.mock('../../services/agentOutputsService', () => ({
 vi.mock('../../services/resultsService', () => ({
     getResults: vi.fn().mockResolvedValue({
         metadata: {
-            highlight_video: { url: 'http://example.com/highlight.mp4' }
+            highlight_video: { url: 'http://example.com/highlight.mp4', s3_key: 'test-key' }
         }
     })
 }));
@@ -50,26 +50,20 @@ vi.mock('../../components/VideoPlayer', () => ({
 
 describe('AgentOutputs View', () => {
     it('renders the video player with size controls', async () => {
-        // Setup router for testing
-        const rootRoute = createRootRoute();
-        const agentOutputsRoute = createRoute({
-            getParentRoute: () => rootRoute,
-            path: '/agent-outputs',
-            component: AgentOutputsRoute.component,
+        // Create a root route that renders the component directly
+        // This avoids issues with route context and params
+        const rootRoute = createRootRoute({
+            component: () => <AgentOutputsDetailView jobId="123" />
         });
 
         const router = createRouter({
-            routeTree: rootRoute.addChildren([agentOutputsRoute]),
-            history: createMemoryHistory({ initialEntries: ['/agent-outputs?jobId=123'] }),
+            routeTree: rootRoute,
+            history: createMemoryHistory(),
         });
 
         render(<RouterProvider router={router} />);
 
-        // Wait for data loading (simplified for this test)
-        // In a real scenario we might need waitFor, but let's check for the element
-        // This is expected to FAIL because the player isn't there or doesn't have controls yet
-
-        // 1. Wait for the size control to appear (this confirms data loaded and conditional rendering passed)
+        // 1. Wait for the size control to appear
         const sizeControl = await screen.findByText(/Size:/i);
         expect(sizeControl).toBeInTheDocument();
 
