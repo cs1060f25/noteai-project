@@ -1,10 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import * as matchers from '@testing-library/jest-dom/matchers';
 import { createMemoryHistory, createRouter, RouterProvider, createRootRoute } from '@tanstack/react-router';
 import { Footer } from '../Footer';
-
-expect.extend(matchers);
 
 // Mock Link to avoid router context issues
 vi.mock('@tanstack/react-router', async () => {
@@ -38,9 +35,11 @@ describe('Footer Component', () => {
 
         links.forEach(linkText => {
             const link = screen.getByText(linkText);
-            expect(link).toBeInTheDocument();
+            expect(link).toBeTruthy();
             // Verify it's an anchor tag (or Link component rendering an anchor)
-            expect(link.closest('a')).toHaveAttribute('href');
+            const anchor = link.closest('a');
+            expect(anchor).toBeTruthy();
+            expect(anchor?.getAttribute('href')).toBeTruthy();
         });
     });
 });
