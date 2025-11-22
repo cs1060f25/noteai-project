@@ -8,6 +8,7 @@ import { defineConfig } from 'vite';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    !process.env.VITEST &&
     tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,
