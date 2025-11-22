@@ -167,6 +167,7 @@ class ClipMetadata(BaseModel):
     s3_key: str = Field(..., description="S3 object key for the clip")
     url: HttpUrl | None = Field(None, description="URL to access the clip")
     thumbnail_url: HttpUrl | None = Field(None, description="URL to clip thumbnail")
+    subtitle_url: HttpUrl | None = Field(None, description="URL to WebVTT subtitle file")
 
 
 class TranscriptSegment(BaseModel):

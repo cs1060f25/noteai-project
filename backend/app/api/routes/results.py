@@ -127,6 +127,21 @@ def get_results(
                     extra={"job_id": job_id, "clip_id": clip.clip_id},
                 )
 
+        # generate subtitle URL if available
+        subtitle_url = None
+        if clip.subtitle_s3_key:
+            try:
+                subtitle_url = s3_service.generate_presigned_url(
+                    object_key=clip.subtitle_s3_key,
+                    expiration=settings.s3_presigned_url_expiry,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to generate subtitle URL",
+                    exc_info=e,
+                    extra={"job_id": job_id, "clip_id": clip.clip_id},
+                )
+
         clips.append(
             ClipMetadata(
                 clip_id=clip.clip_id,
@@ -137,6 +152,7 @@ def get_results(
                 s3_key=clip.s3_key,
                 url=clip_url,
                 thumbnail_url=thumbnail_url,
+                subtitle_url=subtitle_url,
             )
         )
 
