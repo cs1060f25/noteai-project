@@ -4,8 +4,7 @@ This test suite verifies that video clips are generated with proper subtitle fil
 containing transcript data synchronized to the clip's time range.
 """
 
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -67,7 +66,13 @@ class TestVideoCompilerSubtitles:
     @patch("agents.video_compiler.boto3.client")
     @patch("agents.video_compiler.FFmpegHelper")
     def test_subtitle_s3_key_is_none_bug(
-        self, mock_ffmpeg_class, mock_boto3_client, mock_db, sample_clip, sample_transcripts, tmp_path
+        self,
+        mock_ffmpeg_class,
+        mock_boto3_client,
+        mock_db,
+        sample_clip,
+        sample_transcripts,
+        tmp_path,
     ):
         """Test that demonstrates the BUG: subtitle_s3_key is always None.
 
@@ -117,7 +122,13 @@ class TestVideoCompilerSubtitles:
     @patch("agents.video_compiler.boto3.client")
     @patch("agents.video_compiler.FFmpegHelper")
     def test_subtitle_file_should_be_generated(
-        self, mock_ffmpeg_class, mock_boto3_client, mock_db, sample_clip, sample_transcripts, tmp_path
+        self,
+        mock_ffmpeg_class,
+        mock_boto3_client,
+        mock_db,
+        sample_clip,
+        sample_transcripts,
+        tmp_path,
     ):
         """Test that subtitle file SHOULD be generated and uploaded to S3.
 
@@ -159,12 +170,18 @@ class TestVideoCompilerSubtitles:
         assert result is not None, "Clip processing should return metadata"
 
         # Subtitle S3 key should be populated
-        assert result["subtitle_s3_key"] is not None, "subtitle_s3_key should not be None when transcripts exist"
-        assert result["subtitle_s3_key"].startswith("subtitles/"), "subtitle_s3_key should start with 'subtitles/'"
-        assert result["subtitle_s3_key"].endswith(".vtt"), "subtitle file should be WebVTT format (.vtt)"
+        assert result["subtitle_s3_key"] is not None, (
+            "subtitle_s3_key should not be None when transcripts exist"
+        )
+        assert result["subtitle_s3_key"].startswith("subtitles/"), (
+            "subtitle_s3_key should start with 'subtitles/'"
+        )
+        assert result["subtitle_s3_key"].endswith(".vtt"), (
+            "subtitle file should be WebVTT format (.vtt)"
+        )
 
         # Verify S3 upload was called with subtitle file
-        upload_calls = [call for call in mock_s3.upload_file.call_args_list]
+        upload_calls = list(mock_s3.upload_file.call_args_list)
         subtitle_uploads = [call for call in upload_calls if "subtitles/" in str(call)]
 
         assert len(subtitle_uploads) > 0, "S3 upload should be called for subtitle file"
@@ -220,7 +237,9 @@ class TestVideoCompilerSubtitles:
 
         # Assert: Should succeed without subtitles
         assert result is not None, "Clip should process successfully even without transcripts"
-        assert result["subtitle_s3_key"] is None, "subtitle_s3_key should be None when no transcripts exist"
+        assert result["subtitle_s3_key"] is None, (
+            "subtitle_s3_key should be None when no transcripts exist"
+        )
 
     def test_timestamp_adjustment_for_clip_start(self):
         """Test that transcript timestamps are adjusted relative to clip start time.
