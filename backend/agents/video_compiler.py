@@ -325,6 +325,62 @@ class VideoCompiler:
             size=(1280, 720),
         )
 
+        # --- generate subtitle file from transcripts ---
+        subtitle_s3_key = None
+        subtitle_path = temp_path / f"subtitle_{clip_id}.vtt"
+
+        try:
+            from agents.utils.subtitle_helper import generate_vtt_from_transcripts
+            from app.models.database import Transcript
+
+            # Query transcripts within clip time range
+            transcripts = (
+                self.db.query(Transcript)
+                .filter(
+                    Transcript.job_id == job_id,
+                    Transcript.start_time >= start_time,
+                    Transcript.end_time <= end_time,
+                )
+                .order_by(Transcript.start_time)
+                .all()
+            )
+
+            if transcripts:
+                # Generate VTT file with clip-relative timestamps
+                success = generate_vtt_from_transcripts(
+                    transcripts=transcripts,
+                    clip_start_time=start_time,
+                    clip_end_time=end_time,
+                    output_path=subtitle_path,
+                )
+
+                if success and subtitle_path.exists():
+                    # Upload subtitle to S3
+                    subtitle_s3_key = f"subtitles/{job_id}/{clip_id}.vtt"
+                    self._upload_to_s3(subtitle_path, subtitle_s3_key, "text/vtt")
+
+                    logger.info(
+                        "Subtitle generated",
+                        extra={
+                            "job_id": job_id,
+                            "clip_id": clip_id,
+                            "transcript_segments": len(transcripts),
+                        },
+                    )
+            else:
+                logger.debug(
+                    "No transcripts found for clip",
+                    extra={"job_id": job_id, "clip_id": clip_id},
+                )
+
+        except Exception as e:
+            # Subtitle generation is non-critical - log and continue
+            logger.warning(
+                "Subtitle generation failed, continuing without subtitles",
+                exc_info=e,
+                extra={"job_id": job_id, "clip_id": clip_id},
+            )
+
         # --- upload assets to S3 ---
         clip_s3_key = f"clips/{job_id}/{clip_id}.mp4"
         thumbnail_s3_key = f"thumbnails/{job_id}/{clip_id}.jpg"
@@ -347,7 +403,7 @@ class VideoCompiler:
             "duration": clip.duration,
             "s3_key": clip_s3_key,
             "thumbnail_s3_key": thumbnail_s3_key,
-            "subtitle_s3_key": None,
+            "subtitle_s3_key": subtitle_s3_key,
             "extra_metadata": extra_metadata,
         }
 
