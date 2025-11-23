@@ -166,6 +166,7 @@ class VideoCompiler:
                         if db_clip:
                             db_clip.s3_key = clip_data["s3_key"]
                             db_clip.thumbnail_s3_key = clip_data["thumbnail_s3_key"]
+                            db_clip.subtitle_s3_key = clip_data.get("subtitle_s3_key")
                             db_clip.extra_metadata = clip_data.get("extra_metadata", {})
 
                 self.db.commit()
