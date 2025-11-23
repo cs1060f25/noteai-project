@@ -1,12 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import * as matchers from '@testing-library/jest-dom/matchers';
 import { render, screen } from '@testing-library/react';
 
 import { createMemoryHistory, createRouter, RouterProvider, createRootRoute } from '@tanstack/react-router';
 
 import { AgentOutputsDetailView } from '../../components/AgentOutputsDetailView';
-
-
 // Mock axios to prevent network calls and support create()
 vi.mock('axios', () => {
     const mockApi = {

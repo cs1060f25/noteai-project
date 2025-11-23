@@ -19,6 +19,12 @@ import type { JobListResponse, JobResponse } from '../types/api';
 
 // ... (JobListView and helpers remain here)
 
+interface JobListState {
+  jobList: JobListResponse | null;
+  loading: boolean;
+  error: string | null;
+}
+
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
