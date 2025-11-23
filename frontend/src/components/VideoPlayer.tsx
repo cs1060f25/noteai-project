@@ -92,12 +92,21 @@ export const VideoPlayer = ({ videoKey, poster, className, subtitleUrl }: VideoP
     <Card className={cn('w-full overflow-hidden', className)}>
       <CardContent className="p-0">
         <video
+          key={`${videoKey}-${subtitleUrl}`}
           src={presignedUrl}
           poster={poster}
           controls
           preload="metadata"
           playsInline
+          crossOrigin="anonymous"
           className="w-full h-auto rounded-xl"
+          onLoadedMetadata={(e) => {
+            // Ensure subtitle track is enabled when video loads
+            const video = e.currentTarget;
+            if (video.textTracks.length > 0) {
+              video.textTracks[0].mode = 'showing';
+            }
+          }}
         >
           {subtitleUrl && (
             <track
