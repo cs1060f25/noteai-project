@@ -134,6 +134,7 @@ def get_results(
                 subtitle_url = s3_service.generate_presigned_url(
                     object_key=clip.subtitle_s3_key,
                     expiration=settings.s3_presigned_url_expiry,
+                    content_type="text/vtt",  # Critical: browsers need correct MIME type for subtitles
                 )
             except Exception as e:
                 logger.warning(
