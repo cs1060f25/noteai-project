@@ -1,0 +1,71 @@
+## How to Create the Pull Request
+
+Since the "Create pull request" button isn't visible on the compare page, try this alternative method:
+
+### Method 1: Direct PR Creation URL
+Go to this URL in your browser:
+https://github.com/cs1060f25/noteai-project/pull/new/anayp-hw11
+
+### Method 2: From the Repository Main Page
+1. Go to: https://github.com/cs1060f25/noteai-project
+2. Click on "Pull requests" tab at the top
+3. Click the green "New pull request" button
+4. Set base: main, compare: anayp-hw11
+5. Click "Create pull request"
+
+---
+
+## PR Title (copy this):
+[HW11] Fix NOTEAI-158 & NOTEAI-159: Video player size controls and footer navigation
+
+---
+
+## PR Description (copy this):
+
+## Summary
+This PR fixes two bugs as part of HW11:
+- **NOTEAI-158**: Highlight videos render too small on Results page
+- **NOTEAI-159**: Footer links non-functional
+
+## Changes
+
+### NOTEAI-158: Video Player Size Controls
+- Added size preset controls (Compact/Medium/Large) to video player
+- Implemented localStorage persistence for user preference
+- Refactored AgentOutputsDetailView into separate component
+- Added responsive sizing with smooth transitions
+
+**Files Changed:**
+- `frontend/src/routes/_authenticated.agent-outputs.tsx`
+- `frontend/src/components/AgentOutputsDetailView.tsx` (new)
+- `frontend/src/routes/__tests__/AgentOutputs.test.tsx` (new)
+- `frontend/vite.config.ts`
+
+### NOTEAI-159: Footer Navigation
+- Extracted Footer into reusable component
+- Replaced static links with TanStack Router `<Link>` components
+- Created 9 stub routes for all footer destinations
+- Populated legal pages (Privacy, Terms, Security) with realistic content
+
+**Files Changed:**
+- `frontend/src/components/layout/Footer.tsx` (new)
+- `frontend/src/routes/index.tsx`
+- `frontend/src/routes/features.tsx` (new)
+- `frontend/src/routes/pricing.tsx` (new)
+- `frontend/src/routes/use-cases.tsx` (new)
+- `frontend/src/routes/about.tsx` (new)
+- `frontend/src/routes/blog.tsx` (new)
+- `frontend/src/routes/contact.tsx` (new)
+- `frontend/src/routes/legal.privacy.tsx` (new)
+- `frontend/src/routes/legal.terms.tsx` (new)
+- `frontend/src/routes/legal.security.tsx` (new)
+- `frontend/src/components/layout/__tests__/Footer.test.tsx` (new)
+
+## Testing
+- Manual verification performed for both features
+- Automated tests created but encountered environment configuration issues
+- Implementation logic verified correct through code review
+
+## Linear Issues
+Closes NOTEAI-158
+Closes NOTEAI-159

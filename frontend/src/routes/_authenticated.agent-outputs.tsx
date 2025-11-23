@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
   AlertCircle,
@@ -11,23 +12,12 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import { getJobs } from '../services/uploadService';
-import type { JobListResponse, JobResponse } from '../types/api';
 import { AgentOutputsDetailView } from '@/components/AgentOutputsDetailView';
 
+import { getJobs } from '../services/uploadService';
+import type { JobListResponse, JobResponse } from '../types/api';
+
 // ... (JobListView and helpers remain here)
-
-interface JobListState {
-  jobList: JobListResponse | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const formatTime = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
 
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import { useNavigate } from '@tanstack/react-router';
 import {
     AlertCircle,
@@ -9,6 +10,8 @@ import {
     Play,
     Timer,
 } from 'lucide-react';
+
+import { VideoPlayer } from '@/components/VideoPlayer';
 
 import { getProcessingLogs } from '../services/adminService';
 import {
@@ -31,8 +34,6 @@ import type {
     SilenceRegionsResponse,
     TranscriptsResponse,
 } from '../types/api';
-
-import { VideoPlayer } from '@/components/VideoPlayer';
 
 interface AgentOutputsState {
     transcripts: TranscriptsResponse | null;

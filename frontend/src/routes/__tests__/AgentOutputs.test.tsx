@@ -1,10 +1,55 @@
-import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import * as matchers from '@testing-library/jest-dom/matchers';
-import { createMemoryHistory, createRouter, RouterProvider, createRootRoute } from '@tanstack/react-router';
-import { AgentOutputsDetailView } from '../_authenticated.agent-outputs';
+import { render, screen } from '@testing-library/react';
 
-expect.extend(matchers);
+import { createMemoryHistory, createRouter, RouterProvider, createRootRoute } from '@tanstack/react-router';
+
+import { AgentOutputsDetailView } from '../../components/AgentOutputsDetailView';
+
+
+// Mock axios to prevent network calls and support create()
+vi.mock('axios', () => {
+    const mockApi = {
+        get: vi.fn().mockResolvedValue({ data: {} }),
+        post: vi.fn().mockResolvedValue({ data: {} }),
+        put: vi.fn().mockResolvedValue({ data: {} }),
+        patch: vi.fn().mockResolvedValue({ data: {} }),
+        delete: vi.fn().mockResolvedValue({ data: {} }),
+        interceptors: {
+            request: { use: vi.fn() },
+            response: { use: vi.fn() },
+        },
+    };
+    return {
+        default: {
+            create: vi.fn(() => mockApi),
+            ...mockApi
+        },
+        AxiosError: class extends Error {
+            response: any;
+            constructor(message?: string) {
+                super(message);
+                this.name = 'AxiosError';
+            }
+        }
+    };
+});
+
+// Mock Clerk
+vi.mock('@clerk/clerk-react', () => ({
+    useUser: () => ({
+        isSignedIn: true,
+        user: {
+            id: 'test-user',
+            fullName: 'Test User',
+        },
+        isLoaded: true,
+    }),
+    useAuth: () => ({
+        getToken: vi.fn().mockResolvedValue('test-token'),
+        userId: 'test-user',
+    }),
+}));
 
 // Mock the service calls
 vi.mock('../../services/agentOutputsService', () => ({
@@ -51,7 +96,6 @@ vi.mock('../../components/VideoPlayer', () => ({
 describe('AgentOutputs View', () => {
     it('renders the video player with size controls', async () => {
         // Create a root route that renders the component directly
-        // This avoids issues with route context and params
         const rootRoute = createRootRoute({
             component: () => <AgentOutputsDetailView jobId="123" />
         });
