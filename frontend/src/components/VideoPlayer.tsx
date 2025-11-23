@@ -8,6 +8,7 @@ interface VideoPlayerProps {
   videoKey: string;
   poster?: string;
   className?: string;
+  subtitleUrl?: string | null;
 }
 
 interface PresignedUrlResponse {
@@ -16,7 +17,7 @@ interface PresignedUrlResponse {
   object_key: string;
 }
 
-export const VideoPlayer = ({ videoKey, poster, className }: VideoPlayerProps) => {
+export const VideoPlayer = ({ videoKey, poster, className, subtitleUrl }: VideoPlayerProps) => {
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +99,15 @@ export const VideoPlayer = ({ videoKey, poster, className }: VideoPlayerProps) =
           playsInline
           className="w-full h-auto rounded-xl"
         >
+          {subtitleUrl && (
+            <track
+              kind="subtitles"
+              src={subtitleUrl}
+              srcLang="en"
+              label="English"
+              default
+            />
+          )}
           Your browser does not support video playback.
         </video>
       </CardContent>
