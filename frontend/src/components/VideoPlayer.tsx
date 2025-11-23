@@ -109,13 +109,7 @@ export const VideoPlayer = ({ videoKey, poster, className, subtitleUrl }: VideoP
           }}
         >
           {subtitleUrl && (
-            <track
-              kind="subtitles"
-              src={subtitleUrl}
-              srcLang="en"
-              label="English"
-              default
-            />
+            <track kind="subtitles" src={subtitleUrl} srcLang="en" label="English" default />
           )}
           Your browser does not support video playback.
         </video>
