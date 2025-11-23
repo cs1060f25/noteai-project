@@ -14,6 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from agents.content_analyzer import analyze_content
+from agents.image_agent import extract_slide_content
 from agents.layout_detector import detect_layout
 from agents.segment_extractor import extract_segments
 from agents.silence_detector import detect_silence
@@ -1163,8 +1164,32 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                     status="completed",
                 )
 
+                # IMAGE AGENT: extract visual content from slides
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="image_extraction",
+                    agent_name="ImageAgent",
+                    status="started",
+                )
+
+                image_result = extract_slide_content(
+                    s3_key=None,  # Video already downloaded locally
+                    job_id=job_id,
+                    local_video_path=video_path,  # Pass local video path
+                    layout_info=layout_result,  # Use layout info to focus on screen region
+                )
+
+                # log completion
+                create_processing_log_entry(
+                    job_id=job_id,
+                    stage="image_extraction",
+                    agent_name="ImageAgent",
+                    status="completed",
+                )
+
                 return {
                     "layout": layout_result,
+                    "image": image_result,
                 }
 
             # execute both tracks in parallel
