@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Application
-    app_name: str = "Lecture Highlight Extractor"
+    app_name: str = "NoteAI"
     app_version: str = "0.1.0"
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = Field(default=False, description="Enable debug mode")
@@ -106,6 +106,13 @@ class Settings(BaseSettings):
         description="Gemini model to use for content analysis",
     )
     whisper_model: str = Field(default="whisper-1", description="Whisper model to use")
+
+    # Email - Resend
+    resend_api_key: str | None = Field(default=None, description="Resend API key")
+    resend_from_email: str = Field(
+        default="NoteAI <onboarding@resend.dev>",
+        description="Email address to send from",
+    )
 
     # Security
     secret_key: str = Field(

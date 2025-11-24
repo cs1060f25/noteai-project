@@ -23,6 +23,7 @@ from app.core.logging import get_logger
 from app.core.settings import settings
 from app.models.database import Job
 from app.services.db_service import DatabaseService
+from app.services.email_service import EmailService
 from app.services.s3_service import s3_service
 from app.services.websocket_service import send_completion_sync, send_error_sync, send_progress_sync
 
@@ -476,6 +477,26 @@ class BaseProcessingTask(Task):
                 job.completed_at = datetime.now(timezone.utc)
                 db.commit()
 
+                # Send email notification
+                try:
+                    if job.user and job.user.email and job.user.processing_notifications:
+                        email_service = EmailService()
+                        video_title = job.filename or "Untitled Video"
+                        # TODO: Get frontend URL from settings
+                        video_url = f"http://localhost:5173/library/{job.job_id}"
+
+                        email_service.send_video_completed_email(
+                            to_email=job.user.email,
+                            video_title=video_title,
+                            video_url=video_url,
+                        )
+                except Exception as e:
+                    logger.error(
+                        "Failed to send completion email",
+                        exc_info=e,
+                        extra={"job_id": job_id},
+                    )
+
             logger.info("Job marked as completed", extra={"job_id": job_id})
 
             # Send WebSocket completion notification
@@ -847,8 +868,7 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
 
             # API key already fetched above
-
-            content_result = analyze_content({}, job_id, api_key=api_key)
+            content_result = analyze_content({}, job_id, api_key=api_key, config=config)
 
             # log completion
             create_processing_log_entry(
@@ -1183,7 +1203,7 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
         # API key already fetched above
 
-        content_result = analyze_content({}, job_id, api_key=api_key)
+        content_result = analyze_content({}, job_id, api_key=api_key, config=config)
 
         # log completion
         create_processing_log_entry(

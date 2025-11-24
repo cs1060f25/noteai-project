@@ -184,6 +184,7 @@ export interface ClipMetadata {
   s3_key: string;
   url: string | null;
   thumbnail_url: string | null;
+  subtitle_url: string | null;
 }
 
 export interface ResultsResponse {

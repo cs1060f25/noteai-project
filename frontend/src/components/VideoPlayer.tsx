@@ -8,6 +8,7 @@ interface VideoPlayerProps {
   videoKey: string;
   poster?: string;
   className?: string;
+  subtitleUrl?: string | null;
 }
 
 interface PresignedUrlResponse {
@@ -16,7 +17,7 @@ interface PresignedUrlResponse {
   object_key: string;
 }
 
-export const VideoPlayer = ({ videoKey, poster, className }: VideoPlayerProps) => {
+export const VideoPlayer = ({ videoKey, poster, className, subtitleUrl }: VideoPlayerProps) => {
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,13 +92,25 @@ export const VideoPlayer = ({ videoKey, poster, className }: VideoPlayerProps) =
     <Card className={cn('w-full overflow-hidden', className)}>
       <CardContent className="p-0">
         <video
+          key={`${videoKey}-${subtitleUrl}`}
           src={presignedUrl}
           poster={poster}
           controls
           preload="metadata"
           playsInline
+          crossOrigin="anonymous"
           className="w-full h-auto rounded-xl"
+          onLoadedMetadata={(e) => {
+            // Ensure subtitle track is enabled when video loads
+            const video = e.currentTarget;
+            if (video.textTracks.length > 0) {
+              video.textTracks[0].mode = 'showing';
+            }
+          }}
         >
+          {subtitleUrl && (
+            <track kind="subtitles" src={subtitleUrl} srcLang="en" label="English" default />
+          )}
           Your browser does not support video playback.
         </video>
       </CardContent>

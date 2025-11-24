@@ -30,15 +30,33 @@ class S3Service:
         self,
         object_key: str,
         expiration: int | None = None,
+        content_type: str | None = None,
     ) -> str:
-        """generate a pre-signed url for downloading an s3 object."""
+        """generate a pre-signed url for downloading an s3 object.
+
+        Args:
+            object_key: S3 object key to generate URL for
+            expiration: URL expiration time in seconds
+            content_type: Optional Content-Type to set in response headers.
+                         Important for subtitle files (text/vtt) to be recognized by browsers.
+
+        Returns:
+            Presigned URL string
+        """
         if expiration is None:
             expiration = settings.s3_presigned_url_expiry
 
         try:
+            params = {"Bucket": self.bucket_name, "Key": object_key}
+
+            # Add ResponseContentType if content_type is specified
+            # This ensures browsers receive the file with correct MIME type
+            if content_type:
+                params["ResponseContentType"] = content_type
+
             url = self.s3_client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": self.bucket_name, "Key": object_key},
+                Params=params,
                 ExpiresIn=expiration,
             )
             logger.info(
@@ -46,6 +64,7 @@ class S3Service:
                 extra={
                     "object_key": object_key,
                     "expiration": expiration,
+                    "content_type": content_type,
                 },
             )
             return url

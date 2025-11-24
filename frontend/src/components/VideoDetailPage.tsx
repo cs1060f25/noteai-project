@@ -140,6 +140,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
       s3_key: videoToPlay.s3_key,
       url: videoToPlay.url,
       thumbnail_url: null,
+      subtitle_url: null,
     };
     setSelectedClip(fullVideoClip);
     setVideoPlayerOpen(true);
@@ -922,7 +923,10 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
             {/* Video Player */}
             {selectedClip && selectedClip.url && (
               <div className="rounded-lg overflow-hidden">
-                <VideoPlayer videoKey={selectedClip.s3_key} />
+                <VideoPlayer
+                  videoKey={selectedClip.s3_key}
+                  subtitleUrl={selectedClip.subtitle_url}
+                />
                 <div className="p-6 bg-background/95 backdrop-blur-sm border-t border-border/50">
                   <h2 className="text-xl mb-2">{selectedClip.title}</h2>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
