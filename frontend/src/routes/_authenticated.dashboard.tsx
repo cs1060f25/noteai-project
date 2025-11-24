@@ -374,14 +374,14 @@ export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string)
                 <div>
                   <div className="flex items-center justify-between mb-2 text-sm">
                     <span className="text-muted-foreground">Used</span>
-                    <span>{formatBytes(dashboardData?.stats.total_storage_bytes || 0)} / 5 GB</span>
+                    <span>{formatBytes(dashboardData?.stats.total_storage_bytes || 0)} / 2 GB</span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <motion.div
                       className="h-full bg-primary"
                       initial={{ width: 0 }}
                       animate={{
-                        width: `${Math.min(((dashboardData?.stats.total_storage_bytes || 0) / (5 * 1024 * 1024 * 1024)) * 100, 100)}%`,
+                        width: `${Math.min(((dashboardData?.stats.total_storage_bytes || 0) / (2 * 1024 * 1024 * 1024)) * 100, 100)}%`,
                       }}
                       transition={{ delay: 0.8, duration: 1, ease: 'easeOut' }}
                     />
