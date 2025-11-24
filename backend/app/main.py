@@ -14,6 +14,7 @@ from app.api.routes import (
     admin,
     agent_outputs,
     api_keys,
+    dashboard,
     jobs,
     results,
     upload,
@@ -188,5 +189,6 @@ app.include_router(results.router, prefix=settings.api_v1_prefix, tags=["Results
 app.include_router(agent_outputs.router, prefix=settings.api_v1_prefix, tags=["Agent Outputs"])
 app.include_router(users.router, prefix=settings.api_v1_prefix, tags=["Users"])
 app.include_router(api_keys.router, prefix=settings.api_v1_prefix, tags=["User API Keys"])
+app.include_router(dashboard.router, prefix=settings.api_v1_prefix, tags=["Dashboard"])
 app.include_router(admin.router, prefix=settings.api_v1_prefix, tags=["Admin"])
 app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])

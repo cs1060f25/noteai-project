@@ -14,6 +14,7 @@ from agents.utils.ffmpeg_helper import FFmpegHelper
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.models.database import Clip, Job
+from app.services.storage_service import StorageService
 
 logger = get_logger(__name__)
 
@@ -100,6 +101,15 @@ class VideoCompiler:
             video_info = self.ffmpeg.get_video_info(original_video_path)
             logger.info("Original video info", extra={"job_id": job_id, "info": video_info})
 
+            # update job with video duration if not already set
+            if job.video_duration is None and "duration" in video_info:
+                job.video_duration = video_info["duration"]
+                self.db.commit()
+                logger.info(
+                    "Updated job with video duration",
+                    extra={"job_id": job_id, "duration": video_info["duration"]},
+                )
+
             # process clips in parallel for major speedup
             if self.max_workers > 1 and len(clips) > 1:
                 logger.info(
@@ -158,6 +168,7 @@ class VideoCompiler:
                         continue
 
             # --- batch update database after all parallel processing (thread-safe) ---
+            total_clips_size = 0
             if compiled_clips:
                 for clip_data in compiled_clips:
                     clip_db_id = clip_data.get("clip_db_id")
@@ -165,14 +176,23 @@ class VideoCompiler:
                         db_clip = self.db.query(Clip).filter(Clip.id == clip_db_id).first()
                         if db_clip:
                             db_clip.s3_key = clip_data["s3_key"]
+                            db_clip.file_size_bytes = clip_data.get("file_size_bytes")
                             db_clip.thumbnail_s3_key = clip_data["thumbnail_s3_key"]
                             db_clip.subtitle_s3_key = clip_data.get("subtitle_s3_key")
                             db_clip.extra_metadata = clip_data.get("extra_metadata", {})
 
+                            # track total size for user storage update
+                            if clip_data.get("file_size_bytes"):
+                                total_clips_size += clip_data["file_size_bytes"]
+
                 self.db.commit()
                 logger.info(
                     "Database updated with clip metadata",
-                    extra={"job_id": job_id, "clips_updated": len(compiled_clips)},
+                    extra={
+                        "job_id": job_id,
+                        "clips_updated": len(compiled_clips),
+                        "total_clips_bytes": total_clips_size,
+                    },
                 )
 
             # create final merged video with transitions
@@ -228,6 +248,26 @@ class VideoCompiler:
                     exc_info=e,
                     extra={"job_id": job_id},
                 )
+
+            # update user storage tracking
+            if total_clips_size > 0 and job.user_id:
+                try:
+                    storage_service = StorageService(self.db)
+                    storage_service.increment_user_storage(job.user_id, total_clips_size)
+                    logger.info(
+                        "Updated user storage",
+                        extra={
+                            "job_id": job_id,
+                            "user_id": job.user_id,
+                            "clips_size_bytes": total_clips_size,
+                        },
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to update user storage",
+                        exc_info=e,
+                        extra={"job_id": job_id, "user_id": job.user_id},
+                    )
 
         # commit result summary
         logger.info(
@@ -389,12 +429,18 @@ class VideoCompiler:
         self._upload_to_s3(final_path, clip_s3_key, "video/mp4")
         self._upload_to_s3(thumbnail_path, thumbnail_s3_key, "image/jpeg")
 
+        # get file size of the compiled clip
+        clip_file_size = os.path.getsize(final_path)
+
         # --- prepare DB update data (no commit here - thread-safe) ---
         extra_metadata = clip.extra_metadata or {}
         extra_metadata["resolution"] = f"{output_width}x{output_height}"
         extra_metadata["compiled_at"] = datetime.now(timezone.utc).isoformat()
 
-        logger.info("Clip processed successfully", extra={"job_id": job_id, "clip_id": clip_id})
+        logger.info(
+            "Clip processed successfully",
+            extra={"job_id": job_id, "clip_id": clip_id, "file_size_bytes": clip_file_size},
+        )
 
         # return data for batch DB update
         return {
@@ -403,6 +449,7 @@ class VideoCompiler:
             "title": clip.title,
             "duration": clip.duration,
             "s3_key": clip_s3_key,
+            "file_size_bytes": clip_file_size,
             "thumbnail_s3_key": thumbnail_s3_key,
             "subtitle_s3_key": subtitle_s3_key,
             "extra_metadata": extra_metadata,

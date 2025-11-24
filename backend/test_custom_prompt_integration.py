@@ -9,14 +9,14 @@ import json
 import sys
 from pathlib import Path
 
-# add backend to path
-sys.path.insert(0, str(Path(__file__).parent))
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.settings import settings
 from app.services.db_service import DatabaseService
+
+# add backend to path
+sys.path.insert(0, str(Path(__file__).parent))
 
 
 def get_db_session():

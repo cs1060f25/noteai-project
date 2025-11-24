@@ -53,6 +53,9 @@ class User(Base):
     email_notifications = Column(Boolean, default=True, nullable=False)
     processing_notifications = Column(Boolean, default=True, nullable=False)
 
+    # storage tracking
+    storage_used_bytes = Column(Integer, default=0, nullable=False)
+
     # timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -79,6 +82,7 @@ class User(Base):
             "organization": self.organization,
             "email_notifications": self.email_notifications,
             "processing_notifications": self.processing_notifications,
+            "storage_used_bytes": self.storage_used_bytes,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "last_login_at": self.last_login_at,

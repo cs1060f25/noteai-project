@@ -626,6 +626,7 @@ def analyze_content(
             )
 
             genai.configure(api_key=api_key)
+
             model = genai.GenerativeModel(settings.gemini_model)
 
             response = model.generate_content(prompt)
