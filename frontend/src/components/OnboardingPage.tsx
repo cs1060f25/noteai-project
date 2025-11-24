@@ -119,25 +119,25 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
 
   return (
     <div className="h-dvh overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="mx-auto w-full max-w-4xl h-full grid grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 p-6">
+      <div className="mx-auto w-full max-w-4xl h-full grid grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 p-4 sm:p-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="text-center mb-4 sm:mb-8"
         >
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             whileHover={{ rotate: 180 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            className="w-16 h-16 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center mx-auto mb-6"
+            className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center mx-auto mb-3 sm:mb-6"
           >
-            <Scissors className="w-8 h-8 text-primary-foreground" />
+            <Scissors className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
           </motion.div>
 
-          <h1 className="mb-3">Welcome to Your AI Lecture Studio</h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <h1 className="mb-2 sm:mb-3 text-2xl sm:text-3xl">Welcome to Your AI Lecture Studio</h1>
+          <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto px-2">
             To get started, we need your Gemini API key to power the AI features. Do not worry, it
             is stored securely and never shared.
           </p>
@@ -151,26 +151,26 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
           className="mb-2 relative z-10"
         >
           <div className="w-full flex justify-center">
-            <div className="inline-flex items-center">
+            <div className="inline-flex items-center w-full max-w-md justify-between px-4 sm:px-0 sm:justify-center sm:w-auto sm:gap-0">
               {steps.map((step, index) => (
                 <React.Fragment key={step.number}>
                   <div className="relative h-12 flex items-center justify-center">
                     <motion.div
                       whileHover={{ scale: 1.05 }}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
+                      className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 transition-all ${
                         currentStep >= step.number
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border bg-background text-muted-foreground'
                       }`}
                     >
                       {currentStep > step.number ? (
-                        <CheckCircle2 className="w-6 h-6" />
+                        <CheckCircle2 className="w-4 h-4 sm:w-6 sm:h-6" />
                       ) : (
-                        <span className="font-semibold">{step.number}</span>
+                        <span className="font-semibold text-sm sm:text-base">{step.number}</span>
                       )}
                     </motion.div>
                     <p
-                      className={`absolute top-full mt-3 w-32 text-center text-xs px-2 ${
+                      className={`absolute top-full mt-2 sm:mt-3 w-24 sm:w-32 text-center text-[10px] sm:text-xs px-1 ${
                         currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'
                       }`}
                     >
@@ -180,10 +180,9 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
 
                   {index < steps.length - 1 && (
                     <div
-                      className={`h-0.5 mx-4 self-center transition-all ${
+                      className={`h-0.5 flex-1 mx-2 sm:mx-4 self-center transition-all sm:w-40 ${
                         currentStep > step.number ? 'bg-primary' : 'bg-border'
                       }`}
-                      style={{ width: 160 }}
                     />
                   )}
                 </React.Fragment>
@@ -201,7 +200,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="h-full overflow-auto pt-6 space-y-6 relative z-0 mt-8"
+                className="h-full overflow-auto pt-6 pb-20 space-y-6 relative z-0 mt-8"
               >
                 <InstructionsCard />
 
@@ -272,7 +271,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="h-full overflow-auto pt-6 relative z-0"
+                className="h-full overflow-auto pt-6 pb-20 relative z-0"
               >
                 <div className="rounded-3xl bg-background/80 backdrop-blur-xl border border-border/50 shadow-xl p-6 sm:p-8 mt-8">
                   <div className="max-w-2xl mx-auto">
