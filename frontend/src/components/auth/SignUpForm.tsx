@@ -274,6 +274,7 @@ export const SignUpForm = ({ onSubmit, onOAuthSignIn, loading, error }: SignUpFo
                   </div>
                 </div>
 
+                <div id="clerk-captcha" />
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button
                     type="submit"
