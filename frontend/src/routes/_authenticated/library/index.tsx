@@ -293,7 +293,12 @@ export function LibraryPage() {
                   : 'Upload your first lecture to get started'}
               </p>
               {!searchQuery && statusFilter === 'all' && (
-                <Button className="glass-button bg-primary" onClick={() => navigate({to: '/upload'})}>Upload Your First Video</Button>
+                <Button
+                  className="glass-button bg-primary"
+                  onClick={() => navigate({ to: '/upload' })}
+                >
+                  Upload Your First Video
+                </Button>
               )}
             </div>
           </div>
