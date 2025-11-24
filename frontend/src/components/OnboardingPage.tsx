@@ -263,6 +263,7 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
+                <div className="h-10" />
               </motion.div>
             )}
 
