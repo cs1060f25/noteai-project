@@ -30,7 +30,7 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
     <div className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
       {/* back to home button */}
       <motion.div
-        className="absolute top-6 left-6 z-20"
+        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.2, duration: 0.4 }}
@@ -38,10 +38,11 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
         <Link to="/">
           <Button
             variant="ghost"
-            className="glass-card border-border/50 hover:bg-background/50 group cursor-pointer"
+            size="sm"
+            className="glass-card border-border/50 hover:bg-background/50 group cursor-pointer h-10 w-10 sm:w-auto sm:h-10 px-0 sm:px-4"
           >
-            <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-            Back to Home
+            <ArrowLeft className="w-4 h-4 sm:mr-2 group-hover:-translate-x-1 transition-transform" />
+            <span className="hidden sm:inline">Back to Home</span>
           </Button>
         </Link>
       </motion.div>
