@@ -16,25 +16,22 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Set environment variable to avoid venv in Docker
-ENV UV_PROJECT_ENVIRONMENT=/usr/local
-
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies including dev dependencies
-# Use cache mount for faster rebuilds
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen
-
-# Application code will be mounted as volume in docker-compose
-# so we don't copy it here for development
-
-# Create non-root user
+# Create non-root user early
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
+# Switch to appuser before installing dependencies
 USER appuser
+
+# Install dependencies including dev dependencies
+# uv will automatically create a .venv in /app owned by appuser
+RUN uv sync --frozen
+
+# Application code will be mounted as volume in docker-compose
+# so we don't copy it here for development
 
 EXPOSE 8000
 

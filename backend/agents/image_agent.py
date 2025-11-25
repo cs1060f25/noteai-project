@@ -34,6 +34,7 @@ def extract_slide_content(
     job_id: str,
     local_video_path: str | None = None,
     layout_info: dict[str, Any] | None = None,
+    api_key: str | None = None,
 ) -> dict[str, Any]:
     """Extract visual content (text, diagrams) from video slides using Gemini Vision.
 
@@ -46,6 +47,7 @@ def extract_slide_content(
         job_id: Job identifier
         local_video_path: Optional local video file path (skips S3 download)
         layout_info: Optional layout detection result to focus on screen region
+        api_key: Optional user API key (if not provided, fetched from database)
 
     Returns:
         Result dictionary with extracted visual content
@@ -66,12 +68,18 @@ def extract_slide_content(
     )
 
     try:
-        # validate API key
-        if not settings.gemini_api_key:
-            raise ValueError("GEMINI_API_KEY not configured in settings")
+        # fetch API key early
+        if not api_key:
+            from pipeline.tasks import get_user_api_key
 
-        # configure Gemini
-        genai.configure(api_key=settings.gemini_api_key)
+            try:
+                api_key = get_user_api_key(job_id)
+            except Exception as e:
+                logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+                raise
+
+        # configure Gemini with user's API key
+        genai.configure(api_key=api_key)
 
         # determine video path
         if local_video_path:
@@ -83,7 +91,7 @@ def extract_slide_content(
             raise ValueError("Either s3_key or local_video_path must be provided")
 
         # extract frames and analyze visual content
-        visual_content = analyze_video_frames(video_path, job_id, layout_info)
+        visual_content = analyze_video_frames(video_path, job_id, layout_info, api_key)
 
         # store in database
         store_visual_content_in_database(visual_content, job_id)
@@ -122,7 +130,7 @@ def extract_slide_content(
 
 
 def analyze_video_frames(
-    video_path: str, job_id: str, layout_info: dict[str, Any] | None
+    video_path: str, job_id: str, layout_info: dict[str, Any] | None, api_key: str
 ) -> dict[str, Any]:
     """Analyze video frames to extract visual content from slides.
 
@@ -136,6 +144,7 @@ def analyze_video_frames(
         video_path: Path to video file
         job_id: Job identifier for logging
         layout_info: Optional layout detection result
+        api_key: User API key for Gemini
 
     Returns:
         Dictionary with extracted visual content
@@ -208,7 +217,7 @@ def analyze_video_frames(
 
             # analyze this frame with Gemini Vision
             timestamp = frame_idx / fps if fps > 0 else 0
-            frame_content = analyze_frame_with_gemini(screen_frame, timestamp, job_id)
+            frame_content = analyze_frame_with_gemini(screen_frame, timestamp, job_id, api_key)
 
             if frame_content:
                 all_content.append(frame_content)
@@ -288,7 +297,7 @@ def extract_region_from_frame(frame: np.ndarray, region: dict[str, int]) -> np.n
 
 
 def analyze_frame_with_gemini(
-    frame: np.ndarray, timestamp: float, job_id: str
+    frame: np.ndarray, timestamp: float, job_id: str, api_key: str
 ) -> dict[str, Any] | None:
     """Analyze a single frame using Gemini Vision API to extract text and visual elements.
 
@@ -296,6 +305,7 @@ def analyze_frame_with_gemini(
         frame: Video frame (BGR format from OpenCV)
         timestamp: Frame timestamp in seconds
         job_id: Job identifier for logging
+        api_key: User API key for Gemini
 
     Returns:
         Dictionary with extracted content, or None if analysis fails
@@ -308,7 +318,7 @@ def analyze_frame_with_gemini(
         pil_image = Image.fromarray(rgb_frame)
 
         # create Gemini Vision model
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        model = genai.GenerativeModel(settings.gemini_model)
 
         # build prompt for slide content extraction
         prompt = """Analyze this educational video frame/slide and extract:

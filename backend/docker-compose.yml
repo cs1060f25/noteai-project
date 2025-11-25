@@ -61,6 +61,7 @@ services:
     volumes:
       - .:/app
       - api_data:/app/data
+      - /app/.venv  # Preserve venv from image, don't sync with host
     depends_on:
       db:
         condition: service_healthy
@@ -78,7 +79,7 @@ services:
     # REMOVED container_name to allow scaling (docker-compose up --scale worker=N)
     # concurrency=1 for optimized pipeline (one job per worker, no resource contention)
     # Each worker processes 1 job at a time, scale to N workers for N concurrent jobs
-    command: celery -A pipeline.celery_app worker --loglevel=info --concurrency=1
+    command: uv run celery -A pipeline.celery_app worker --loglevel=info --concurrency=1
     deploy:
       replicas: 2 # Start with 3 workers by default (handles 3 concurrent jobs)
     env_file:
@@ -97,6 +98,7 @@ services:
     volumes:
       - .:/app
       - worker_data:/app/data
+      - /app/.venv  # Preserve venv from image, don't sync with host
     depends_on:
       db:
         condition: service_healthy
@@ -107,7 +109,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test:
-        ["CMD-SHELL", "celery -A pipeline.celery_app inspect ping || exit 1"]
+        ["CMD-SHELL", "uv run celery -A pipeline.celery_app inspect ping || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
