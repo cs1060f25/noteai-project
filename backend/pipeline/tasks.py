@@ -393,6 +393,7 @@ class BaseProcessingTask(Task):
         message: str,
         status: str = "running",
         eta_seconds: int | None = None,
+        agent_name: str | None = None,
     ) -> None:
         """update job progress in database and send WebSocket update."""
         db = get_task_db()
@@ -418,11 +419,12 @@ class BaseProcessingTask(Task):
                     "stage": stage,
                     "percent": percent,
                     "status": status,
+                    "agent_name": agent_name,
                 },
             )
 
             # Send WebSocket update to connected clients
-            send_progress_sync(job_id, stage, percent, message, eta_seconds)
+            send_progress_sync(job_id, stage, percent, message, eta_seconds, agent_name)
 
         except Exception as e:
             logger.error(

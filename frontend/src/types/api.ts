@@ -51,6 +51,7 @@ export interface JobProgress {
   percent: number;
   message: string;
   eta_seconds?: number;
+  agent_name?: string;
 }
 
 export interface JobResponse {

@@ -301,6 +301,14 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
                   )}
                 </Badge>
               </div>
+              {currentProgress?.agent_name && (
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-500/10 text-amber-500 border-0 text-xs">
+                    <Brain className="w-3 h-3 mr-1" />
+                    {currentProgress.agent_name}
+                  </Badge>
+                </div>
+              )}
             </div>
           </div>
         </div>
