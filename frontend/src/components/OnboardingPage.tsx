@@ -14,7 +14,6 @@ import {
   Shield,
   Zap,
   ArrowRight,
-  Scissors,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -129,11 +128,11 @@ export function OnboardingPage({ onComplete, onSkip }: OnboardingPageProps) {
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            whileHover={{ rotate: 180 }}
+            whileHover={{ scale: 1.1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            className="w-16 h-16 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center mx-auto mb-6"
+            className="w-16 h-16 flex items-center justify-center mx-auto mb-6"
           >
-            <Scissors className="w-8 h-8 text-primary-foreground" />
+            <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
           </motion.div>
 
           <h1 className="mb-3">Welcome to Your AI Lecture Studio</h1>
