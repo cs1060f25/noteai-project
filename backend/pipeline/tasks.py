@@ -1394,6 +1394,7 @@ def silence_detection_task(self, job_id: str) -> dict[str, Any]:
         message="detecting silence regions in audio",
         status="running",
         eta_seconds=60,
+        agent_name="SilenceDetector",
     )
 
     s3_key = get_job_s3_key(job_id)
@@ -1411,6 +1412,7 @@ def silence_detection_task(self, job_id: str) -> dict[str, Any]:
         percent=30.0,
         message="silence detection completed",
         status="running",
+        agent_name="SilenceDetector",
     )
 
     logger.info(
@@ -1468,6 +1470,7 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
             percent=0.0,
             message="Starting audio transcription (non-silent segments only)",
             status="running",
+            agent_name="TranscriptAgent",
         )
 
         # run transcription
@@ -1482,6 +1485,7 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
             percent=100.0,
             message=f"Transcription completed ({result.get('total_segments', 0)} segments)",
             status="running",
+            agent_name="TranscriptAgent",
         )
 
         logger.info(
@@ -1502,14 +1506,38 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
-def layout_analysis_task(_self, job_id: str) -> dict[str, Any]:
+def layout_analysis_task(self, job_id: str) -> dict[str, Any]:
     """layout analysis agent task."""
     s3_key = get_job_s3_key(job_id)
+
+    # update progress: starting
+    self.update_job_progress(
+        job_id=job_id,
+        stage="layout_analysis",
+        percent=0.0,
+        message="Analyzing video layout",
+        status="running",
+        agent_name="LayoutDetector",
+    )
+
     logger.info(
         "Starting layout analysis",
         extra={"job_id": job_id, "s3_key": s3_key},
     )
-    return detect_layout(s3_key, job_id)
+
+    result = detect_layout(s3_key, job_id)
+
+    # update progress: completed
+    self.update_job_progress(
+        job_id=job_id,
+        stage="layout_analysis",
+        percent=100.0,
+        message="Layout analysis completed",
+        status="running",
+        agent_name="LayoutDetector",
+    )
+
+    return result
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
@@ -1531,6 +1559,7 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
         message="analyzing content with AI (Gemini)",
         status="running",
         eta_seconds=30,
+        agent_name="ContentAnalyzer",
     )
 
     # fetch API key
@@ -1543,6 +1572,16 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
 
     # agent queries database directly, pass empty dict for legacy signature
     result = analyze_content({}, job_id, api_key=api_key)
+
+    # update progress: completed
+    self.update_job_progress(
+        job_id=job_id,
+        stage="content_analysis",
+        percent=100.0,
+        message=f"Content analysis completed ({result.get('segments_created', 0)} segments)",
+        status="running",
+        agent_name="ContentAnalyzer",
+    )
 
     logger.info(
         "content analysis completed",
@@ -1572,11 +1611,12 @@ def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
     # update progress
     self.update_job_progress(
         job_id=job_id,
-        stage="segment_extraction",
+        stage="segmentation",
         percent=65.0,
         message="extracting highlight segments with optimized boundaries",
         status="running",
         eta_seconds=10,
+        agent_name="SegmentExtractor",
     )
 
     # agent queries database directly, pass empty dicts for legacy signature
@@ -1585,10 +1625,11 @@ def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
     # update progress after completion
     self.update_job_progress(
         job_id=job_id,
-        stage="segment_extraction",
+        stage="segmentation",
         percent=90.0,
         message="segment extraction completed",
         status="running",
+        agent_name="SegmentExtractor",
     )
 
     logger.info(
@@ -1629,6 +1670,7 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
         message="compiling final video clips with transitions",
         status="running",
         eta_seconds=120,
+        agent_name="VideoCompiler",
     )
 
     # get database session and compile clips
@@ -1643,6 +1685,7 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
             percent=100.0,
             message=f"compilation completed ({result.get('clips_generated', 0)} clips)",
             status="running",
+            agent_name="VideoCompiler",
         )
 
         logger.info(
