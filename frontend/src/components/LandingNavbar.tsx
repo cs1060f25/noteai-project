@@ -23,7 +23,7 @@ export const LandingNavbar = () => {
       transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
     >
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between h-16 px-6 lg:px-8">
+        <div className="relative flex items-center justify-between h-16 px-6 lg:px-8">
           {/* logo */}
           <motion.div
             className="flex items-center gap-3"
@@ -41,7 +41,7 @@ export const LandingNavbar = () => {
           </motion.div>
 
           {/* desktop navigation */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
             {navLinks.map((link, index) => (
               <motion.a
                 key={link.href}
