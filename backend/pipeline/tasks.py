@@ -1172,6 +1172,15 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 )
 
                 # IMAGE AGENT: extract visual content from slides
+                self.update_job_progress(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    percent=20.0,
+                    message="Extracting slide content with AI",
+                    status="running",
+                    agent_name="ImageAgent",
+                )
+
                 create_processing_log_entry(
                     job_id=job_id,
                     stage="image_extraction",
@@ -1192,6 +1201,15 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                     stage="image_extraction",
                     agent_name="ImageAgent",
                     status="completed",
+                )
+
+                self.update_job_progress(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    percent=30.0,
+                    message="Image extraction completed",
+                    status="running",
+                    agent_name="ImageAgent",
                 )
 
                 return {
