@@ -245,9 +245,13 @@ const LandingPage = () => {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <Scissors className="w-4 h-4 text-primary-foreground" />
-                </div>
+                <motion.div
+                  className="w-8 h-8 flex items-center justify-center"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
+                </motion.div>
                 <span className="text-foreground">NoteAI</span>
               </div>
               <p className="text-sm text-muted-foreground">

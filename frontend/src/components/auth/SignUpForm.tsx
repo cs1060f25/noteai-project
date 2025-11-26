@@ -115,8 +115,8 @@ export const SignUpForm = ({ onSubmit, onOAuthSignIn, loading, error }: SignUpFo
                 transition={{ delay: 0.4, duration: 0.4 }}
               >
                 <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
-                  <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-                    <Scissors className="w-5 h-5 text-primary-foreground" />
+                  <div className="w-10 h-10 flex items-center justify-center">
+                    <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
                   </div>
                   <span className="text-xl text-foreground">NoteAI</span>
                 </div>
@@ -340,8 +340,8 @@ export const SignUpForm = ({ onSubmit, onOAuthSignIn, loading, error }: SignUpFo
         >
           <div className="space-y-4">
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                <Scissors className="w-6 h-6 text-primary-foreground" />
+              <div className="w-12 h-12 flex items-center justify-center">
+                <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
               </div>
               <span className="text-2xl text-foreground">NoteAI</span>
             </div>

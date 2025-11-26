@@ -25,7 +25,8 @@ logger = get_logger(__name__)
 def get_db_session():
     """Create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -75,7 +76,8 @@ def extract_slide_content(
             try:
                 api_key = get_user_api_key(job_id)
             except Exception as e:
-                logger.error("Failed to get API key", exc_info=e, extra={"job_id": job_id})
+                logger.error("Failed to get API key", exc_info=e,
+                             extra={"job_id": job_id})
                 raise
 
         # configure Gemini with user's API key
@@ -84,14 +86,18 @@ def extract_slide_content(
         # determine video path
         if local_video_path:
             video_path = local_video_path
-            logger.info("Using local video path", extra={"job_id": job_id, "path": video_path})
+            logger.info("Using local video path", extra={
+                        "job_id": job_id, "path": video_path})
         elif s3_key:
-            raise NotImplementedError("S3 download not implemented in this version")
+            raise NotImplementedError(
+                "S3 download not implemented in this version")
         else:
-            raise ValueError("Either s3_key or local_video_path must be provided")
+            raise ValueError(
+                "Either s3_key or local_video_path must be provided")
 
         # extract frames and analyze visual content
-        visual_content = analyze_video_frames(video_path, job_id, layout_info, api_key)
+        visual_content = analyze_video_frames(
+            video_path, job_id, layout_info, api_key)
 
         # store in database
         store_visual_content_in_database(visual_content, job_id)
@@ -217,7 +223,8 @@ def analyze_video_frames(
 
             # analyze this frame with Gemini Vision
             timestamp = frame_idx / fps if fps > 0 else 0
-            frame_content = analyze_frame_with_gemini(screen_frame, timestamp, job_id, api_key)
+            frame_content = analyze_frame_with_gemini(
+                screen_frame, timestamp, job_id, api_key)
 
             if frame_content:
                 all_content.append(frame_content)
@@ -291,7 +298,7 @@ def extract_region_from_frame(frame: np.ndarray, region: dict[str, int]) -> np.n
     height = min(height, frame.shape[0] - y)
 
     # extract region
-    cropped = frame[y : y + height, x : x + width]
+    cropped = frame[y: y + height, x: x + width]
 
     return cropped
 
