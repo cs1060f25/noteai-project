@@ -860,10 +860,12 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
 
             # step 3: content analysis (uses custom prompt if provided)
             self.update_job_progress(
-                job_id,
-                "content_analysis",
-                40.0,
-                "Analyzing content with AI (audio-only mode)",
+                job_id=job_id,
+                stage="content_analysis",
+                percent=40.0,
+                message="Analyzing content with AI (audio-only mode)",
+                status="running",
+                agent_name="ContentAnalyzer",
             )
             logger.info("Step 3/5: Content analysis", extra={"job_id": job_id})
 
@@ -895,7 +897,14 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
 
             # step 4: segment extraction
-            self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
+            self.update_job_progress(
+                job_id=job_id,
+                stage="segmentation",
+                percent=60.0,
+                message="Extracting highlight segments",
+                status="running",
+                agent_name="SegmentExtractor",
+            )
             logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
 
             # log start
@@ -928,7 +937,14 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             video_path = video_future.result()
 
         # step 5: video compilation
-        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        self.update_job_progress(
+            job_id=job_id,
+            stage="compilation",
+            percent=80.0,
+            message="Compiling final clips",
+            status="running",
+            agent_name="VideoCompiler",
+        )
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
         # log start
@@ -1080,7 +1096,12 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
                 # silence detection
                 self.update_job_progress(
-                    job_id, "silence_detection", 10.0, "Detecting silence regions"
+                    job_id=job_id,
+                    stage="silence_detection",
+                    percent=10.0,
+                    message="Detecting silence regions",
+                    status="running",
+                    agent_name="SilenceDetector",
                 )
                 logger.info("Audio track: Silence detection", extra={"job_id": job_id})
 
@@ -1108,7 +1129,12 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
                 # transcription
                 self.update_job_progress(
-                    job_id, "transcription", 20.0, "Transcribing audio (parallel chunks)"
+                    job_id=job_id,
+                    stage="transcription",
+                    percent=20.0,
+                    message="Transcribing audio (parallel chunks)",
+                    status="running",
+                    agent_name="TranscriptAgent",
                 )
                 logger.info("Audio track: Transcription", extra={"job_id": job_id})
 
@@ -1146,7 +1172,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 video_path = download_video_from_s3_to_temp(s3_key, job_id)
 
                 # layout analysis
-                self.update_job_progress(job_id, "layout_analysis", 15.0, "Analyzing video layout")
+                self.update_job_progress(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    percent=15.0,
+                    message="Analyzing video layout",
+                    status="running",
+                    agent_name="LayoutDetector",
+                )
                 logger.info("Video track: Layout analysis", extra={"job_id": job_id})
 
                 # log start
@@ -1236,10 +1269,12 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
         # step 3: content analysis (combines audio + video data)
         self.update_job_progress(
-            job_id,
-            "content_analysis",
-            40.0,
-            "Analyzing content with AI (vision mode)",
+            job_id=job_id,
+            stage="content_analysis",
+            percent=40.0,
+            message="Analyzing content with AI (vision mode)",
+            status="running",
+            agent_name="ContentAnalyzer",
         )
         logger.info("Step 3/5: Content analysis (vision mode)", extra={"job_id": job_id})
 
@@ -1272,7 +1307,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         )
 
         # step 4: segment extraction
-        self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
+        self.update_job_progress(
+            job_id=job_id,
+            stage="segmentation",
+            percent=60.0,
+            message="Extracting highlight segments",
+            status="running",
+            agent_name="SegmentExtractor",
+        )
         logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
 
         # log start
@@ -1302,7 +1344,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         )
 
         # step 5: video compilation
-        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        self.update_job_progress(
+            job_id=job_id,
+            stage="compilation",
+            percent=80.0,
+            message="Compiling final clips",
+            status="running",
+            agent_name="VideoCompiler",
+        )
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
         # log start
