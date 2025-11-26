@@ -619,6 +619,7 @@ class FFmpegHelper:
         end_time: float,
         resolution: tuple[int, int] | None = None,
         metadata: dict[str, str] | None = None,
+        watermark_path: Path | str | None = None,
     ) -> None:
         """Extract segment and optionally transcode/add metadata in a single FFmpeg pass.
 
@@ -632,6 +633,7 @@ class FFmpegHelper:
             end_time: End time in seconds
             resolution: Target resolution (width, height). If None, uses copy codec.
             metadata: Optional metadata dict to embed
+            watermark_path: Optional path to watermark image to overlay
 
         Raises:
             FFmpegError: If processing fails
@@ -655,12 +657,57 @@ class FFmpegHelper:
                 cmd.extend(["-metadata", f"{key}={value}"])
 
         # transcode or copy
-        if resolution:
-            width, height = resolution
+        if resolution or watermark_path:
+            # Build filter chain
+            filters = []
+
+            # 1. Scaling (if requested)
+            if resolution:
+                width, height = resolution
+                # Scale and pad to target resolution
+                filters.append(
+                    f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1[scaled]"
+                )
+                main_stream = "[scaled]"
+            else:
+                # No scaling, use input stream directly
+                # In -filter_complex, we'd use [0:v], but in -vf we can use 'null' to pass through or implicit
+                # Using 'null' filter to label the stream
+                filters.append("null[main]")
+                main_stream = "[main]"
+
+            # 2. Watermark (if requested)
+            if watermark_path:
+                # Escape path for ffmpeg
+                wm_path = str(watermark_path).replace("\\", "/").replace(":", "\\:")
+
+                # Load watermark
+                filters.append(f"movie={wm_path}[wm]")
+
+                # Scale watermark relative to video (10% width)
+                # [wm][main]scale2ref... outputs [wm_scaled][main_ref]
+                filters.append(f"[wm]{main_stream}scale2ref=w=iw*0.1:h=-1[wm_scaled][main_ref]")
+
+                # Overlay watermark (bottom-right with 10px padding)
+                filters.append("[main_ref][wm_scaled]overlay=W-w-10:H-h-10")
+            else:
+                # If no watermark, just output the scaled stream (if any)
+                # If we used [scaled], we need to make sure it's the final output.
+                # But filters are chained with ';'. If the last filter has an output label,
+                # we might need to map it or ensure it flows to output.
+                # In -vf, if we don't label the last output, it goes to encoder.
+                # But we labeled it [scaled].
+                # Actually, if we just don't label the last one, it works.
+                # Let's adjust:
+                if resolution:
+                    # Remove [scaled] label from the first filter if no watermark
+                    filters[0] = filters[0].replace("[scaled]", "")
+
             cmd.extend(
                 [
                     "-vf",
-                    f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+                    ";".join(filters),
                     "-c:v",
                     "libx264",
                     "-preset",
@@ -697,6 +744,7 @@ class FFmpegHelper:
                     "start": start_time,
                     "end": end_time,
                     "resolution": resolution,
+                    "watermark": bool(watermark_path),
                 },
             )
         except subprocess.CalledProcessError as e:

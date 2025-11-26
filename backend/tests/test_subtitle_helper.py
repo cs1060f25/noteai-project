@@ -211,9 +211,7 @@ class TestGenerateVTTFile:
         """Test that end_time <= start_time raises ValueError."""
         output_path = tmp_path / "bad_times.vtt"
 
-        segments = [
-            {"start_time": 5.0, "end_time": 3.0, "text": "Invalid"}  # end before start
-        ]
+        segments = [{"start_time": 5.0, "end_time": 3.0, "text": "Invalid"}]  # end before start
 
         with pytest.raises(ValueError, match="invalid time range"):
             generate_vtt_file(segments, output_path)
