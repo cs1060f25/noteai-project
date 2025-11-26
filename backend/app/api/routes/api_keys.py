@@ -94,9 +94,11 @@ async def store_api_key(
 
     return APIKeyStatusResponse(
         has_api_key=True,
-        masked_key=f"sk-...{api_key_request.api_key[-6:]}"
-        if len(api_key_request.api_key) > 6
-        else "sk-...",
+        masked_key=(
+            f"sk-...{api_key_request.api_key[-6:]}"
+            if len(api_key_request.api_key) > 6
+            else "sk-..."
+        ),
     )
 
 

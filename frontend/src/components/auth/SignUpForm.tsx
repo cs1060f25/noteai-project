@@ -116,7 +116,11 @@ export const SignUpForm = ({ onSubmit, onOAuthSignIn, loading, error }: SignUpFo
               >
                 <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
                   <div className="w-10 h-10 flex items-center justify-center">
-                    <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
+                    <img
+                      src="/logo.png"
+                      alt="NoteAI Logo"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <span className="text-xl text-foreground">NoteAI</span>
                 </div>

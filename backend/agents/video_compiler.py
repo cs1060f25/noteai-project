@@ -110,6 +110,30 @@ class VideoCompiler:
                     extra={"job_id": job_id, "duration": video_info["duration"]},
                 )
 
+            # Resolve watermark path
+            watermark_path = None
+            if settings.watermark_path:
+                wm_path = Path(settings.watermark_path)
+                # Try to resolve relative path
+                if not wm_path.is_absolute():
+                    possible_paths = [
+                        wm_path,
+                        Path.cwd() / wm_path,
+                        Path(__file__).parent.parent.parent
+                        / wm_path,  # backend/agents/video_compiler.py -> backend/
+                    ]
+                    for p in possible_paths:
+                        if p.exists():
+                            watermark_path = p
+                            break
+                elif wm_path.exists():
+                    watermark_path = wm_path
+
+                if not watermark_path:
+                    logger.warning(f"Watermark file not found: {settings.watermark_path}")
+                else:
+                    logger.info(f"Using watermark: {watermark_path}")
+
             # process clips in parallel for major speedup
             if self.max_workers > 1 and len(clips) > 1:
                 logger.info(
@@ -126,6 +150,7 @@ class VideoCompiler:
                             original_video_path,
                             temp_path,
                             video_info,
+                            watermark_path,
                         ): clip
                         for clip in clips
                     }
@@ -155,6 +180,7 @@ class VideoCompiler:
                             original_video_path=original_video_path,
                             temp_path=temp_path,
                             video_info=video_info,
+                            watermark_path=watermark_path,
                         )
                         if clip_data:
                             compiled_clips.append(clip_data)
@@ -290,6 +316,7 @@ class VideoCompiler:
         original_video_path: Path,
         temp_path: Path,
         video_info: dict[str, Any],
+        watermark_path: Path | None = None,
     ) -> dict[str, Any] | None:
         """Process a Clip record into actual video file with thumbnail.
 
@@ -355,6 +382,7 @@ class VideoCompiler:
             end_time=end_time,
             resolution=(output_width, output_height) if needs_transcode else None,
             metadata=metadata,
+            watermark_path=watermark_path,
         )
 
         # --- generate thumbnail ---
