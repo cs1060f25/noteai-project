@@ -24,6 +24,7 @@ class ProcessingStage(str, Enum):
     SILENCE_DETECTION = "silence_detection"
     TRANSCRIPTION = "transcription"
     LAYOUT_ANALYSIS = "layout_analysis"
+    IMAGE_EXTRACTION = "image_extraction"
     CONTENT_ANALYSIS = "content_analysis"
     SEGMENTATION = "segmentation"
     COMPILATION = "compilation"
@@ -121,6 +122,7 @@ class JobProgress(BaseModel):
     percent: float = Field(..., description="Progress percentage (0-100)", ge=0, le=100)
     message: str = Field(..., description="Progress message")
     eta_seconds: int | None = Field(None, description="Estimated time remaining in seconds")
+    agent_name: str | None = Field(None, description="Name of the agent currently processing")
 
 
 class JobCreate(BaseModel):

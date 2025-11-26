@@ -6,7 +6,7 @@ slide regions, complementing the Layout Detector's region identification.
 
 import time
 import uuid
-from typing import Any
+from typing import Any, Callable
 
 import cv2
 import google.generativeai as genai
@@ -35,6 +35,7 @@ def extract_slide_content(
     local_video_path: str | None = None,
     layout_info: dict[str, Any] | None = None,
     api_key: str | None = None,
+    progress_callback: Callable[[float, str], None] | None = None,
 ) -> dict[str, Any]:
     """Extract visual content (text, diagrams) from video slides using Gemini Vision.
 
@@ -48,6 +49,7 @@ def extract_slide_content(
         local_video_path: Optional local video file path (skips S3 download)
         layout_info: Optional layout detection result to focus on screen region
         api_key: Optional user API key (if not provided, fetched from database)
+        progress_callback: Optional callback function for progress updates
 
     Returns:
         Result dictionary with extracted visual content
@@ -91,7 +93,9 @@ def extract_slide_content(
             raise ValueError("Either s3_key or local_video_path must be provided")
 
         # extract frames and analyze visual content
-        visual_content = analyze_video_frames(video_path, job_id, layout_info, api_key)
+        visual_content = analyze_video_frames(
+            video_path, job_id, layout_info, api_key, progress_callback
+        )
 
         # store in database
         store_visual_content_in_database(visual_content, job_id)
@@ -130,7 +134,11 @@ def extract_slide_content(
 
 
 def analyze_video_frames(
-    video_path: str, job_id: str, layout_info: dict[str, Any] | None, api_key: str
+    video_path: str,
+    job_id: str,
+    layout_info: dict[str, Any] | None,
+    api_key: str,
+    progress_callback: Callable[[float, str], None] | None = None,
 ) -> dict[str, Any]:
     """Analyze video frames to extract visual content from slides.
 
@@ -145,6 +153,7 @@ def analyze_video_frames(
         job_id: Job identifier for logging
         layout_info: Optional layout detection result
         api_key: User API key for Gemini
+        progress_callback: Optional callback function for progress updates
 
     Returns:
         Dictionary with extracted visual content
@@ -201,7 +210,18 @@ def analyze_video_frames(
 
         # analyze each sampled frame
         all_content = []
-        for frame_idx in frame_indices:
+        total_frames_to_analyze = len(frame_indices)
+
+        for idx, frame_idx in enumerate(frame_indices):
+            # report progress for each frame
+            if progress_callback:
+                # Calculate progress: 0% to 100% based on frames analyzed
+                percent = (idx / total_frames_to_analyze) * 100
+                progress_callback(
+                    percent=percent,
+                    message=f"Analyzing slide content (frame {idx + 1}/{total_frames_to_analyze})",
+                )
+
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
             ret, frame = cap.read()
 
@@ -221,6 +241,13 @@ def analyze_video_frames(
 
             if frame_content:
                 all_content.append(frame_content)
+
+        # final progress update
+        if progress_callback:
+            progress_callback(
+                percent=100.0,
+                message=f"Slide content extraction complete ({len(all_content)} frames analyzed)",
+            )
 
         # aggregate results
         aggregated = aggregate_visual_content(all_content, job_id)
