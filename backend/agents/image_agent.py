@@ -25,8 +25,7 @@ logger = get_logger(__name__)
 def get_db_session():
     """Create database session for agent."""
     engine = create_engine(settings.database_url)
-    session_local = sessionmaker(
-        autocommit=False, autoflush=False, bind=engine)
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return session_local()
 
 
@@ -87,17 +86,16 @@ def extract_slide_content(
         # determine video path
         if local_video_path:
             video_path = local_video_path
-            logger.info("Using local video path", extra={
-                        "job_id": job_id, "path": video_path})
+            logger.info("Using local video path", extra={"job_id": job_id, "path": video_path})
         elif s3_key:
-            raise NotImplementedError(
-                "S3 download not implemented in this version")
+            raise NotImplementedError("S3 download not implemented in this version")
         else:
-            raise ValueError(
-                "Either s3_key or local_video_path must be provided")
+            raise ValueError("Either s3_key or local_video_path must be provided")
 
         # extract frames and analyze visual content
-        visual_content = analyze_video_frames(video_path, job_id, layout_info, api_key)
+        visual_content = analyze_video_frames(
+            video_path, job_id, layout_info, api_key, progress_callback
+        )
 
         # store in database
         store_visual_content_in_database(visual_content, job_id)
@@ -320,7 +318,7 @@ def extract_region_from_frame(frame: np.ndarray, region: dict[str, int]) -> np.n
     height = min(height, frame.shape[0] - y)
 
     # extract region
-    cropped = frame[y: y + height, x: x + width]
+    cropped = frame[y : y + height, x : x + width]
 
     return cropped
 
