@@ -12,6 +12,7 @@ export const ProcessingStage = {
   SILENCE_DETECTION: 'silence_detection',
   TRANSCRIPTION: 'transcription',
   LAYOUT_ANALYSIS: 'layout_analysis',
+  IMAGE_EXTRACTION: 'image_extraction',
   CONTENT_ANALYSIS: 'content_analysis',
   SEGMENTATION: 'segmentation',
   COMPILATION: 'compilation',

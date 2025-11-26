@@ -780,7 +780,11 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
 
             # step 1: silence detection on audio
             self.update_job_progress(
-                job_id, "silence_detection", 10.0, "Detecting silence regions (audio-only mode)"
+                job_id,
+                "silence_detection",
+                10.0,
+                "Detecting silence regions (audio-only mode)",
+                agent_name="SilenceDetector",
             )
             logger.info("Step 1/5: Silence detection (audio-only)", extra={"job_id": job_id})
 
@@ -816,7 +820,11 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
 
             # step 2: transcription
             self.update_job_progress(
-                job_id, "transcription", 20.0, "Transcribing audio (parallel chunks)"
+                job_id,
+                "transcription",
+                20.0,
+                "Transcribing audio (parallel chunks)",
+                agent_name="TranscriptAgent",
             )
             logger.info("Step 2/5: Transcription", extra={"job_id": job_id})
 
@@ -1209,7 +1217,7 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                     job_id=job_id,
                     stage="layout_analysis",
                     percent=20.0,
-                    message="Extracting slide content with AI",
+                    message="Starting slide content extraction with AI",
                     status="running",
                     agent_name="ImageAgent",
                 )
@@ -1221,11 +1229,25 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                     status="started",
                 )
 
+                # define progress callback for ImageAgent
+                def image_progress_callback(percent: float, message: str):
+                    # map ImageAgent's internal progress (0-100%) to overall progress (20-30%)
+                    overall_percent = 20.0 + (percent / 100.0 * 10.0)
+                    self.update_job_progress(
+                        job_id=job_id,
+                        stage="layout_analysis",
+                        percent=overall_percent,
+                        message=message,
+                        status="running",
+                        agent_name="ImageAgent",
+                    )
+
                 image_result = extract_slide_content(
                     s3_key=None,  # Video already downloaded locally
                     job_id=job_id,
                     local_video_path=video_path,  # Pass local video path
                     layout_info=layout_result,  # Use layout info to focus on screen region
+                    progress_callback=image_progress_callback,
                 )
 
                 # log completion

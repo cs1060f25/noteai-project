@@ -14,6 +14,7 @@ import {
   Activity,
   Zap,
   Layout,
+  Image,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -75,6 +76,12 @@ const stageConfigs: Record<
     icon: Layout,
     color: 'bg-indigo-500',
   },
+  image_extraction: {
+    name: 'Image Extraction',
+    description: 'Extracting slide content',
+    icon: Image,
+    color: 'bg-blue-600',
+  },
   content_analysis: {
     name: 'Content Analysis',
     description: 'Understanding key topics',
@@ -131,7 +138,8 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
       if (
         stage.id === 'silence_detection' ||
         stage.id === 'transcription' ||
-        stage.id === 'layout_analysis'
+        stage.id === 'layout_analysis' ||
+        stage.id === 'image_extraction'
       ) {
         return {
           ...stage,
@@ -282,11 +290,10 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <Badge
-                  className={`${
-                    processingMode === 'vision'
+                  className={`${processingMode === 'vision'
                       ? 'bg-indigo-500/10 text-indigo-500'
                       : 'bg-purple-500/10 text-purple-500'
-                  } border-0 text-xs`}
+                    } border-0 text-xs`}
                 >
                   {processingMode === 'vision' ? (
                     <>
@@ -365,11 +372,10 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`glass-card rounded-xl border p-4 transition-all ${
-              stage.status === 'processing'
+            className={`glass-card rounded-xl border p-4 transition-all ${stage.status === 'processing'
                 ? 'border-primary shadow-lg shadow-primary/10'
                 : 'border-border/50'
-            } ${stage.isParallel ? 'ring-2 ring-blue-500/20' : ''}`}
+              } ${stage.isParallel ? 'ring-2 ring-blue-500/20' : ''}`}
           >
             <div className="flex items-start gap-3 mb-3">
               <div
@@ -384,6 +390,12 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
                     <Badge className="bg-blue-500/10 text-blue-500 border-0 text-[10px] px-1.5 py-0">
                       <Zap className="w-2.5 h-2.5 mr-0.5" />
                       Parallel
+                    </Badge>
+                  )}
+                  {stage.id === currentProgress?.stage && currentProgress?.agent_name && (
+                    <Badge className="bg-amber-500/10 text-amber-500 border-0 text-[10px] px-1.5 py-0">
+                      <Brain className="w-2.5 h-2.5 mr-0.5" />
+                      {currentProgress.agent_name}
                     </Badge>
                   )}
                   {getStatusIcon(stage)}
