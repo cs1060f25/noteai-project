@@ -12,10 +12,14 @@ from app.models.schemas import ClipMetadata, ResultsResponse, TranscriptSegment
 from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
+from app.utils.cache_utils import cache_response
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/results", tags=["results"])
+
+
+
 
 
 @router.get(
@@ -35,6 +39,7 @@ router = APIRouter(prefix="/results", tags=["results"])
     """,
 )
 @limiter.limit(settings.rate_limit_results)
+@cache_response(ttl=120)
 def get_results(
     request: Request,
     response: Response,

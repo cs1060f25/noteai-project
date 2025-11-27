@@ -11,6 +11,7 @@ from app.core.settings import settings
 from app.models.schemas import JobListResponse, JobProgress, JobResponse, JobStatus, ProcessingMode
 from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
+from app.utils.cache_utils import cache_response
 
 logger = get_logger(__name__)
 
@@ -26,6 +27,9 @@ def _extract_processing_mode(job) -> ProcessingMode | None:
     if mode and mode in ["audio", "vision"]:
         return ProcessingMode(mode)
     return None
+
+
+
 
 
 @router.get(
@@ -45,6 +49,7 @@ def _extract_processing_mode(job) -> ProcessingMode | None:
     """,
 )
 @limiter.limit(settings.rate_limit_job_status)
+@cache_response(ttl=120)
 def get_job_status(
     request: Request,
     response: Response,
@@ -131,6 +136,7 @@ def get_job_status(
     """,
 )
 @limiter.limit(settings.rate_limit_jobs_list)
+@cache_response(ttl=60)
 def list_jobs(
     request: Request,
     response: Response,

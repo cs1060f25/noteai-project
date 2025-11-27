@@ -232,6 +232,37 @@ def get_processing_config(job_id: str) -> dict[str, Any]:
         db.close()
 
 
+def invalidate_job_cache(job_id: str) -> None:
+    """invalidate cache for a job."""
+    import redis
+
+    try:
+        r = redis.from_url(settings.redis_url, decode_responses=True)
+        # Invalidate job details
+        # Pattern: cache:/api/v1/jobs/{job_id}*
+        # Pattern: cache:/api/v1/results/{job_id}*
+        # Pattern: cache:/api/v1/jobs* (list)
+        # Pattern: cache:/api/v1/dashboard* (stats)
+
+        keys = []
+        for pattern in [
+            f"cache:/api/v1/jobs/{job_id}*",
+            f"cache:/api/v1/results/{job_id}*",
+            "cache:/api/v1/jobs*",
+            "cache:/api/v1/dashboard*",
+        ]:
+            found = r.keys(pattern)
+            if found:
+                keys.extend(found)
+
+        if keys:
+            r.delete(*keys)
+            logger.info("Invalidated cache keys", extra={"job_id": job_id, "count": len(keys)})
+
+    except Exception as e:
+        logger.error("Failed to invalidate cache", exc_info=e, extra={"job_id": job_id})
+
+
 class BaseProcessingTask(Task):
     """base task with progress tracking and error handling."""
 
@@ -455,6 +486,9 @@ class BaseProcessingTask(Task):
 
                 # Send WebSocket error notification
                 send_error_sync(job_id, error_message)
+
+                # Invalidate cache
+                invalidate_job_cache(job_id)
             else:
                 logger.error(
                     "Cannot mark job as failed - job not found",
@@ -509,6 +543,9 @@ class BaseProcessingTask(Task):
 
             # Send WebSocket completion notification
             send_completion_sync(job_id)
+
+            # Invalidate cache
+            invalidate_job_cache(job_id)
 
         except Exception as e:
             logger.error(

@@ -1,6 +1,6 @@
 """User API routes for profile and settings management."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.clerk_auth import get_current_user_clerk
@@ -8,14 +8,20 @@ from app.core.database import get_db
 from app.core.logging import get_logger
 from app.models.schemas import UserResponse, UserUpdateRequest
 from app.models.user import User
+from app.utils.cache_utils import cache_response
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+
+
+
 @router.get("/me", response_model=UserResponse)
+@cache_response(ttl=900)
 async def get_current_user_profile(
+    request: Request,
     current_user: User = Depends(get_current_user_clerk),
 ) -> UserResponse:
     """Get current user profile information.
@@ -79,6 +85,11 @@ async def update_current_user_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update user profile",
         ) from e
+
+    # Invalidate cache
+    from app.services.cache_service import cache_service
+
+    await cache_service.delete_pattern("cache:/api/v1/users/me*")
 
     return UserResponse(
         user_id=current_user.user_id,

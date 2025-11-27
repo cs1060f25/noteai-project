@@ -141,6 +141,7 @@ warn_unused_configs = true
 testpaths = ["tests"]
 python_files = "test_*.py"
 addopts = "-ra"
+asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]
