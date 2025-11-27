@@ -29,8 +29,12 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from '@/components/ui/theme-provider';
-import { userService } from '@/services/userService';
-import type { UserResponse } from '@/types/api';
+import {
+  useUser as useAppUser,
+  useApiKeyStatus,
+  useUpdateUser,
+  useStoreApiKey,
+} from '@/hooks/useAppQueries';
 
 export function SettingsComponent() {
   const { theme, setTheme } = useTheme();
@@ -38,9 +42,13 @@ export function SettingsComponent() {
   const { signOut } = useClerk();
   const navigate = useNavigate();
 
-  const [userProfile, setUserProfile] = useState<UserResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  // React Query Hooks
+  const { data: userProfile, isLoading: isUserLoading } = useAppUser();
+  const { data: keyStatus, isLoading: isKeyLoading } = useApiKeyStatus();
+  const { mutateAsync: updateUser, isPending: isSaving } = useUpdateUser();
+  const { mutateAsync: storeApiKey } = useStoreApiKey();
+
+  const isLoading = isUserLoading || isKeyLoading;
 
   // Form state
   const [name, setName] = useState('');
@@ -55,64 +63,44 @@ export function SettingsComponent() {
   const [showNewApiKey, setShowNewApiKey] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
 
-  // Load user profile and API key status
+  // Sync state with data
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [profile, keyStatus] = await Promise.all([
-          userService.getCurrentUser(),
-          userService.getApiKeyStatus(),
-        ]);
+    if (userProfile) {
+      setName(userProfile.name || '');
+      setOrganization(userProfile.organization || '');
+      setEmailNotifications(userProfile.email_notifications);
+      setProcessingNotifications(userProfile.processing_notifications);
+    }
+  }, [userProfile]);
 
-        setUserProfile(profile);
-        setName(profile.name || '');
-        setOrganization(profile.organization || '');
-        setEmailNotifications(profile.email_notifications);
-        setProcessingNotifications(profile.processing_notifications);
-
-        if (keyStatus.has_api_key && keyStatus.masked_key) {
-          setApiKey(keyStatus.masked_key);
-        } else {
-          setApiKey(null);
-        }
-      } catch (error) {
-        console.error('Failed to load user data:', error);
-        toast.error('Failed to load user data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  console.log('ORG', organization);
+  useEffect(() => {
+    if (keyStatus?.has_api_key && keyStatus.masked_key) {
+      setApiKey(keyStatus.masked_key);
+    } else {
+      setApiKey(null);
+    }
+  }, [keyStatus]);
 
   // Handle profile save
   const handleSaveProfile = async () => {
-    setIsSaving(true);
     try {
-      const updated = await userService.updateCurrentUser({
+      await updateUser({
         name: name || undefined,
         organization: organization || undefined,
       });
-      setUserProfile(updated);
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Failed to update profile:', error);
       toast.error('Failed to update profile');
-    } finally {
-      setIsSaving(false);
     }
   };
 
   // Handle notification settings save
   const handleSaveNotifications = async (field: string, value: boolean) => {
     try {
-      const updated = await userService.updateCurrentUser({
+      await updateUser({
         [field]: value,
       });
-      setUserProfile(updated);
       toast.success('Notification settings updated');
     } catch (error) {
       console.error('Failed to update notification settings:', error);
@@ -150,8 +138,10 @@ export function SettingsComponent() {
     setIsTestingConnection(true);
     try {
       // Re-fetch status to ensure it's still valid/present
-      const status = await userService.getApiKeyStatus();
-      if (status.has_api_key) {
+      // Since we have the hook, we can just check the data, but to simulate a "test", we might want to refetch
+      // But for now let's just use the data we have or maybe invalidate the query to force a refetch
+      // Actually, let's just check keyStatus
+      if (keyStatus?.has_api_key) {
         toast.success('Connection successful! API key is active.');
       } else {
         toast.error('No API key found.');
@@ -177,7 +167,7 @@ export function SettingsComponent() {
     }
 
     try {
-      const result = await userService.storeApiKey(newApiKey);
+      const result = await storeApiKey(newApiKey);
       setApiKey(result.masked_key);
       setNewApiKey('');
       setIsAddingKey(false);

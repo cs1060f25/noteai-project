@@ -14,6 +14,7 @@ from agents.utils.ffmpeg_helper import FFmpegHelper
 from app.core.logging import get_logger
 from app.core.settings import settings
 from app.models.database import Clip, Job
+from app.services.storage_service import StorageService
 
 logger = get_logger(__name__)
 
@@ -100,6 +101,39 @@ class VideoCompiler:
             video_info = self.ffmpeg.get_video_info(original_video_path)
             logger.info("Original video info", extra={"job_id": job_id, "info": video_info})
 
+            # update job with video duration if not already set
+            if job.video_duration is None and "duration" in video_info:
+                job.video_duration = video_info["duration"]
+                self.db.commit()
+                logger.info(
+                    "Updated job with video duration",
+                    extra={"job_id": job_id, "duration": video_info["duration"]},
+                )
+
+            # Resolve watermark path
+            watermark_path = None
+            if settings.watermark_path:
+                wm_path = Path(settings.watermark_path)
+                # Try to resolve relative path
+                if not wm_path.is_absolute():
+                    possible_paths = [
+                        wm_path,
+                        Path.cwd() / wm_path,
+                        Path(__file__).parent.parent.parent
+                        / wm_path,  # backend/agents/video_compiler.py -> backend/
+                    ]
+                    for p in possible_paths:
+                        if p.exists():
+                            watermark_path = p
+                            break
+                elif wm_path.exists():
+                    watermark_path = wm_path
+
+                if not watermark_path:
+                    logger.warning(f"Watermark file not found: {settings.watermark_path}")
+                else:
+                    logger.info(f"Using watermark: {watermark_path}")
+
             # process clips in parallel for major speedup
             if self.max_workers > 1 and len(clips) > 1:
                 logger.info(
@@ -116,6 +150,7 @@ class VideoCompiler:
                             original_video_path,
                             temp_path,
                             video_info,
+                            watermark_path,
                         ): clip
                         for clip in clips
                     }
@@ -145,6 +180,7 @@ class VideoCompiler:
                             original_video_path=original_video_path,
                             temp_path=temp_path,
                             video_info=video_info,
+                            watermark_path=watermark_path,
                         )
                         if clip_data:
                             compiled_clips.append(clip_data)
@@ -158,6 +194,7 @@ class VideoCompiler:
                         continue
 
             # --- batch update database after all parallel processing (thread-safe) ---
+            total_clips_size = 0
             if compiled_clips:
                 for clip_data in compiled_clips:
                     clip_db_id = clip_data.get("clip_db_id")
@@ -165,13 +202,23 @@ class VideoCompiler:
                         db_clip = self.db.query(Clip).filter(Clip.id == clip_db_id).first()
                         if db_clip:
                             db_clip.s3_key = clip_data["s3_key"]
+                            db_clip.file_size_bytes = clip_data.get("file_size_bytes")
                             db_clip.thumbnail_s3_key = clip_data["thumbnail_s3_key"]
+                            db_clip.subtitle_s3_key = clip_data.get("subtitle_s3_key")
                             db_clip.extra_metadata = clip_data.get("extra_metadata", {})
+
+                            # track total size for user storage update
+                            if clip_data.get("file_size_bytes"):
+                                total_clips_size += clip_data["file_size_bytes"]
 
                 self.db.commit()
                 logger.info(
                     "Database updated with clip metadata",
-                    extra={"job_id": job_id, "clips_updated": len(compiled_clips)},
+                    extra={
+                        "job_id": job_id,
+                        "clips_updated": len(compiled_clips),
+                        "total_clips_bytes": total_clips_size,
+                    },
                 )
 
             # create final merged video with transitions
@@ -228,6 +275,26 @@ class VideoCompiler:
                     extra={"job_id": job_id},
                 )
 
+            # update user storage tracking
+            if total_clips_size > 0 and job.user_id:
+                try:
+                    storage_service = StorageService(self.db)
+                    storage_service.increment_user_storage(job.user_id, total_clips_size)
+                    logger.info(
+                        "Updated user storage",
+                        extra={
+                            "job_id": job_id,
+                            "user_id": job.user_id,
+                            "clips_size_bytes": total_clips_size,
+                        },
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to update user storage",
+                        exc_info=e,
+                        extra={"job_id": job_id, "user_id": job.user_id},
+                    )
+
         # commit result summary
         logger.info(
             "Video compilation completed",
@@ -249,6 +316,7 @@ class VideoCompiler:
         original_video_path: Path,
         temp_path: Path,
         video_info: dict[str, Any],
+        watermark_path: Path | None = None,
     ) -> dict[str, Any] | None:
         """Process a Clip record into actual video file with thumbnail.
 
@@ -314,6 +382,7 @@ class VideoCompiler:
             end_time=end_time,
             resolution=(output_width, output_height) if needs_transcode else None,
             metadata=metadata,
+            watermark_path=watermark_path,
         )
 
         # --- generate thumbnail ---
@@ -325,6 +394,62 @@ class VideoCompiler:
             size=(1280, 720),
         )
 
+        # --- generate subtitle file from transcripts ---
+        subtitle_s3_key = None
+        subtitle_path = temp_path / f"subtitle_{clip_id}.vtt"
+
+        try:
+            from agents.utils.subtitle_helper import generate_vtt_from_transcripts
+            from app.models.database import Transcript
+
+            # Query transcripts within clip time range
+            transcripts = (
+                self.db.query(Transcript)
+                .filter(
+                    Transcript.job_id == job_id,
+                    Transcript.start_time >= start_time,
+                    Transcript.end_time <= end_time,
+                )
+                .order_by(Transcript.start_time)
+                .all()
+            )
+
+            if transcripts:
+                # Generate VTT file with clip-relative timestamps
+                success = generate_vtt_from_transcripts(
+                    transcripts=transcripts,
+                    clip_start_time=start_time,
+                    clip_end_time=end_time,
+                    output_path=subtitle_path,
+                )
+
+                if success and subtitle_path.exists():
+                    # Upload subtitle to S3
+                    subtitle_s3_key = f"subtitles/{job_id}/{clip_id}.vtt"
+                    self._upload_to_s3(subtitle_path, subtitle_s3_key, "text/vtt")
+
+                    logger.info(
+                        "Subtitle generated",
+                        extra={
+                            "job_id": job_id,
+                            "clip_id": clip_id,
+                            "transcript_segments": len(transcripts),
+                        },
+                    )
+            else:
+                logger.debug(
+                    "No transcripts found for clip",
+                    extra={"job_id": job_id, "clip_id": clip_id},
+                )
+
+        except Exception as e:
+            # Subtitle generation is non-critical - log and continue
+            logger.warning(
+                "Subtitle generation failed, continuing without subtitles",
+                exc_info=e,
+                extra={"job_id": job_id, "clip_id": clip_id},
+            )
+
         # --- upload assets to S3 ---
         clip_s3_key = f"clips/{job_id}/{clip_id}.mp4"
         thumbnail_s3_key = f"thumbnails/{job_id}/{clip_id}.jpg"
@@ -332,12 +457,18 @@ class VideoCompiler:
         self._upload_to_s3(final_path, clip_s3_key, "video/mp4")
         self._upload_to_s3(thumbnail_path, thumbnail_s3_key, "image/jpeg")
 
+        # get file size of the compiled clip
+        clip_file_size = os.path.getsize(final_path)
+
         # --- prepare DB update data (no commit here - thread-safe) ---
         extra_metadata = clip.extra_metadata or {}
         extra_metadata["resolution"] = f"{output_width}x{output_height}"
         extra_metadata["compiled_at"] = datetime.now(timezone.utc).isoformat()
 
-        logger.info("Clip processed successfully", extra={"job_id": job_id, "clip_id": clip_id})
+        logger.info(
+            "Clip processed successfully",
+            extra={"job_id": job_id, "clip_id": clip_id, "file_size_bytes": clip_file_size},
+        )
 
         # return data for batch DB update
         return {
@@ -346,8 +477,9 @@ class VideoCompiler:
             "title": clip.title,
             "duration": clip.duration,
             "s3_key": clip_s3_key,
+            "file_size_bytes": clip_file_size,
             "thumbnail_s3_key": thumbnail_s3_key,
-            "subtitle_s3_key": None,
+            "subtitle_s3_key": subtitle_s3_key,
             "extra_metadata": extra_metadata,
         }
 

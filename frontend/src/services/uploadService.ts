@@ -202,6 +202,18 @@ export const getJobs = async (limit = 50, offset = 0): Promise<JobListResponse> 
   }
 };
 
+export const deleteJob = async (jobId: string): Promise<void> => {
+  try {
+    await apiClient.delete(`/jobs/${jobId}`);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to delete job', 'JOB_DELETE_FAILED');
+  }
+};
+
 export const validateYouTubeUrl = (url: string): { valid: boolean; error?: string } => {
   if (!url || typeof url !== 'string') {
     return { valid: false, error: 'Please enter a URL' };

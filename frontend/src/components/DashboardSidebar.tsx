@@ -6,7 +6,6 @@ import {
   Upload,
   Library,
   Settings,
-  Scissors,
   Menu,
   X,
   LayoutDashboard,
@@ -111,11 +110,11 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
         {/* Logo */}
         <div className="h-16 flex items-center gap-2 px-6 border-b border-border/50">
           <motion.div
-            className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center"
-            whileHover={{ rotate: 180 }}
-            transition={{ duration: 0.3 }}
+            className="w-8 h-8 flex items-center justify-center"
+            whileHover={{ rotate: 360 }}
+            transition={{ duration: 0.5 }}
           >
-            <Scissors className="w-4 h-4 text-primary-foreground" />
+            <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
           </motion.div>
           <span className="text-foreground font-semibold">NoteAI</span>
         </div>
@@ -196,9 +195,13 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 glass-header border-b border-border/50 z-40 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center">
-            <Scissors className="w-4 h-4 text-primary-foreground" />
-          </div>
+          <motion.div
+            className="w-8 h-8 flex items-center justify-center"
+            whileHover={{ rotate: 360 }}
+            transition={{ duration: 0.5 }}
+          >
+            <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
+          </motion.div>
           <span className="text-foreground font-semibold">NoteAI</span>
         </div>
         <div className="flex items-center gap-1">
@@ -233,9 +236,13 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
           >
             <div className="h-16 flex items-center justify-between px-4 border-b border-border/50">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center">
-                  <Scissors className="w-4 h-4 text-primary-foreground" />
-                </div>
+                <motion.div
+                  className="w-8 h-8 flex items-center justify-center"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
+                </motion.div>
                 <span className="text-foreground font-semibold">NoteAI</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>

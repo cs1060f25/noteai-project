@@ -78,6 +78,10 @@ class Settings(BaseSettings):
         default=2,
         description="Maximum parallel workers for video clip compilation (1-4)",
     )
+    watermark_path: str = Field(
+        default="backend/watermark/watermark.png",
+        description="Path to watermark image",
+    )
 
     # AI Services
     google_cloud_credentials_path: str | None = Field(

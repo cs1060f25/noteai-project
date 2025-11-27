@@ -32,14 +32,9 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { useUploadJob } from '@/hooks/useAppQueries';
 import { hasCompletedOnboarding } from '@/lib/onboarding';
-import {
-  uploadVideo,
-  uploadFromYouTube,
-  validateVideoFile,
-  validateYouTubeUrl,
-  UploadError,
-} from '@/services/uploadService';
+import { validateVideoFile, validateYouTubeUrl, UploadError } from '@/services/uploadService';
 import { createJobWebSocket, WebSocketService } from '@/services/websocketService';
 import type { ProcessingConfig, ResolutionOption, ProcessingMode } from '@/types/api';
 import type { JobProgress } from '@/types/api';
@@ -140,64 +135,73 @@ export const UploadIntegrated = () => {
     }
   }, [uploadComplete, uploadedJobId, getToken, navigate]);
 
-  const startUpload = useCallback(async (file: File, config?: ProcessingConfig) => {
-    setErrorMsg(null);
-    setFileName(file.name);
-    setIsUploading(true);
-    setIsProcessing(true);
-    setProcessingStartTime(new Date());
-    setUploadProgress(0);
-    setUploadStage('uploading');
+  const { mutateAsync: uploadJob } = useUploadJob();
 
-    // Set a temporary job ID so ProcessingProgress can render immediately
-    setUploadedJobId('uploading');
+  const startUpload = useCallback(
+    async (file: File, config?: ProcessingConfig) => {
+      setErrorMsg(null);
+      setFileName(file.name);
+      setIsUploading(true);
+      setIsProcessing(true);
+      setProcessingStartTime(new Date());
+      setUploadProgress(0);
+      setUploadStage('uploading');
 
-    // Set initial uploading progress
-    setProcessingProgress({
-      stage: 'uploading',
-      percent: 0,
-      message: 'Preparing to upload...',
-    });
+      // Set a temporary job ID so ProcessingProgress can render immediately
+      setUploadedJobId('uploading');
 
-    try {
-      const result = await uploadVideo(
-        file,
-        (percent) => {
-          const p = Math.max(0, Math.min(100, Math.floor(percent)));
-          setUploadProgress(p);
-
-          // Update processing progress for upload stage
-          setProcessingProgress({
-            stage: 'uploading',
-            percent: p,
-            message: `Uploading video... ${p}%`,
-          });
-        },
-        config
-      );
-
-      setUploadedJobId(result.jobId);
-      setUploadedVideoKey(result.s3Key);
-      setUploadProgress(100);
-      setUploadStage('complete');
-      setIsUploading(false);
-      setUploadComplete(true);
-
-      // Upload complete, WebSocket will take over from here
+      // Set initial uploading progress
       setProcessingProgress({
         stage: 'uploading',
-        percent: 100,
-        message: 'Upload complete! Starting processing...',
+        percent: 0,
+        message: 'Preparing to upload...',
       });
-    } catch (error) {
-      const msg =
-        error instanceof UploadError ? error.message : 'Failed to upload video. Please try again.';
-      setErrorMsg(msg);
-      setIsUploading(false);
-      setIsProcessing(false);
-      setUploadStage('uploading');
-    }
-  }, []);
+
+      try {
+        const result = await uploadJob({
+          file,
+          onProgress: (percent) => {
+            const p = Math.max(0, Math.min(100, Math.floor(percent)));
+            setUploadProgress(p);
+
+            // Update processing progress for upload stage
+            setProcessingProgress({
+              stage: 'uploading',
+              percent: p,
+              message: `Uploading video... ${p}%`,
+            });
+          },
+          processingConfig: config,
+        });
+
+        setUploadedJobId(result.jobId);
+        if ('s3Key' in result) {
+          setUploadedVideoKey(result.s3Key);
+        }
+        setUploadProgress(100);
+        setUploadStage('complete');
+        setIsUploading(false);
+        setUploadComplete(true);
+
+        // Upload complete, WebSocket will take over from here
+        setProcessingProgress({
+          stage: 'uploading',
+          percent: 100,
+          message: 'Upload complete! Starting processing...',
+        });
+      } catch (error) {
+        const msg =
+          error instanceof UploadError
+            ? error.message
+            : 'Failed to upload video. Please try again.';
+        setErrorMsg(msg);
+        setIsUploading(false);
+        setIsProcessing(false);
+        setUploadStage('uploading');
+      }
+    },
+    [uploadJob]
+  );
 
   const handleFileSelected = useCallback(async (file: File | null) => {
     if (!file) return;
@@ -288,9 +292,9 @@ export const UploadIntegrated = () => {
       });
 
       try {
-        const result = await uploadFromYouTube(
+        const result = await uploadJob({
           youtubeUrl,
-          (p) => {
+          onProgress: (p) => {
             const percent = Math.max(0, Math.min(100, Math.floor(p)));
             setProcessingProgress({
               stage: 'uploading',
@@ -298,11 +302,11 @@ export const UploadIntegrated = () => {
               message: `Downloading from YouTube... ${percent}%`,
             });
           },
-          config
-        );
+          processingConfig: config,
+        });
 
         setUploadedJobId(result.jobId);
-        if (result.videoInfo?.title) {
+        if ('videoInfo' in result && result.videoInfo?.title) {
           setFileName(result.videoInfo.title);
         }
         setUploadProgress(100);
@@ -325,7 +329,16 @@ export const UploadIntegrated = () => {
         setUploadStage('uploading');
       }
     }
-  }, [selectedFile, youtubeUrl, startUpload, prompt, resolution, processingMode, rateLimitMode]);
+  }, [
+    selectedFile,
+    youtubeUrl,
+    startUpload,
+    prompt,
+    resolution,
+    processingMode,
+    rateLimitMode,
+    uploadJob,
+  ]);
 
   return (
     <div className="h-full flex items-center justify-center p-8 overflow-hidden relative">

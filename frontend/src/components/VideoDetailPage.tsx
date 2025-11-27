@@ -11,7 +11,6 @@ import {
   Brain,
   MessageSquare,
   BookOpen,
-  BarChart3,
   Clock,
   Trash2,
   ChevronRight,
@@ -42,11 +41,12 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import type { ClipMetadata, ResultsResponse } from '@/types/api';
+import { useJobResults } from '@/hooks/useAppQueries';
+import type { ClipMetadata } from '@/types/api';
 
 import { ImageWithFallback } from './ImageWithFallback';
 import { VideoPlayer } from './VideoPlayer';
-import { getResults, ResultsError } from '../services/resultsService';
+import { ResultsError } from '../services/resultsService';
 
 interface VideoDetailPageProps {
   lectureId: string;
@@ -66,8 +66,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
-  const [results, setResults] = useState<ResultsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: results, isLoading: loading, error: queryError } = useJobResults(lectureId);
   const [error, setError] = useState<string | null>(null);
   const [selectedClip, setSelectedClip] = useState<ClipMetadata | null>(null);
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
@@ -77,37 +76,26 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [socialDialogOpen, setSocialDialogOpen] = useState(false);
 
-  // Fetch results on mount
   useEffect(() => {
-    const fetchResults = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await getResults(lectureId);
-        setResults(data);
-      } catch (err) {
-        if (err instanceof ResultsError) {
-          // Handle specific error codes
-          if (err.code === 'JOB_NOT_FOUND') {
-            setError('Video not found');
-          } else if (err.code === 'JOB_NOT_COMPLETED') {
-            setError('Your video is still being processed. Check back soon!');
-          } else if (err.code === 'FORBIDDEN') {
-            setError("You don't have access to this video");
-          } else {
-            setError(err.message);
-          }
+    if (queryError) {
+      if (queryError instanceof ResultsError) {
+        // Handle specific error codes
+        if (queryError.code === 'JOB_NOT_FOUND') {
+          setError('Video not found');
+        } else if (queryError.code === 'JOB_NOT_COMPLETED') {
+          setError('Your video is still being processed. Check back soon!');
+        } else if (queryError.code === 'FORBIDDEN') {
+          setError("You don't have access to this video");
         } else {
-          setError('Failed to load video details. Please try again.');
+          setError(queryError.message);
         }
-      } finally {
-        setLoading(false);
+      } else {
+        setError('Failed to load video details. Please try again.');
       }
-    };
-
-    fetchResults();
-  }, [lectureId]);
+    } else {
+      setError(null);
+    }
+  }, [queryError]);
 
   const handleClipClick = (clip: ClipMetadata) => {
     if (!clip.url) {
@@ -140,6 +128,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
       s3_key: videoToPlay.s3_key,
       url: videoToPlay.url,
       thumbnail_url: null,
+      subtitle_url: null,
     };
     setSelectedClip(fullVideoClip);
     setVideoPlayerOpen(true);
@@ -289,7 +278,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
 
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Video Thumbnail - Use first clip's thumbnail if available */}
-            <div className="lg:w-80 flex-shrink-0">
+            <div className="w-full lg:w-80 flex-shrink-0">
               <div
                 className="relative aspect-video rounded-xl overflow-hidden glass-card border border-border/50 group cursor-pointer"
                 onClick={handleWatchFullVideo}
@@ -325,7 +314,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 <Badge className="bg-green-500/10 text-green-500 border-0">Completed</Badge>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div className="glass-card rounded-lg p-3 border border-border/50">
                   <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                     <Sparkles className="w-4 h-4" />
@@ -351,14 +340,17 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <Button className="glass-button bg-primary" onClick={handleWatchFullVideo}>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="glass-button bg-primary flex-1 sm:flex-none"
+                  onClick={handleWatchFullVideo}
+                >
                   <Play className="w-4 h-4 mr-2" />
                   Watch Full Video
                 </Button>
                 <Button
                   variant="outline"
-                  className="glass-card"
+                  className="glass-card flex-1 sm:flex-none"
                   onClick={() => {
                     const originalVideo = results?.metadata?.original_video;
                     if (originalVideo?.url) {
@@ -373,7 +365,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 </Button>
                 <Button
                   variant="outline"
-                  className="glass-card"
+                  className="glass-card flex-1 sm:flex-none"
                   onClick={() => {
                     const originalVideo = results?.metadata?.original_video;
                     if (originalVideo?.url) {
@@ -396,15 +388,16 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
         <Tabs defaultValue="clips" className="w-full">
-          <TabsList className="glass-card border border-border/50 mb-6">
-            <TabsTrigger value="clips">Clips ({clips.length})</TabsTrigger>
-            <TabsTrigger value="ai-features">
-              <Sparkles className="w-4 h-4 mr-2" />
-              AI Features
-            </TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2 -mx-6 px-6 sm:mx-0 sm:px-0 sm:pb-0">
+            <TabsList className="glass-card border border-border/50 mb-6 w-full justify-start sm:justify-center min-w-max">
+              <TabsTrigger value="clips">Clips ({clips.length})</TabsTrigger>
+              <TabsTrigger value="ai-features">
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Features
+              </TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Clips Tab */}
           <TabsContent value="clips">
@@ -504,57 +497,6 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                     <p className="text-xs text-muted-foreground">{feature.description}</p>
                   </motion.button>
                 ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Analytics Tab */}
-          <TabsContent value="analytics">
-            <div className="space-y-6">
-              <div>
-                <h2 className="mb-2">Performance Analytics</h2>
-                <p className="text-muted-foreground mb-6">
-                  Track engagement and performance metrics
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="glass-card rounded-xl border border-border/50 p-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BarChart3 className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-sm">Total Views</h3>
-                  </div>
-                  <p className="text-3xl mb-1">-</p>
-                  <p className="text-xs text-muted-foreground">Coming soon</p>
-                </div>
-
-                <div className="glass-card rounded-xl border border-border/50 p-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-5 h-5 text-green-500" />
-                    <h3 className="text-sm">Watch Time</h3>
-                  </div>
-                  <p className="text-3xl mb-1">-</p>
-                  <p className="text-xs text-muted-foreground">Coming soon</p>
-                </div>
-
-                <div className="glass-card rounded-xl border border-border/50 p-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-purple-500" />
-                    <h3 className="text-sm">Engagement</h3>
-                  </div>
-                  <p className="text-3xl mb-1">-</p>
-                  <p className="text-xs text-muted-foreground">Coming soon</p>
-                </div>
-              </div>
-
-              <div className="glass-card rounded-xl border border-border/50 p-6">
-                <h3 className="text-sm mb-4">Clip Performance</h3>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground text-sm">
-                    Performance metrics coming soon. Track views, engagement, and completion rates
-                    for each clip.
-                  </p>
-                </div>
               </div>
             </div>
           </TabsContent>
@@ -922,7 +864,10 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
             {/* Video Player */}
             {selectedClip && selectedClip.url && (
               <div className="rounded-lg overflow-hidden">
-                <VideoPlayer videoKey={selectedClip.s3_key} />
+                <VideoPlayer
+                  videoKey={selectedClip.s3_key}
+                  subtitleUrl={selectedClip.subtitle_url}
+                />
                 <div className="p-6 bg-background/95 backdrop-blur-sm border-t border-border/50">
                   <h2 className="text-xl mb-2">{selectedClip.title}</h2>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">

@@ -11,6 +11,8 @@ from app.core.settings import settings
 from app.models.schemas import JobListResponse, JobProgress, JobResponse, JobStatus, ProcessingMode
 from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
+from app.services.s3_service import s3_service
+from app.utils.cache_utils import cache_response
 
 logger = get_logger(__name__)
 
@@ -25,6 +27,28 @@ def _extract_processing_mode(job) -> ProcessingMode | None:
     mode = processing_config.get("processing_mode")
     if mode and mode in ["audio", "vision"]:
         return ProcessingMode(mode)
+    return None
+
+
+def _get_job_thumbnail(job) -> str | None:
+    """get thumbnail url for a job from its clips."""
+    if not job.clips:
+        return None
+
+    # find first clip with a thumbnail
+    for clip in job.clips:
+        if clip.thumbnail_s3_key:
+            try:
+                return s3_service.generate_presigned_url(
+                    object_key=clip.thumbnail_s3_key,
+                    expiration=settings.s3_presigned_url_expiry,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to generate thumbnail URL",
+                    exc_info=e,
+                    extra={"job_id": job.job_id, "clip_id": clip.clip_id},
+                )
     return None
 
 
@@ -45,6 +69,7 @@ def _extract_processing_mode(job) -> ProcessingMode | None:
     """,
 )
 @limiter.limit(settings.rate_limit_job_status)
+@cache_response(ttl=120)
 def get_job_status(
     request: Request,
     response: Response,
@@ -113,6 +138,7 @@ def get_job_status(
         updated_at=job.updated_at,
         progress=progress,
         error_message=job.error_message,
+        thumbnail_url=_get_job_thumbnail(job),
     )
 
 
@@ -131,6 +157,7 @@ def get_job_status(
     """,
 )
 @limiter.limit(settings.rate_limit_jobs_list)
+@cache_response(ttl=60)
 def list_jobs(
     request: Request,
     response: Response,
@@ -172,6 +199,7 @@ def list_jobs(
                 updated_at=job.updated_at,
                 progress=progress,
                 error_message=job.error_message,
+                thumbnail_url=_get_job_thumbnail(job),
             )
         )
 

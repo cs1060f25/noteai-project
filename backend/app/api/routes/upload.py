@@ -19,6 +19,7 @@ from app.models.schemas import (
 from app.models.user import User
 from app.services.db_service import DatabaseService
 from app.services.s3_service import s3_service
+from app.services.storage_service import StorageService
 from app.services.validation_service import ValidationError, file_validator
 from app.services.youtube_service import (
     DownloadFailedError,
@@ -175,7 +176,7 @@ def initiate_upload(
     """,
 )
 @limiter.limit(settings.rate_limit_upload)
-def confirm_upload(
+async def confirm_upload(
     request: Request,
     response: Response,
     confirm_request: UploadConfirmRequest,
@@ -233,6 +234,10 @@ def confirm_upload(
         db_service.jobs.update_status(job_id=job.job_id, status="queued")
         db.commit()
 
+        # update user storage to include original video size
+        storage_service = StorageService(db)
+        storage_service.increment_user_storage(current_user.user_id, job.file_size)
+
         # trigger optimized celery processing pipeline (single download, parallel sub-tasks)
         task = process_video_optimized.delay(confirm_request.job_id)
 
@@ -244,6 +249,21 @@ def confirm_upload(
                 "celery_task_id": task.id,
             },
         )
+
+        # Invalidate cache
+        from app.services.cache_service import cache_service
+
+        # Invalidate jobs list for this user
+        # We use delete_pattern because there might be query params
+        # The key format in cache_utils is f"cache:{request.url.path}?{query_string}"
+        # So we need to match cache:/api/v1/jobs*
+        # But we don't have the request object here to get the full path prefix easily if we want to be generic
+        # However, we know the path is /api/v1/jobs
+        # Let's use a broader pattern or specific known paths
+        # Ideally we should use the same key generation logic.
+        # For now, let's assume standard paths.
+        await cache_service.delete_pattern("cache:/api/v1/jobs*")
+        await cache_service.delete_pattern("cache:/api/v1/dashboard*")
 
         return {
             "job_id": confirm_request.job_id,

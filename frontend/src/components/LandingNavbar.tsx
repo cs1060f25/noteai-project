@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Link } from '@tanstack/react-router';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scissors, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ export const LandingNavbar = () => {
       transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
     >
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between h-16 px-6 lg:px-8">
+        <div className="relative flex items-center justify-between h-16 px-6 lg:px-8">
           {/* logo */}
           <motion.div
             className="flex items-center gap-3"
@@ -31,17 +31,17 @@ export const LandingNavbar = () => {
             transition={{ type: 'spring', stiffness: 400, damping: 10 }}
           >
             <motion.div
-              className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center shadow-lg"
-              whileHover={{ rotate: 180 }}
-              transition={{ duration: 0.3 }}
+              className="w-10 h-10 flex items-center justify-center"
+              whileHover={{ rotate: 360 }}
+              transition={{ duration: 0.5 }}
             >
-              <Scissors className="w-5 h-5 text-primary-foreground" />
+              <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
             </motion.div>
             <span className="text-lg font-semibold text-foreground tracking-tight">NoteAI</span>
           </motion.div>
 
           {/* desktop navigation */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
             {navLinks.map((link, index) => (
               <motion.a
                 key={link.href}

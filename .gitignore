@@ -28,6 +28,10 @@ env/
 htmlcov/
 coverage.xml
 
+# Python package metadata
+*.egg-info/
+*.egg
+
 # Logs
 *.log
 logs/
@@ -111,3 +115,4 @@ redis_data/
 # Cache
 .cache/
 .vercel
+.claude

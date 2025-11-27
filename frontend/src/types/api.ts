@@ -12,6 +12,7 @@ export const ProcessingStage = {
   SILENCE_DETECTION: 'silence_detection',
   TRANSCRIPTION: 'transcription',
   LAYOUT_ANALYSIS: 'layout_analysis',
+  IMAGE_EXTRACTION: 'image_extraction',
   CONTENT_ANALYSIS: 'content_analysis',
   SEGMENTATION: 'segmentation',
   COMPILATION: 'compilation',
@@ -51,6 +52,7 @@ export interface JobProgress {
   percent: number;
   message: string;
   eta_seconds?: number;
+  agent_name?: string;
 }
 
 export interface JobResponse {
@@ -63,6 +65,7 @@ export interface JobResponse {
   completed_at?: string;
   progress?: JobProgress;
   error_message?: string;
+  thumbnail_url?: string | null;
 }
 
 export interface JobListResponse {
@@ -184,6 +187,7 @@ export interface ClipMetadata {
   s3_key: string;
   url: string | null;
   thumbnail_url: string | null;
+  subtitle_url: string | null;
 }
 
 export interface ResultsResponse {
@@ -239,4 +243,35 @@ export interface ApiKeyTestResponse {
   is_valid: boolean;
   message: string;
   error_code?: string;
+}
+
+// dashboard types
+
+export interface DashboardStats {
+  total_videos: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  total_clips: number;
+  total_storage_bytes: number;
+  videos_last_24h: number;
+  videos_last_7d: number;
+  videos_last_30d: number;
+}
+
+export interface RecentVideo {
+  job_id: string;
+  filename: string;
+  status: JobStatus;
+  clips_count: number;
+  duration: number | null;
+  created_at: string;
+  updated_at: string;
+  current_stage: string | null;
+  progress_percent: number | null;
+}
+
+export interface DashboardData {
+  stats: DashboardStats;
+  recent_videos: RecentVideo[];
 }
