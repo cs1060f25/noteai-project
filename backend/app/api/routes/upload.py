@@ -176,7 +176,7 @@ def initiate_upload(
     """,
 )
 @limiter.limit(settings.rate_limit_upload)
-def confirm_upload(
+async def confirm_upload(
     request: Request,
     response: Response,
     confirm_request: UploadConfirmRequest,
@@ -249,6 +249,21 @@ def confirm_upload(
                 "celery_task_id": task.id,
             },
         )
+
+        # Invalidate cache
+        from app.services.cache_service import cache_service
+
+        # Invalidate jobs list for this user
+        # We use delete_pattern because there might be query params
+        # The key format in cache_utils is f"cache:{request.url.path}?{query_string}"
+        # So we need to match cache:/api/v1/jobs*
+        # But we don't have the request object here to get the full path prefix easily if we want to be generic
+        # However, we know the path is /api/v1/jobs
+        # Let's use a broader pattern or specific known paths
+        # Ideally we should use the same key generation logic.
+        # For now, let's assume standard paths.
+        await cache_service.delete_pattern("cache:/api/v1/jobs*")
+        await cache_service.delete_pattern("cache:/api/v1/dashboard*")
 
         return {
             "job_id": confirm_request.job_id,
