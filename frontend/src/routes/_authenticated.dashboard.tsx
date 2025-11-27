@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   Video,
@@ -18,9 +16,7 @@ import { motion } from 'motion/react';
 
 import { GlassButton } from '@/components/GlassButton';
 import { Button } from '@/components/ui/button';
-import type { DashboardData } from '@/types/api';
-
-import { getDashboardData } from '../services/dashboardService';
+import { useDashboard } from '@/hooks/useAppQueries';
 
 // helper function to format bytes to human readable
 const formatBytes = (bytes: number): string => {
@@ -63,28 +59,8 @@ const formatDuration = (seconds: number | null): string => {
 
 export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // fetch dashboard data on mount
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getDashboardData();
-        setDashboardData(data);
-      } catch (err) {
-        setError('Failed to load dashboard data. Please try again.');
-        console.error('Error fetching dashboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboard();
-  }, []);
+  const { data: dashboardData, isLoading: loading, error: queryError } = useDashboard();
+  const error = queryError ? 'Failed to load dashboard data. Please try again.' : null;
 
   // calculate percentage changes (comparing last 7 days to previous 7 days)
   const calculateChange = (last7d: number, last30d: number): string => {

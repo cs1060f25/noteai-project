@@ -31,10 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useJobs, useDeleteJob } from '@/hooks/useAppQueries';
 import type { JobResponse } from '@/types/api';
-
-import { getResults } from '../../../services/resultsService';
-import { getJobs } from '../../../services/uploadService';
 
 // Helper function to format date
 function formatDate(dateString: string): string {
@@ -42,78 +40,29 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Extended job type with thumbnail
-interface JobWithThumbnail extends JobResponse {
-  thumbnail_url?: string | null;
-}
-
 export function LibraryPage() {
   const navigate = useNavigate();
-  const [jobs, setJobs] = useState<JobWithThumbnail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: jobsData, isLoading: loading, error: queryError } = useJobs(100, 0);
+  const { mutate: deleteJobMutation } = useDeleteJob();
+  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const error = queryError ? 'Failed to load videos. Please try again.' : null;
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('date-desc');
 
-  // Fetch jobs on mount
+  // Update jobs state when data changes
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await getJobs(100, 0); // Get up to 100 jobs
-        setJobs(response.jobs);
+    if (jobsData?.jobs) {
+      setJobs(jobsData.jobs);
+    }
+  }, [jobsData]);
 
-        // Fetch thumbnails for completed jobs (in background)
-        fetchThumbnailsForCompletedJobs(response.jobs);
-      } catch (err) {
-        setError('Failed to load videos. Please try again.');
-        console.error('Error fetching jobs:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchJobs();
-  }, []);
-
-  // Fetch thumbnails for completed jobs in the background
-  const fetchThumbnailsForCompletedJobs = async (jobList: JobResponse[]) => {
-    const completedJobs = jobList.filter((job) => job.status === 'completed');
-
-    console.log(`[Library] Fetching thumbnails for ${completedJobs.length} completed jobs`);
-
-    // Fetch thumbnails for each completed job (limit to first 20 for performance)
-    const thumbnailPromises = completedJobs.slice(0, 20).map(async (job) => {
-      try {
-        const results = await getResults(job.job_id);
-        const thumbnailUrl = results.clips[0]?.thumbnail_url || null;
-        console.log(`[Library] Job ${job.job_id}: thumbnail =`, thumbnailUrl);
-        return {
-          job_id: job.job_id,
-          thumbnail_url: thumbnailUrl,
-        };
-      } catch (err) {
-        console.error(`[Library] Failed to fetch thumbnail for job ${job.job_id}:`, err);
-        return { job_id: job.job_id, thumbnail_url: null };
-      }
-    });
-
-    const thumbnails = await Promise.all(thumbnailPromises);
-    console.log('[Library] All thumbnails fetched:', thumbnails);
-
-    // Update jobs with thumbnails
-    setJobs((prevJobs) => {
-      const updated = prevJobs.map((job) => {
-        const thumbnail = thumbnails.find((t) => t.job_id === job.job_id);
-        return thumbnail ? { ...job, thumbnail_url: thumbnail.thumbnail_url } : job;
-      });
-      console.log('[Library] Updated jobs with thumbnails:', updated);
-      return updated;
-    });
+  const handleDeleteJob = (jobId: string) => {
+    if (confirm('Are you sure you want to delete this video?')) {
+      deleteJobMutation(jobId);
+    }
   };
 
   const handleLectureClick = (jobId: string) => {
@@ -403,7 +352,15 @@ export function LibraryPage() {
                       <DropdownMenuContent align="end" className="glass-card">
                         <DropdownMenuItem>View Details</DropdownMenuItem>
                         <DropdownMenuItem>Reprocess</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteJob(job.job_id);
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

@@ -146,6 +146,7 @@ class JobResponse(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
     progress: JobProgress | None = Field(None, description="Current progress information")
     error_message: str | None = Field(None, description="Error message if failed")
+    thumbnail_url: HttpUrl | None = Field(None, description="URL to video thumbnail")
 
 
 class JobListResponse(BaseModel):

@@ -23,9 +23,6 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-
-
-
 @router.get(
     "",
     response_model=DashboardDataResponse,

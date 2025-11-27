@@ -24,7 +24,6 @@ def cache_response(
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-
             # Extract Request object from args or kwargs
             request = None
             for arg in args:
