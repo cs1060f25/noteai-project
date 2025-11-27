@@ -42,10 +42,12 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useJobResults } from '@/hooks/useAppQueries';
+import { api } from '@/types/api';
 import type { ClipMetadata } from '@/types/api';
 
 import { ImageWithFallback } from './ImageWithFallback';
 import { VideoPlayer } from './VideoPlayer';
+import { QuizPage } from './QuizPage';
 import { ResultsError } from '../services/resultsService';
 
 interface VideoDetailPageProps {
@@ -75,6 +77,29 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [socialDialogOpen, setSocialDialogOpen] = useState(false);
+  const [isQuizActive, setIsQuizActive] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+
+  const handleGenerateQuiz = async () => {
+    try {
+      setIsGeneratingQuiz(true);
+      // Get values from select inputs (using defaults for now as they are not controlled)
+      const numQuestions = 5;
+      const difficulty = 'medium';
+
+      const response = await api.generateQuiz(lectureId, numQuestions, difficulty);
+      setQuizQuestions(response.questions);
+      setQuizDialogOpen(false);
+      setIsQuizActive(true);
+      toast.success("Quiz generated successfully!");
+    } catch (error) {
+      console.error('Failed to generate quiz:', error);
+      toast.error("Failed to generate quiz. Please try again.");
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
 
   useEffect(() => {
     if (queryError) {
@@ -265,6 +290,16 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
   }
 
   const clips = results.clips;
+
+  if (isQuizActive) {
+    return (
+      <QuizPage
+        onBack={() => setIsQuizActive(false)}
+        lectureTitle={results.metadata?.title || 'Video Lecture'}
+        questions={quizQuestions}
+      />
+    );
+  }
 
   return (
     <div className="h-full overflow-auto">
@@ -699,18 +734,26 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 variant="outline"
                 onClick={() => setQuizDialogOpen(false)}
                 className="glass-card"
+                disabled={isGeneratingQuiz}
               >
                 Cancel
               </Button>
               <Button
                 className="flex-1 glass-button bg-blue-500 hover:bg-blue-600"
-                onClick={() => {
-                  setQuizDialogOpen(false);
-                  toast.success("Quiz generation started! You'll be notified when ready.");
-                }}
+                onClick={handleGenerateQuiz}
+                disabled={isGeneratingQuiz}
               >
-                <Brain className="w-4 h-4 mr-2" />
-                Generate Quiz
+                {isGeneratingQuiz ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-4 h-4 mr-2" />
+                    Start Quiz
+                  </>
+                )}
               </Button>
             </div>
           </div>

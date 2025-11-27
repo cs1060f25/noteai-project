@@ -33,6 +33,7 @@
     "@tanstack/react-router": "^1.133.25",
     "@tanstack/react-router-devtools": "^1.133.25",
     "axios": "^1.12.2",
+    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
@@ -48,6 +49,7 @@
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@tanstack/router-plugin": "^1.133.25",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.7.1",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
