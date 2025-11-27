@@ -65,6 +65,7 @@ export interface JobResponse {
   completed_at?: string;
   progress?: JobProgress;
   error_message?: string;
+  thumbnail_url?: string | null;
 }
 
 export interface JobListResponse {

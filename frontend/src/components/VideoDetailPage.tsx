@@ -41,11 +41,12 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import type { ClipMetadata, ResultsResponse } from '@/types/api';
+import { useJobResults } from '@/hooks/useAppQueries';
+import type { ClipMetadata } from '@/types/api';
 
 import { ImageWithFallback } from './ImageWithFallback';
 import { VideoPlayer } from './VideoPlayer';
-import { getResults, ResultsError } from '../services/resultsService';
+import { ResultsError } from '../services/resultsService';
 
 interface VideoDetailPageProps {
   lectureId: string;
@@ -65,8 +66,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
-  const [results, setResults] = useState<ResultsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: results, isLoading: loading, error: queryError } = useJobResults(lectureId);
   const [error, setError] = useState<string | null>(null);
   const [selectedClip, setSelectedClip] = useState<ClipMetadata | null>(null);
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
@@ -76,37 +76,26 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [socialDialogOpen, setSocialDialogOpen] = useState(false);
 
-  // Fetch results on mount
   useEffect(() => {
-    const fetchResults = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await getResults(lectureId);
-        setResults(data);
-      } catch (err) {
-        if (err instanceof ResultsError) {
-          // Handle specific error codes
-          if (err.code === 'JOB_NOT_FOUND') {
-            setError('Video not found');
-          } else if (err.code === 'JOB_NOT_COMPLETED') {
-            setError('Your video is still being processed. Check back soon!');
-          } else if (err.code === 'FORBIDDEN') {
-            setError("You don't have access to this video");
-          } else {
-            setError(err.message);
-          }
+    if (queryError) {
+      if (queryError instanceof ResultsError) {
+        // Handle specific error codes
+        if (queryError.code === 'JOB_NOT_FOUND') {
+          setError('Video not found');
+        } else if (queryError.code === 'JOB_NOT_COMPLETED') {
+          setError('Your video is still being processed. Check back soon!');
+        } else if (queryError.code === 'FORBIDDEN') {
+          setError("You don't have access to this video");
         } else {
-          setError('Failed to load video details. Please try again.');
+          setError(queryError.message);
         }
-      } finally {
-        setLoading(false);
+      } else {
+        setError('Failed to load video details. Please try again.');
       }
-    };
-
-    fetchResults();
-  }, [lectureId]);
+    } else {
+      setError(null);
+    }
+  }, [queryError]);
 
   const handleClipClick = (clip: ClipMetadata) => {
     if (!clip.url) {

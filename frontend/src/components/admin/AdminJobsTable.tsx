@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 import { useNavigate } from '@tanstack/react-router';
 import {
@@ -13,15 +13,14 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useAdminJobs } from '@/hooks/useAppQueries';
 import { cn } from '@/lib/utils';
-import { getAllJobs, AdminError } from '@/services/adminService';
-import type { AdminJobResponse, AdminJobsQueryParams } from '@/types/admin';
+import type { AdminJobsQueryParams } from '@/types/admin';
 import type { JobStatus } from '@/types/api';
 
 const STATUS_COLORS: Record<JobStatus, string> = {
@@ -40,10 +39,6 @@ const STATUS_ICONS: Record<JobStatus, React.ComponentType<{ className?: string }
 
 export const AdminJobsTable: React.FC = () => {
   const navigate = useNavigate({ from: '/admin/jobs' });
-  const [jobs, setJobs] = useState<AdminJobResponse[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Query params
   const [page, setPage] = useState(1);
@@ -51,37 +46,24 @@ export const AdminJobsTable: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<JobStatus | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchJobs = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const params: AdminJobsQueryParams = {
-        limit,
-        offset: (page - 1) * limit,
-      };
-
-      if (statusFilter) {
-        params.status = statusFilter;
-      }
-
-      const data = await getAllJobs(params);
-      setJobs(data.jobs);
-      setTotal(data.total);
-    } catch (err) {
-      const errorMessage = err instanceof AdminError ? err.message : 'Failed to fetch jobs';
-      setError(errorMessage);
-      toast.error('Failed to load jobs', {
-        description: errorMessage,
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const params: AdminJobsQueryParams = {
+    limit,
+    offset: (page - 1) * limit,
   };
 
-  useEffect(() => {
-    fetchJobs();
-  }, [page, limit, statusFilter]);
+  if (statusFilter) {
+    params.status = statusFilter;
+  }
+
+  const { data, isLoading, error: queryError, refetch } = useAdminJobs(params);
+
+  const jobs = data?.jobs || [];
+  const total = data?.total || 0;
+  const error = queryError ? (queryError as Error).message : null;
+
+  const fetchJobs = () => {
+    refetch();
+  }; // Keep fetchJobs for retry button
 
   const filteredJobs = searchQuery
     ? jobs.filter(

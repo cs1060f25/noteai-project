@@ -19,9 +19,6 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/results", tags=["results"])
 
 
-
-
-
 @router.get(
     "/{job_id}",
     response_model=ResultsResponse,

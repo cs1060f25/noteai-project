@@ -15,9 +15,6 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-
-
-
 @router.get("/me", response_model=UserResponse)
 @cache_response(ttl=900)
 async def get_current_user_profile(
