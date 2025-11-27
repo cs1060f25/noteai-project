@@ -20,6 +20,7 @@ class JobStatus(str, Enum):
 class ProcessingStage(str, Enum):
     """Video processing pipeline stages."""
 
+    INITIALIZING = "initializing"
     UPLOADING = "uploading"
     SILENCE_DETECTION = "silence_detection"
     TRANSCRIPTION = "transcription"
@@ -297,6 +298,25 @@ class ClipsResponse(BaseModel):
     job_id: str = Field(..., description="Job identifier")
     clips: list[ClipResponse] = Field(..., description="Generated clips")
     total: int = Field(..., description="Total number of clips")
+
+
+class QuizQuestion(BaseModel):
+    """Quiz question model."""
+
+    id: int = Field(..., description="Question ID")
+    type: str = Field(..., description="Question type: 'multiple-choice' or 'true-false'")
+    question: str = Field(..., description="The question text")
+    options: list[str] = Field(..., description="List of options")
+    correctAnswer: int = Field(..., description="Index of the correct answer")
+    explanation: str = Field(..., description="Explanation for the answer")
+    difficulty: str = Field(..., description="Difficulty level: 'easy', 'medium', 'hard'")
+
+
+class QuizResponse(BaseModel):
+    """Quiz generation response."""
+
+    job_id: str = Field(..., description="Job identifier")
+    questions: list[QuizQuestion] = Field(..., description="List of generated questions")
 
 
 # WebSocket Models

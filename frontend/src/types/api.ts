@@ -275,3 +275,66 @@ export interface DashboardData {
   stats: DashboardStats;
   recent_videos: RecentVideo[];
 }
+
+export interface QuizQuestion {
+  id: number;
+  type: 'multiple-choice' | 'true-false';
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+}
+
+export interface QuizResponse {
+  job_id: string;
+  questions: QuizQuestion[];
+}
+// API client
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+
+export const api = {
+  uploadVideo: async (file: File, onProgress?: (progress: number) => void): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+    return response.data;
+  },
+
+  getJob: async (jobId: string): Promise<JobResponse> => {
+    const response = await axios.get(`${API_BASE_URL}/jobs/${jobId}`);
+    return response.data;
+  },
+
+  getJobs: async (skip = 0, limit = 10): Promise<JobListResponse> => {
+    const response = await axios.get(`${API_BASE_URL}/jobs`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getResults: async (jobId: string): Promise<ResultsResponse> => {
+    const response = await axios.get(`${API_BASE_URL}/results/${jobId}`);
+    return response.data;
+  },
+
+  generateQuiz: async (jobId: string, numQuestions: number = 5, difficulty: string = 'medium'): Promise<QuizResponse> => {
+    const response = await axios.post(`${API_BASE_URL}/jobs/${jobId}/quiz`, null, {
+      params: { num_questions: numQuestions, difficulty }
+    });
+    return response.data;
+  },
+};
