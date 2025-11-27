@@ -87,9 +87,9 @@ class TestVisionPipelineImageAgent:
             image_agent_exists = False
 
         # BUG DETECTION: Image Agent does not exist
-        assert (
-            image_agent_exists
-        ), "Image Agent (extract_slide_content) does not exist in pipeline.tasks"
+        assert image_agent_exists, (
+            "Image Agent (extract_slide_content) does not exist in pipeline.tasks"
+        )
 
         # If the above passes, we would also check it's called in the pipeline
         # (This part will only run if Image Agent is implemented)
@@ -123,9 +123,9 @@ class TestVisionPipelineImageAgent:
             os.path.dirname(os.path.dirname(__file__)), "agents", "image_agent.py"
         )
 
-        assert os.path.exists(
-            image_agent_path
-        ), f"Image Agent module does not exist at {image_agent_path}"
+        assert os.path.exists(image_agent_path), (
+            f"Image Agent module does not exist at {image_agent_path}"
+        )
 
     def test_image_agent_has_extract_function(self):
         """Test that Image Agent has extract_slide_content function.
@@ -170,9 +170,9 @@ class TestVisionPipelineImageAgent:
         params = list(sig.parameters.keys())
 
         # BUG DETECTION: visual_content parameter is missing
-        assert (
-            "visual_content" in params or "image_data" in params or "slide_content" in params
-        ), f"analyze_content does not accept visual content parameter. Current params: {params}"
+        assert "visual_content" in params or "image_data" in params or "slide_content" in params, (
+            f"analyze_content does not accept visual content parameter. Current params: {params}"
+        )
 
     def test_database_has_visual_content_table(self):
         """Test that database has a table for storing visual/slide content.
@@ -229,9 +229,9 @@ class TestVisionPipelineImageAgent:
             sig = inspect.signature(extract_slide_content)
             params = list(sig.parameters.keys())
 
-            assert (
-                "layout_info" in params or "layout_result" in params
-            ), f"extract_slide_content should accept layout information. Current params: {params}"
+            assert "layout_info" in params or "layout_result" in params, (
+                f"extract_slide_content should accept layout information. Current params: {params}"
+            )
         except ImportError:
             pytest.fail("Image Agent (agents.image_agent) does not exist")
 
