@@ -1,5 +1,7 @@
-from locust import HttpUser, task, between
 import random
+
+from locust import HttpUser, between, task
+
 
 class NoteAIUser(HttpUser):
     wait_time = between(1, 5)
@@ -26,11 +28,10 @@ class NoteAIUser(HttpUser):
     def upload_flow(self):
         # Simulate upload initiation
         filename = f"test_{random.randint(1000, 9999)}.mp4"
-        response = self.client.post("/api/v1/upload", json={
-            "filename": filename,
-            "file_size": 1024 * 1024,
-            "content_type": "video/mp4"
-        })
+        response = self.client.post(
+            "/api/v1/upload",
+            json={"filename": filename, "file_size": 1024 * 1024, "content_type": "video/mp4"},
+        )
         if response.status_code == 201:
             job_id = response.json()["job_id"]
             # Simulate confirmation (skip actual S3 upload)

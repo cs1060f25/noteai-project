@@ -1,25 +1,26 @@
+from datetime import datetime
+
 import pytest
 from pydantic import ValidationError
+
 from app.models.schemas import (
-    UploadRequest,
-    ProcessingConfig,
-    ResolutionOption,
-    ProcessingMode,
-    JobStatus,
-    JobProgress,
-    ProcessingStage,
-    JobCreate,
-    JobResponse,
     ClipMetadata,
-    TranscriptSegment,
-    ResultsResponse,
-    SilenceRegionResponse,
-    LayoutAnalysisResponse,
     ContentSegmentResponse,
+    JobProgress,
+    JobResponse,
+    JobStatus,
+    LayoutAnalysisResponse,
+    ProcessingConfig,
+    ProcessingMode,
+    ProcessingStage,
     QuizQuestion,
-    UserResponse
+    ResolutionOption,
+    SilenceRegionResponse,
+    TranscriptSegment,
+    UploadRequest,
+    UserResponse,
 )
-from datetime import datetime
+
 
 class TestProcessingConfig:
     def test_default_values(self):
@@ -81,7 +82,7 @@ class TestJobModels:
             message="Uploading..."
         )
         assert progress.percent == 50.0
-        
+
         with pytest.raises(ValidationError):
             JobProgress(
                 stage=ProcessingStage.UPLOADING,

@@ -1,6 +1,9 @@
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from app.services.validation_service import FileValidator, ValidationError
+
 
 class TestFileValidator:
     @pytest.fixture
@@ -48,7 +51,5 @@ class TestFileValidator:
 
     def test_validate_upload_request(self, validator):
         validator.validate_upload_request(
-            filename="test.mp4",
-            file_size=1024,
-            content_type="video/mp4"
+            filename="test.mp4", file_size=1024, content_type="video/mp4"
         )

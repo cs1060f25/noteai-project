@@ -1,16 +1,14 @@
 """Agent for generating quiz questions from transcripts."""
 
 import json
-from typing import Any
 
 import google.generativeai as genai
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
-from app.models.database import Job, Transcript
-from app.models.schemas import QuizQuestion, QuizResponse
-
 from app.core.settings import settings
+from app.models.database import Transcript
+from app.models.schemas import QuizQuestion, QuizResponse
 
 logger = get_logger(__name__)
 
@@ -55,7 +53,9 @@ def generate_quiz(
     )
 
     if not transcript_segments:
-        raise ValueError("No transcript found for this job. Please wait for processing to complete.")
+        raise ValueError(
+            "No transcript found for this job. Please wait for processing to complete."
+        )
 
     # Combine transcript text
     full_transcript = " ".join([seg.text for seg in transcript_segments])
@@ -67,18 +67,18 @@ def generate_quiz(
     # 3. Construct Prompt
     prompt = f"""
     You are an expert educator. Create a {num_questions}-question quiz based on the following lecture transcript.
-    
+
     Difficulty Level: {difficulty}
-    
+
     Requirements:
     1. Questions must be directly answerable from the transcript.
-    2. Include a mix of 'multiple-choice' (4 options) and 'true-false' questions.
+    2. Questions should test understanding of key concepts, not just recall of minor details.
     3. Provide a clear explanation for the correct answer.
     4. Output MUST be valid JSON matching the specified schema.
-    
+
     Transcript:
     "{full_transcript[:20000]}"  # Truncate to avoid token limits if necessary
-    
+
     Output Schema (JSON list of objects):
     [
       {{
@@ -99,10 +99,10 @@ def generate_quiz(
             prompt,
             generation_config={"response_mime_type": "application/json"},
         )
-        
+
         # 5. Parse Response
         questions_data = json.loads(response.text)
-        
+
         # Validate and convert to Pydantic models
         questions = []
         for i, q_data in enumerate(questions_data):
@@ -111,7 +111,7 @@ def generate_quiz(
             # Ensure difficulty matches requested (or fallback to what model gave)
             if "difficulty" not in q_data:
                 q_data["difficulty"] = difficulty
-                
+
             questions.append(QuizQuestion(**q_data))
 
         logger.info(
@@ -123,4 +123,4 @@ def generate_quiz(
 
     except Exception as e:
         logger.error("Quiz generation failed", exc_info=e, extra={"job_id": job_id})
-        raise ValueError(f"Failed to generate quiz: {str(e)}")
+        raise ValueError(f"Failed to generate quiz: {e!s}") from e

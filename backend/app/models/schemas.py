@@ -307,7 +307,7 @@ class QuizQuestion(BaseModel):
     type: str = Field(..., description="Question type: 'multiple-choice' or 'true-false'")
     question: str = Field(..., description="The question text")
     options: list[str] = Field(..., description="List of options")
-    correctAnswer: int = Field(..., description="Index of the correct answer")
+    correct_answer: int = Field(..., description="Index of the correct answer", alias="correctAnswer")
     explanation: str = Field(..., description="Explanation for the answer")
     difficulty: str = Field(..., description="Difficulty level: 'easy', 'medium', 'hard'")
 

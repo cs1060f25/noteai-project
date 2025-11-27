@@ -285,7 +285,7 @@ class TestContentAnalyzer:
     def test_analyze_content_missing_api_key(self, mock_settings, mock_db_session):
         """test error when API key is missing."""
         mock_settings.gemini_api_key = None
-        
+
         # Mock db session to avoid create_engine errors
         mock_db_session.return_value = MagicMock()
 

@@ -1,12 +1,12 @@
-import pytest
 import os
 import sys
-from typing import Generator
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-from unittest.mock import MagicMock, patch, AsyncMock
 
 # Set environment variables for testing
 # We keep these as valid URLs but mock the connection
@@ -18,7 +18,7 @@ os.environ["CELERY_RESULT_BACKEND"] = "redis://localhost:6379/0"
 sys.modules["boto3"] = MagicMock()
 
 # Patch redis.asyncio.from_url to prevent CacheService from connecting
-from unittest.mock import patch
+
 patcher = patch("redis.asyncio.from_url")
 patcher.start()
 
@@ -56,9 +56,10 @@ with patch("slowapi.Limiter") as MockLimiter:
 #    This requires importing rate_limit_config, patching, and THEN importing app.main?
 #    But app.main imports rate_limit_config.
 
-import app.core.rate_limit_config
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from slowapi import Limiter  # noqa: E402
+from slowapi.util import get_remote_address  # noqa: E402
+
+import app.core.rate_limit_config  # noqa: E402
 
 # Overwrite the global limiter in rate_limit_config with a memory-based one
 app.core.rate_limit_config.limiter = Limiter(
@@ -66,10 +67,9 @@ app.core.rate_limit_config.limiter = Limiter(
     storage_uri="memory://",
 )
 
-from app.core.database import get_db
-from app.models.database import Base
-from app.core.settings import settings
-from app.main import app
+from app.core.database import get_db  # noqa: E402
+from app.main import app  # noqa: E402
+from app.models.database import Base  # noqa: E402
 
 # Use in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -81,6 +81,7 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 @pytest.fixture(scope="session")
 def db_engine():
     # Use in-memory SQLite for tests
@@ -91,6 +92,7 @@ def db_engine():
     )
     Base.metadata.create_all(bind=engine)
     return engine
+
 
 @pytest.fixture
 def db(db_engine):
@@ -104,7 +106,9 @@ def db(db_engine):
     transaction.rollback()
     connection.close()
 
-from app.api.dependencies.clerk_auth import get_current_user_clerk
+
+from app.api.dependencies.clerk_auth import get_current_user_clerk  # noqa: E402
+
 
 @pytest.fixture
 def client(db):
@@ -115,7 +119,7 @@ def client(db):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    
+
     # Mock authentication
     app.dependency_overrides[get_current_user_clerk] = lambda: {
         "id": "user_2bP4...",
@@ -126,11 +130,13 @@ def client(db):
 
     with TestClient(app) as c:
         yield c
-        
+
     # Clean up overrides
     app.dependency_overrides.clear()
 
-from app.services.cache_service import cache_service
+
+from app.services.cache_service import cache_service  # noqa: E402
+
 
 @pytest.fixture(autouse=True)
 def mock_cache_service():
@@ -139,14 +145,14 @@ def mock_cache_service():
     original_get = cache_service.get
     original_set = cache_service.set
     original_delete_pattern = cache_service.delete_pattern
-    
+
     # Replace with AsyncMocks
     cache_service.get = AsyncMock(return_value=None)
     cache_service.set = AsyncMock()
     cache_service.delete_pattern = AsyncMock()
-    
+
     yield cache_service
-    
+
     # Restore original methods
     cache_service.get = original_get
     cache_service.set = original_set

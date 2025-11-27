@@ -46,9 +46,10 @@ import { api } from '@/types/api';
 import type { ClipMetadata } from '@/types/api';
 
 import { ImageWithFallback } from './ImageWithFallback';
-import { VideoPlayer } from './VideoPlayer';
 import { QuizPage } from './QuizPage';
+import { VideoPlayer } from './VideoPlayer';
 import { ResultsError } from '../services/resultsService';
+import type { QuizQuestion } from '@/types/api';
 
 interface VideoDetailPageProps {
   lectureId: string;
@@ -78,7 +79,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [socialDialogOpen, setSocialDialogOpen] = useState(false);
   const [isQuizActive, setIsQuizActive] = useState(false);
-  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
   const handleGenerateQuiz = async () => {
