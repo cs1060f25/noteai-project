@@ -154,13 +154,12 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
+  const [numQuestions, setNumQuestions] = useState(10);
+  const [difficulty, setDifficulty] = useState('medium');
+
   const handleGenerateQuiz = async () => {
     try {
       setIsGeneratingQuiz(true);
-      // Get values from select inputs (using defaults for now as they are not controlled)
-      const numQuestions = 5;
-      const difficulty = 'medium';
-
       const response = await api.generateQuiz(lectureId, numQuestions, difficulty);
       setQuizQuestions(response.questions);
 
@@ -723,7 +722,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
           <div className="space-y-4 mt-4">
             <div>
               <Label>Number of Questions</Label>
-              <Select defaultValue="10">
+              <Select defaultValue="10" onValueChange={(value) => setNumQuestions(parseInt(value))}>
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
@@ -738,7 +737,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
 
             <div>
               <Label>Difficulty Level</Label>
-              <Select defaultValue="medium">
+              <Select defaultValue="medium" onValueChange={setDifficulty}>
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
@@ -761,10 +760,6 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
                 <div className="flex items-center gap-2">
                   <input type="checkbox" defaultChecked className="rounded" />
                   <span className="text-sm">True/False</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" />
-                  <span className="text-sm">Short Answer</span>
                 </div>
               </div>
             </div>
