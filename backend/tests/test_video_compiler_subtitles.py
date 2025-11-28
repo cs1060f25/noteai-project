@@ -179,15 +179,15 @@ class TestVideoCompilerSubtitles:
         assert result is not None, "Clip processing should return metadata"
 
         # Subtitle S3 key should be populated
-        assert result["subtitle_s3_key"] is not None, (
-            "subtitle_s3_key should not be None when transcripts exist"
-        )
-        assert result["subtitle_s3_key"].startswith("subtitles/"), (
-            "subtitle_s3_key should start with 'subtitles/'"
-        )
-        assert result["subtitle_s3_key"].endswith(".vtt"), (
-            "subtitle file should be WebVTT format (.vtt)"
-        )
+        assert (
+            result["subtitle_s3_key"] is not None
+        ), "subtitle_s3_key should not be None when transcripts exist"
+        assert result["subtitle_s3_key"].startswith(
+            "subtitles/"
+        ), "subtitle_s3_key should start with 'subtitles/'"
+        assert result["subtitle_s3_key"].endswith(
+            ".vtt"
+        ), "subtitle file should be WebVTT format (.vtt)"
 
         # Verify S3 upload was called with subtitle file
         upload_calls = list(mock_s3.upload_file.call_args_list)
@@ -250,9 +250,9 @@ class TestVideoCompilerSubtitles:
 
         # Assert: Should succeed without subtitles
         assert result is not None, "Clip should process successfully even without transcripts"
-        assert result["subtitle_s3_key"] is None, (
-            "subtitle_s3_key should be None when no transcripts exist"
-        )
+        assert (
+            result["subtitle_s3_key"] is None
+        ), "subtitle_s3_key should be None when no transcripts exist"
 
     def test_timestamp_adjustment_for_clip_start(self):
         """Test that transcript timestamps are adjusted relative to clip start time.

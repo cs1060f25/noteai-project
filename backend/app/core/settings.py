@@ -175,6 +175,10 @@ class Settings(BaseSettings):
         default="10/minute",
         description="Rate limit for job creation/trigger endpoints",
     )
+    rate_limit_contact: str = Field(
+        default="5/hour",
+        description="Rate limit for contact form submissions",
+    )
 
     @field_validator("log_level")
     @classmethod

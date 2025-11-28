@@ -15,6 +15,7 @@ import {
 import { AgentOutputsDetailView } from '@/components/AgentOutputsDetailView';
 
 import { getJobs } from '../services/uploadService';
+
 import type { JobListResponse, JobResponse } from '../types/api';
 
 // ... (JobListView and helpers remain here)
@@ -229,11 +230,13 @@ const JobListView = () => {
   );
 };
 
+const AgentOutputsRouteComponent = () => {
+  const { jobId } = Route.useSearch();
+  return jobId ? <AgentOutputsDetailView jobId={jobId} /> : <JobListView />;
+};
+
 export const Route = createFileRoute('/_authenticated/agent-outputs')({
-  component: () => {
-    const { jobId } = Route.useSearch();
-    return jobId ? <AgentOutputsDetailView jobId={jobId} /> : <JobListView />;
-  },
+  component: AgentOutputsRouteComponent,
   validateSearch: (search: Record<string, unknown>): { jobId?: string } => {
     return {
       jobId: (search.jobId as string) || undefined,

@@ -1,7 +1,8 @@
 import { Outlet } from '@tanstack/react-router';
-import { ScrollToTop } from './ScrollToTop';
-import { Footer } from './layout/Footer';
+
 import { LandingNavbar } from './LandingNavbar';
+import { Footer } from './layout/Footer';
+import { ScrollToTop } from './ScrollToTop';
 
 export function RootLayout() {
   return (

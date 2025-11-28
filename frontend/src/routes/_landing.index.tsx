@@ -18,7 +18,6 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <GoogleOneTap />
-
       {/* Hero Section */}
       <section className="pt-20 pb-32 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -147,8 +146,8 @@ const LandingPage = () => {
                 className="glass-card rounded-xl p-8 border border-border/50 hover:border-border transition-all"
               >
                 <div className="text-5xl text-muted-foreground/20 mb-4">{item.step}</div>
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6">
-                  <item.icon className="w-6 h-6 text-primary" />
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center mb-6">
+                  <item.icon className="w-5 h-5 text-primary" />
                 </div>
                 <h3 className="text-xl mb-3">{item.title}</h3>
                 <p className="text-muted-foreground">{item.description}</p>
@@ -244,6 +243,6 @@ const LandingPage = () => {
   );
 };
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute('/_landing/')({
   component: LandingPage,
 });

@@ -18,7 +18,6 @@ from app.core.settings import settings
 from app.services.db_service import DatabaseService
 
 
-
 def get_db_session():
     """Create database session."""
     engine = create_engine(settings.database_url)

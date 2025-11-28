@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Outlet, createRootRoute } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import { Loader2 } from 'lucide-react';
-import { RootLayout } from '../components/RootLayout';
 
 const queryClient = new QueryClient();
 
@@ -24,11 +23,11 @@ const RootComponent = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RootLayout>
-        {/* All routes render here - both public and protected */}
-        <Outlet />
-      </RootLayout>
-      {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
+      {/* All routes render here - both public and protected */}
+      <Outlet />
+
+      {/* TanStack Router DevTools - only in development */}
+      <TanStackRouterDevtools position="bottom-right" />
     </QueryClientProvider>
   );
 };

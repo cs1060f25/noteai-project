@@ -8,7 +8,6 @@ import { defineConfig } from 'vite';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    !process.env.VITEST &&
     tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,
@@ -28,10 +27,5 @@ export default defineConfig({
     port: 5173,
     strictPort: true, // fail instead of auto-incrementing so origin stays stable
     host: true,
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: './src/test/setup.ts',
   },
 });
