@@ -238,9 +238,6 @@ def list_jobs(
     )
 
 
-
-
-
 class PodcastGenerationRequest(BaseModel):
     num_speakers: int = Field(2, alias="numSpeakers")
     voice1: str = "Kore"

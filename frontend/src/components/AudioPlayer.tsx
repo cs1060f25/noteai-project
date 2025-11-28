@@ -14,7 +14,6 @@ export function AudioPlayer() {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
 
-
   useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
@@ -94,7 +93,7 @@ export function AudioPlayer() {
             <div className="glass-card border-border/50 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl bg-background/80 supports-[backdrop-filter]:bg-background/40">
               {/* Progress Bar - Top Edge */}
               <div className="relative h-1 w-full bg-primary/10 cursor-pointer group">
-                <div 
+                <div
                   className="absolute inset-y-0 left-0 bg-primary transition-all duration-100"
                   style={{ width: `${(currentTime / duration) * 100}%` }}
                 />
@@ -116,13 +115,23 @@ export function AudioPlayer() {
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <div className="w-6 h-6 text-primary animate-pulse">
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 6V18M12 6C12 6 16 8 16 12C16 16 12 18 12 18M12 6C12 6 8 8 8 12C8 16 12 18 12 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path
+                          d="M12 6V18M12 6C12 6 16 8 16 12C16 16 12 18 12 18M12 6C12 6 8 8 8 12C8 16 12 18 12 18"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-medium truncate text-sm sm:text-base">{currentTrack.title}</h3>
-                    <p className="text-xs text-muted-foreground truncate">AI Podcast • {formatTime(currentTime)} / {formatTime(duration)}</p>
+                    <h3 className="font-medium truncate text-sm sm:text-base">
+                      {currentTrack.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground truncate">
+                      AI Podcast • {formatTime(currentTime)} / {formatTime(duration)}
+                    </p>
                   </div>
                 </div>
 
@@ -168,9 +177,13 @@ export function AudioPlayer() {
                       className="h-8 w-8 text-muted-foreground hover:text-foreground"
                       onClick={toggleMute}
                     >
-                      {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-4 h-4" />
+                      ) : (
+                        <Volume2 className="w-4 h-4" />
+                      )}
                     </Button>
-                    
+
                     <div className="w-0 overflow-hidden group-hover:w-20 transition-all duration-300 ease-in-out">
                       <input
                         type="range"

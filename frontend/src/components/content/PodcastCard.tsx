@@ -1,14 +1,14 @@
-import { 
-  Mic, 
-  Play, 
-  Download, 
-  Clock, 
+import {
+  Mic,
+  Play,
+  Download,
+  Clock,
   Calendar,
   MoreVertical,
   Trash2,
   Share2,
   Pause,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -35,7 +35,7 @@ interface PodcastCardProps {
 
 export function PodcastCard({ podcast, index, onPlay, onDelete, formatDate }: PodcastCardProps) {
   const { playTrack, currentTrack, isPlaying, pauseTrack, resumeTrack } = usePlayer();
-  
+
   const isCurrentTrack = currentTrack?.id === podcast.id;
   const isCurrentlyPlaying = isCurrentTrack && isPlaying;
 
@@ -60,16 +60,20 @@ export function PodcastCard({ podcast, index, onPlay, onDelete, formatDate }: Po
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ready': return 'bg-green-500/10 text-green-600 dark:text-green-400';
-      case 'generating': return 'bg-orange-500/10 text-orange-600 dark:text-orange-400';
-      case 'failed': return 'bg-red-500/10 text-red-600 dark:text-red-400';
-      default: return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
+      case 'ready':
+        return 'bg-green-500/10 text-green-600 dark:text-green-400';
+      case 'generating':
+        return 'bg-orange-500/10 text-orange-600 dark:text-orange-400';
+      case 'failed':
+        return 'bg-red-500/10 text-red-600 dark:text-red-400';
+      default:
+        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
     }
   };
 
   const handleDownload = async () => {
     if (!podcast.audioUrl) return;
-    
+
     try {
       const response = await fetch(podcast.audioUrl);
       const blob = await response.blob();
@@ -98,7 +102,7 @@ export function PodcastCard({ podcast, index, onPlay, onDelete, formatDate }: Po
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Mic className="w-6 h-6 text-primary" />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div className="flex-1 min-w-0">
@@ -115,7 +119,7 @@ export function PodcastCard({ podcast, index, onPlay, onDelete, formatDate }: Po
                   </span>
                 </div>
               </div>
-              
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="flex-shrink-0">
@@ -139,7 +143,7 @@ export function PodcastCard({ podcast, index, onPlay, onDelete, formatDate }: Po
                     <Share2 className="w-4 h-4 mr-2" />
                     Share
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => onDelete(podcast.id)}
                     className="text-red-500 focus:text-red-500"
                   >
@@ -164,10 +168,10 @@ export function PodcastCard({ podcast, index, onPlay, onDelete, formatDate }: Po
             {podcast.status === 'ready' ? (
               <div className="space-y-4">
                 <div className="flex gap-2">
-                  <Button 
+                  <Button
                     onClick={handlePlay}
                     className="gap-2"
-                    variant={isCurrentlyPlaying ? "secondary" : "default"}
+                    variant={isCurrentlyPlaying ? 'secondary' : 'default'}
                   >
                     {isCurrentlyPlaying ? (
                       <>
@@ -177,12 +181,12 @@ export function PodcastCard({ podcast, index, onPlay, onDelete, formatDate }: Po
                     ) : (
                       <>
                         <Play className="w-4 h-4" />
-                        {isCurrentTrack ? "Resume" : "Play Podcast"}
+                        {isCurrentTrack ? 'Resume' : 'Play Podcast'}
                       </>
                     )}
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="gap-2 border-border/50"
                     onClick={handleDownload}
                   >

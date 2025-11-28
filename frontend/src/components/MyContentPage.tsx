@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { useJobs } from '@/hooks/useAppQueries';
 import { deletePodcast } from '@/services/uploadService';
 
-
 import { EmptyState } from './content/EmptyState';
 import { PodcastCard } from './content/PodcastCard';
 import { QuizCard } from './content/QuizCard';
@@ -42,16 +41,21 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
   useEffect(() => {
     if (jobsData?.jobs) {
       const realPodcasts: Podcast[] = jobsData.jobs
-        .filter(job => job.podcast_status)
-        .map(job => ({
+        .filter((job) => job.podcast_status)
+        .map((job) => ({
           id: job.job_id,
           lectureTitle: job.filename,
           lectureId: 0, // Not used
           duration: job.podcast_duration ? formatDuration(job.podcast_duration) : '--:--',
           narrator: 'AI Voice', // Static for now
           createdAt: job.created_at,
-          status: job.podcast_status === 'completed' ? 'ready' : (job.podcast_status === 'failed' ? 'failed' : 'generating'),
-          audioUrl: job.podcast_url || undefined
+          status:
+            job.podcast_status === 'completed'
+              ? 'ready'
+              : job.podcast_status === 'failed'
+                ? 'failed'
+                : 'generating',
+          audioUrl: job.podcast_url || undefined,
         }));
       setPodcasts(realPodcasts);
     }
@@ -74,9 +78,9 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
           lastAttempt: {
             score: 8,
             totalQuestions: 10,
-            completedAt: '2024-11-25T11:00:00Z'
+            completedAt: '2024-11-25T11:00:00Z',
           },
-          status: 'completed'
+          status: 'completed',
         },
         {
           id: '2',
@@ -85,7 +89,7 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
           questionsCount: 15,
           difficulty: 'hard',
           createdAt: '2024-11-24T14:20:00Z',
-          status: 'not-started'
+          status: 'not-started',
         },
         {
           id: '3',
@@ -97,10 +101,10 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
           lastAttempt: {
             score: 6,
             totalQuestions: 8,
-            completedAt: '2024-11-23T09:45:00Z'
+            completedAt: '2024-11-23T09:45:00Z',
           },
-          status: 'completed'
-        }
+          status: 'completed',
+        },
       ];
       setQuizzes(mockQuizzes);
       localStorage.setItem('generated_quizzes', JSON.stringify(mockQuizzes));
@@ -108,7 +112,7 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
   };
 
   const handleDeleteQuiz = (quizId: string) => {
-    const updated = quizzes.filter(q => q.id !== quizId);
+    const updated = quizzes.filter((q) => q.id !== quizId);
     setQuizzes(updated);
     localStorage.setItem('generated_quizzes', JSON.stringify(updated));
     toast.success('Quiz deleted successfully');
@@ -128,20 +132,20 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
-  const filteredQuizzes = quizzes.filter(quiz =>
+  const filteredQuizzes = quizzes.filter((quiz) =>
     quiz.lectureTitle.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredPodcasts = podcasts.filter(podcast =>
+  const filteredPodcasts = podcasts.filter((podcast) =>
     podcast.lectureTitle.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -202,7 +206,7 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
         {activeTab === 'quizzes' ? (
           <div className="space-y-4">
             {filteredQuizzes.length === 0 ? (
-              <EmptyState 
+              <EmptyState
                 icon={BookOpen}
                 title="No quizzes yet"
                 description="Generate your first quiz from any lecture video"
@@ -223,7 +227,7 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
         ) : (
           <div className="space-y-4">
             {filteredPodcasts.length === 0 ? (
-              <EmptyState 
+              <EmptyState
                 icon={Mic}
                 title="No podcasts yet"
                 description="Generate your first podcast from any lecture video"

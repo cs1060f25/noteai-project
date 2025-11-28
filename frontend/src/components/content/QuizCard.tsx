@@ -1,5 +1,5 @@
-import { 
-  BookOpen, 
+import {
+  BookOpen,
   Calendar,
   ChevronRight,
   MoreVertical,
@@ -7,7 +7,7 @@ import {
   Share2,
   Eye,
   RotateCcw,
-  Trophy
+  Trophy,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -34,19 +34,27 @@ interface QuizCardProps {
 export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCardProps) {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'easy': return 'bg-green-500/10 text-green-600 dark:text-green-400';
-      case 'medium': return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400';
-      case 'hard': return 'bg-red-500/10 text-red-600 dark:text-red-400';
-      default: return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
+      case 'easy':
+        return 'bg-green-500/10 text-green-600 dark:text-green-400';
+      case 'medium':
+        return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400';
+      case 'hard':
+        return 'bg-red-500/10 text-red-600 dark:text-red-400';
+      default:
+        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-500/10 text-green-600 dark:text-green-400';
-      case 'in-progress': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
-      case 'not-started': return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
-      default: return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
+      case 'completed':
+        return 'bg-green-500/10 text-green-600 dark:text-green-400';
+      case 'in-progress':
+        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
+      case 'not-started':
+        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
+      default:
+        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
     }
   };
 
@@ -61,7 +69,7 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
             <BookOpen className="w-6 h-6 text-primary" />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div className="flex-1 min-w-0">
@@ -75,7 +83,7 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
                   <span>{quiz.questionsCount} questions</span>
                 </div>
               </div>
-              
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="flex-shrink-0">
@@ -97,7 +105,7 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
                     <Share2 className="w-4 h-4 mr-2" />
                     Share
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => onDelete(quiz.id)}
                     className="text-red-500 focus:text-red-500"
                   >
@@ -109,9 +117,7 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
             </div>
 
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <Badge className={getDifficultyColor(quiz.difficulty)}>
-                {quiz.difficulty}
-              </Badge>
+              <Badge className={getDifficultyColor(quiz.difficulty)}>{quiz.difficulty}</Badge>
               <Badge className={getStatusColor(quiz.status)}>
                 {quiz.status === 'not-started' && 'Not Started'}
                 {quiz.status === 'in-progress' && 'In Progress'}
@@ -134,7 +140,8 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground">Accuracy</div>
                     <div className="text-lg">
-                      {Math.round((quiz.lastAttempt.score / quiz.lastAttempt.totalQuestions) * 100)}%
+                      {Math.round((quiz.lastAttempt.score / quiz.lastAttempt.totalQuestions) * 100)}
+                      %
                     </div>
                   </div>
                 </div>
@@ -142,10 +149,7 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
             )}
 
             <div className="flex gap-2">
-              <Button 
-                onClick={() => onStart(quiz.id)}
-                className="gap-2"
-              >
+              <Button onClick={() => onStart(quiz.id)} className="gap-2">
                 {quiz.status === 'completed' ? (
                   <>
                     <RotateCcw className="w-4 h-4" />

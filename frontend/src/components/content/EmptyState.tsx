@@ -17,9 +17,7 @@ export function EmptyState({ icon: Icon, title, description }: EmptyStateProps) 
     >
       <Icon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
       <h3 className="text-xl mb-2">{title}</h3>
-      <p className="text-muted-foreground mb-6">
-        {description}
-      </p>
+      <p className="text-muted-foreground mb-6">{description}</p>
     </motion.div>
   );
 }

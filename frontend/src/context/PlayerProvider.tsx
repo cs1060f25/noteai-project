@@ -25,7 +25,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, isPlaying, playTrack, pauseTrack, resumeTrack, closePlayer }}>
+    <PlayerContext.Provider
+      value={{ currentTrack, isPlaying, playTrack, pauseTrack, resumeTrack, closePlayer }}
+    >
       {children}
     </PlayerContext.Provider>
   );

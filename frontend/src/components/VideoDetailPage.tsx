@@ -78,12 +78,38 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
   const [voice2, setVoice2] = useState('Puck');
 
   const voiceOptions = [
-    'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Aoede', 'Callirrhoe',
-    'Autonoe', 'Enceladus', 'Iapetus', 'Umbriel', 'Algieba', 'Despina', 'Erinome',
-    'Algenib', 'Rasalgethi', 'Laomedeia', 'Achernar', 'Alnilam', 'Schedar', 'Gacrux',
-    'Pulcherrima', 'Achird', 'Zubenelgenubi', 'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat'
+    'Zephyr',
+    'Puck',
+    'Charon',
+    'Kore',
+    'Fenrir',
+    'Leda',
+    'Orus',
+    'Aoede',
+    'Callirrhoe',
+    'Autonoe',
+    'Enceladus',
+    'Iapetus',
+    'Umbriel',
+    'Algieba',
+    'Despina',
+    'Erinome',
+    'Algenib',
+    'Rasalgethi',
+    'Laomedeia',
+    'Achernar',
+    'Alnilam',
+    'Schedar',
+    'Gacrux',
+    'Pulcherrima',
+    'Achird',
+    'Zubenelgenubi',
+    'Vindemiatrix',
+    'Sadachbia',
+    'Sadaltager',
+    'Sulafat',
   ];
-  
+
   const { data: job } = useJobDetails(lectureId);
   const { data: podcastData } = useQuery({
     queryKey: ['podcast', lectureId],
@@ -99,7 +125,8 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
       setIsGeneratingPodcast(true);
       await generatePodcast(lectureId, { numSpeakers, voice1, voice2 });
       toast.success('Podcast generation started', {
-        description: 'We will notify you via email when it is ready. You can also find it in "My Content".',
+        description:
+          'We will notify you via email when it is ready. You can also find it in "My Content".',
         action: {
           label: 'View Content',
           onClick: () => navigate({ to: '/content' }),
@@ -116,10 +143,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
     }
   };
 
-
-
   // ... (inside render)
-
 
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
@@ -461,7 +485,6 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 <Sparkles className="w-4 h-4 mr-2" />
                 AI Features
               </TabsTrigger>
-
             </TabsList>
           </div>
 
@@ -566,8 +589,6 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
               </div>
             </div>
           </TabsContent>
-
-
         </Tabs>
       </div>
 
@@ -580,12 +601,12 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
               Create an engaging audio summary of this lecture using AI voices.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 mt-4">
             <div>
               <Label>Number of Speakers</Label>
-              <Select 
-                value={numSpeakers.toString()} 
+              <Select
+                value={numSpeakers.toString()}
                 onValueChange={(v) => setNumSpeakers(parseInt(v) as 1 | 2)}
               >
                 <SelectTrigger className="mt-2 glass-card border-border/50">
@@ -605,8 +626,10 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="glass-card border-border/50 max-h-[200px]">
-                  {voiceOptions.map(voice => (
-                    <SelectItem key={voice} value={voice}>{voice}</SelectItem>
+                  {voiceOptions.map((voice) => (
+                    <SelectItem key={voice} value={voice}>
+                      {voice}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -620,8 +643,10 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="glass-card border-border/50 max-h-[200px]">
-                    {voiceOptions.map(voice => (
-                      <SelectItem key={voice} value={voice}>{voice}</SelectItem>
+                    {voiceOptions.map((voice) => (
+                      <SelectItem key={voice} value={voice}>
+                        {voice}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
