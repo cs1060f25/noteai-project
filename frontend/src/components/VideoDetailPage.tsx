@@ -932,7 +932,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
 
       {/* Video Player Modal */}
       <Dialog open={videoPlayerOpen} onOpenChange={setVideoPlayerOpen}>
-        <DialogContent className="glass-card border-border/50 max-w-[90vw] w-full p-0">
+        <DialogContent className="glass-card border-border/50 sm:max-w-7xl w-full p-0 max-h-[90vh] overflow-y-auto">
           <div className="relative">
             {/* Close button */}
             <Button
