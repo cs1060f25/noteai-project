@@ -92,10 +92,10 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
       setQuizQuestions(response.questions);
       setQuizDialogOpen(false);
       setIsQuizActive(true);
-      toast.success("Quiz generated successfully!");
+      toast.success('Quiz generated successfully!');
     } catch (error) {
       console.error('Failed to generate quiz:', error);
-      toast.error("Failed to generate quiz. Please try again.");
+      toast.error('Failed to generate quiz. Please try again.');
     } finally {
       setIsGeneratingQuiz(false);
     }
