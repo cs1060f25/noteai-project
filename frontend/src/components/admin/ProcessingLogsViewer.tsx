@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import {
   FileText,
@@ -47,7 +47,7 @@ export const ProcessingLogsViewer: React.FC = () => {
   // Get unique stages for filter
   const uniqueStages = Array.from(new Set(logs.map((log) => log.stage))).sort();
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -77,11 +77,11 @@ export const ProcessingLogsViewer: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [limit, page, stageFilter, jobIdFilter]);
 
   useEffect(() => {
     fetchLogs();
-  }, [page, limit, stageFilter, jobIdFilter]);
+  }, [fetchLogs]);
 
   const totalPages = Math.ceil(total / limit);
 
