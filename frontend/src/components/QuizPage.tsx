@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-
 import {
     ArrowLeft, Clock, CheckCircle2, XCircle, Trophy, Zap, Target, Brain,
     ArrowRight, RotateCcw, Share2, Sparkles, ChevronRight, Award, Check, Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
 import { toast } from 'sonner';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
