@@ -43,13 +43,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useJobResults } from '@/hooks/useAppQueries';
 import { api } from '@/types/api';
-import type { ClipMetadata } from '@/types/api';
+import type { ClipMetadata, QuizQuestion } from '@/types/api';
 
 import { ImageWithFallback } from './ImageWithFallback';
 import { QuizPage } from './QuizPage';
 import { VideoPlayer } from './VideoPlayer';
 import { ResultsError } from '../services/resultsService';
-import type { QuizQuestion } from '@/types/api';
 
 interface VideoDetailPageProps {
   lectureId: string;

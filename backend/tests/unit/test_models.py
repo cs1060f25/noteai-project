@@ -35,7 +35,7 @@ class TestProcessingConfig:
             resolution=ResolutionOption.UHD_4K,
             processing_mode=ProcessingMode.AUDIO,
             rate_limit_mode=False,
-            prompt="Test prompt"
+            prompt="Test prompt",
         )
         assert config.resolution == ResolutionOption.UHD_4K
         assert config.processing_mode == ProcessingMode.AUDIO
@@ -46,13 +46,10 @@ class TestProcessingConfig:
         with pytest.raises(ValidationError):
             ProcessingConfig(resolution="8k")
 
+
 class TestUploadRequest:
     def test_valid_request(self):
-        req = UploadRequest(
-            filename="test.mp4",
-            file_size=1024,
-            content_type="video/mp4"
-        )
+        req = UploadRequest(filename="test.mp4", file_size=1024, content_type="video/mp4")
         assert req.filename == "test.mp4"
         assert req.file_size == 1024
         assert req.content_type == "video/mp4"
@@ -60,34 +57,25 @@ class TestUploadRequest:
 
     def test_invalid_file_size(self):
         with pytest.raises(ValidationError):
-            UploadRequest(
-                filename="test.mp4",
-                file_size=0,
-                content_type="video/mp4"
-            )
+            UploadRequest(filename="test.mp4", file_size=0, content_type="video/mp4")
 
     def test_filename_length(self):
         with pytest.raises(ValidationError):
-            UploadRequest(
-                filename="",
-                file_size=1024,
-                content_type="video/mp4"
-            )
+            UploadRequest(filename="", file_size=1024, content_type="video/mp4")
+
 
 class TestJobModels:
     def test_job_progress_validation(self):
         progress = JobProgress(
-            stage=ProcessingStage.UPLOADING,
-            percent=50.0,
-            message="Uploading..."
+            stage=ProcessingStage.UPLOADING, percent=50.0, message="Uploading..."
         )
         assert progress.percent == 50.0
 
         with pytest.raises(ValidationError):
             JobProgress(
                 stage=ProcessingStage.UPLOADING,
-                percent=101.0, # Invalid percent
-                message="Uploading..."
+                percent=101.0,  # Invalid percent
+                message="Uploading...",
             )
 
     def test_job_response(self):
@@ -96,10 +84,11 @@ class TestJobModels:
             status=JobStatus.PENDING,
             filename="test.mp4",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         assert job.job_id == "123"
         assert job.status == JobStatus.PENDING
+
 
 class TestResultModels:
     def test_clip_metadata(self):
@@ -109,7 +98,7 @@ class TestResultModels:
             start_time=0.0,
             end_time=10.0,
             duration=10.0,
-            s3_key="clips/c1.mp4"
+            s3_key="clips/c1.mp4",
         )
         assert clip.duration == 10.0
 
@@ -117,19 +106,16 @@ class TestResultModels:
             ClipMetadata(
                 clip_id="c1",
                 title="Clip 1",
-                start_time=-1.0, # Invalid time
+                start_time=-1.0,  # Invalid time
                 end_time=10.0,
                 duration=10.0,
-                s3_key="clips/c1.mp4"
+                s3_key="clips/c1.mp4",
             )
 
     def test_transcript_segment(self):
-        segment = TranscriptSegment(
-            start_time=0.0,
-            end_time=5.0,
-            text="Hello world"
-        )
+        segment = TranscriptSegment(start_time=0.0, end_time=5.0, text="Hello world")
         assert segment.text == "Hello world"
+
 
 class TestAgentOutputModels:
     def test_silence_region(self):
@@ -139,7 +125,7 @@ class TestAgentOutputModels:
             end_time=2.0,
             duration=2.0,
             silence_type="audio_silence",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         assert region.duration == 2.0
 
@@ -152,7 +138,7 @@ class TestAgentOutputModels:
             split_ratio=0.5,
             layout_type="side_by_side",
             confidence_score=0.9,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         assert layout.confidence_score == 0.9
 
@@ -165,9 +151,10 @@ class TestAgentOutputModels:
             topic="Intro",
             importance_score=0.8,
             segment_order=1,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         assert segment.importance_score == 0.8
+
 
 class TestQuizModels:
     def test_quiz_question(self):
@@ -178,9 +165,10 @@ class TestQuizModels:
             options=["3", "4", "5"],
             correctAnswer=1,
             explanation="2+2=4",
-            difficulty="easy"
+            difficulty="easy",
         )
         assert q.correctAnswer == 1
+
 
 class TestUserModels:
     def test_user_response(self):
@@ -190,6 +178,6 @@ class TestUserModels:
             email_notifications=True,
             processing_notifications=False,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         assert user.email == "test@example.com"
