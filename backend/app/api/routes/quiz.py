@@ -34,7 +34,7 @@ def create_quiz(
     try:
         # Get user API key (decrypted)
         api_key = get_user_api_key(job_id)
-        
+
         # Generate quiz
         quiz = generate_quiz(
             job_id=job_id,
@@ -43,12 +43,12 @@ def create_quiz(
             num_questions=num_questions,
             difficulty=difficulty,
         )
-        
+
         return quiz
 
     except ValueError as e:
-        logger.error(f"Quiz generation failed: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Quiz generation failed: {e!s}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"Unexpected error generating quiz: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error generating quiz")
+        logger.error(f"Unexpected error generating quiz: {e!s}")
+        raise HTTPException(status_code=500, detail="Internal server error generating quiz") from e
