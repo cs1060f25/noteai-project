@@ -16,12 +16,12 @@ from app.api.routes import (
     api_keys,
     dashboard,
     jobs,
+    quiz,
     results,
     upload,
     users,
     videos,
     websocket,
-    quiz,
 )
 from app.core.logging import get_logger, setup_logging
 from app.core.rate_limit_config import limiter

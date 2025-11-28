@@ -296,7 +296,10 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 export const api = {
-  uploadVideo: async (file: File, onProgress?: (progress: number) => void): Promise<UploadResponse> => {
+  uploadVideo: async (
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -331,9 +334,13 @@ export const api = {
     return response.data;
   },
 
-  generateQuiz: async (jobId: string, numQuestions: number = 5, difficulty: string = 'medium'): Promise<QuizResponse> => {
+  generateQuiz: async (
+    jobId: string,
+    numQuestions: number = 5,
+    difficulty: string = 'medium'
+  ): Promise<QuizResponse> => {
     const response = await axios.post(`${API_BASE_URL}/jobs/${jobId}/quiz`, null, {
-      params: { num_questions: numQuestions, difficulty }
+      params: { num_questions: numQuestions, difficulty },
     });
     return response.data;
   },

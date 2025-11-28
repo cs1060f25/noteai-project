@@ -280,10 +280,14 @@ class TestContentAnalyzer:
         # verify Gemini was configured with user key
         mock_genai.configure.assert_called_once_with(api_key="user-provided-key")
 
+    @patch("agents.content_analyzer.get_db_session")
     @patch("agents.content_analyzer.settings")
-    def test_analyze_content_missing_api_key(self, mock_settings):
+    def test_analyze_content_missing_api_key(self, mock_settings, mock_db_session):
         """test error when API key is missing."""
         mock_settings.gemini_api_key = None
+
+        # Mock db session to avoid create_engine errors
+        mock_db_session.return_value = MagicMock()
 
         with pytest.raises(ValueError) as exc_info:
             analyze_content({}, "test-job-123", api_key=None)

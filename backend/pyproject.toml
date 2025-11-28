@@ -58,6 +58,7 @@ dev = [
     "black>=23.0.0",
     "mypy>=1.5.0",
     "httpx>=0.25.0",
+    "locust>=2.19.0",
 ]
 
 [dependency-groups]
