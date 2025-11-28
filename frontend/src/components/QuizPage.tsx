@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import {
     ArrowLeft, Clock, CheckCircle2, XCircle, Trophy, Zap, Target, Brain,
     ArrowRight, RotateCcw, Share2, Sparkles, ChevronRight, Award, Check, Star
@@ -10,7 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-
 import type { QuizQuestion } from '@/types/api';
 
 interface QuizPageProps {
