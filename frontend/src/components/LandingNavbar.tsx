@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Link } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 
@@ -9,11 +9,15 @@ import { Button } from '@/components/ui/button';
 
 export const LandingNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const isHome = pathname === '/';
 
-  const navLinks = [
-    { href: '#features', label: 'Features' },
-    { href: '#how-it-works', label: 'How It Works' },
-  ];
+  const navLinks = isHome
+    ? [
+        { href: '#features', label: 'Features' },
+        { href: '#how-it-works', label: 'How It Works' },
+      ]
+    : [];
 
   return (
     <motion.header
@@ -25,23 +29,52 @@ export const LandingNavbar = () => {
       <div className="max-w-7xl mx-auto">
         <div className="relative flex items-center justify-between h-16 px-6 lg:px-8">
           {/* logo */}
-          <motion.div
-            className="flex items-center gap-3"
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-          >
-            <motion.div
-              className="w-10 h-10 flex items-center justify-center"
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.5 }}
+          <div className="flex items-center">
+            <Link 
+              to="/" 
+              className="flex items-center gap-3 no-underline hover:no-underline cursor-pointer"
+              aria-label="Home"
+              onClick={(e) => e.stopPropagation()}
             >
-              <img src="/logo.png" alt="NoteAI Logo" className="w-full h-full object-contain" />
-            </motion.div>
-            <span className="text-lg font-semibold text-foreground tracking-tight">NoteAI</span>
-          </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+                className="flex items-center gap-3"
+              >
+                <motion.div
+                  className="w-10 h-10 flex items-center justify-center"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <img 
+                    src="/logo.png" 
+                    alt="NoteAI Logo" 
+                    className="w-full h-full object-contain cursor-pointer"
+                  />
+                </motion.div>
+                <span className="text-lg font-semibold text-foreground tracking-tight hover:text-primary transition-colors">
+                  NoteAI
+                </span>
+              </motion.div>
+            </Link>
+          </div>
 
           {/* desktop navigation */}
           <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
+            <Link to="/" className="group">
+              <motion.span
+                className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                Home
+                <motion.span
+                  className="absolute -bottom-1 left-0 w-0 h-0.5 bg-foreground group-hover:w-full transition-all duration-300"
+                  initial={{ width: 0 }}
+                />
+              </motion.span>
+            </Link>
             {navLinks.map((link, index) => (
               <motion.a
                 key={link.href}
@@ -49,7 +82,7 @@ export const LandingNavbar = () => {
                 className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * index, duration: 0.4 }}
+                transition={{ delay: 0.1 * (index + 1), duration: 0.4 }}
               >
                 {link.label}
                 <motion.span
@@ -90,9 +123,9 @@ export const LandingNavbar = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Link to="/signup">
+                <Link to="/login">
                   <Button className="bg-black hover:bg-black/90 text-white dark:bg-white dark:hover:bg-white/90 dark:text-black font-medium">
-                    Sign Up
+                    Get Started
                   </Button>
                 </Link>
               </motion.div>
@@ -183,12 +216,12 @@ export const LandingNavbar = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.25, duration: 0.3 }}
                   >
-                    <Link to="/signup" className="block">
+                    <Link to="/login" className="block">
                       <Button
                         className="w-full justify-start bg-black hover:bg-black/90 text-white dark:bg-white dark:hover:bg-white/90 dark:text-black"
                         onClick={() => setMobileMenuOpen(false)}
                       >
-                        Sign Up
+                        Get Started
                       </Button>
                     </Link>
                   </motion.div>
