@@ -79,7 +79,7 @@ def list_quizzes(
             "questionsCount": q.num_questions,
             "difficulty": q.difficulty,
             "createdAt": q.created_at.isoformat(),
-            "status": "completed", # Quizzes are generated synchronously for now
+            "status": "completed",  # Quizzes are generated synchronously for now
         }
         for q in quizzes
     ]
@@ -112,7 +112,7 @@ def get_quiz(
     questions_db = (
         db.query(QuizQuestionDB)
         .filter(QuizQuestionDB.quiz_id == quiz_id)
-        .order_by(QuizQuestionDB.id) # Use auto-increment id for stable ordering
+        .order_by(QuizQuestionDB.id)  # Use auto-increment id for stable ordering
         .all()
     )
 

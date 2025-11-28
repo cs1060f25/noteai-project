@@ -309,7 +309,7 @@ export const api = {
     // Use raw axios for upload to handle onUploadProgress properly if apiClient wrapper doesn't support it easily
     // Or better, use apiClient.post if it supports config.
     // Looking at clerk-api.ts, apiClient.post accepts config.
-    
+
     return apiClient.post<UploadResponse>('/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

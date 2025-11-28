@@ -429,6 +429,7 @@ class ProcessingLog(Base):
             Dictionary representation of the processing log
         """
 
+
 class Quiz(Base):
     """Quiz database model."""
 

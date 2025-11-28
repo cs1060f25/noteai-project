@@ -163,7 +163,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
 
       const response = await api.generateQuiz(lectureId, numQuestions, difficulty);
       setQuizQuestions(response.questions);
-      
+
       setQuizDialogOpen(false);
       setIsQuizActive(true);
       toast.success('Quiz generated successfully!', {
@@ -200,7 +200,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
       setError(null);
     }
   }, [queryError]);
-  
+
   // Fetch quiz if initialQuizId is provided
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -210,14 +210,14 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
           setQuizQuestions(quizResponse.questions);
           setIsQuizActive(true);
         } catch (error) {
-          console.error("Failed to fetch quiz:", error);
-          toast.error("Failed to load quiz");
+          console.error('Failed to fetch quiz:', error);
+          toast.error('Failed to load quiz');
         }
       }
     };
-    
+
     if (initialQuizId) {
-        fetchQuiz();
+      fetchQuiz();
     }
   }, [initialQuizId]);
 
