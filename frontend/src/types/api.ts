@@ -66,6 +66,9 @@ export interface JobResponse {
   progress?: JobProgress;
   error_message?: string;
   thumbnail_url?: string | null;
+  podcast_status?: string | null;
+  podcast_url?: string | null;
+  podcast_duration?: number | null;
 }
 
 export interface JobListResponse {
@@ -290,10 +293,10 @@ export interface QuizResponse {
   job_id: string;
   questions: QuizQuestion[];
 }
-// API client
-import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+import type { Quiz } from '@/components/content/types';
+// API client
+import { apiClient } from '@/lib/clerk-api';
 
 export const api = {
   uploadVideo: async (
@@ -303,7 +306,11 @@ export const api = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+    // Use raw axios for upload to handle onUploadProgress properly if apiClient wrapper doesn't support it easily
+    // Or better, use apiClient.post if it supports config.
+    // Looking at clerk-api.ts, apiClient.post accepts config.
+
+    return apiClient.post<UploadResponse>('/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -314,24 +321,20 @@ export const api = {
         }
       },
     });
-    return response.data;
   },
 
   getJob: async (jobId: string): Promise<JobResponse> => {
-    const response = await axios.get(`${API_BASE_URL}/jobs/${jobId}`);
-    return response.data;
+    return apiClient.get<JobResponse>(`/jobs/${jobId}`);
   },
 
   getJobs: async (skip = 0, limit = 10): Promise<JobListResponse> => {
-    const response = await axios.get(`${API_BASE_URL}/jobs`, {
+    return apiClient.get<JobListResponse>('/jobs', {
       params: { skip, limit },
     });
-    return response.data;
   },
 
   getResults: async (jobId: string): Promise<ResultsResponse> => {
-    const response = await axios.get(`${API_BASE_URL}/results/${jobId}`);
-    return response.data;
+    return apiClient.get<ResultsResponse>(`/results/${jobId}`);
   },
 
   generateQuiz: async (
@@ -339,9 +342,16 @@ export const api = {
     numQuestions: number = 5,
     difficulty: string = 'medium'
   ): Promise<QuizResponse> => {
-    const response = await axios.post(`${API_BASE_URL}/jobs/${jobId}/quiz`, null, {
+    return apiClient.post<QuizResponse>(`/jobs/${jobId}/quiz`, null, {
       params: { num_questions: numQuestions, difficulty },
     });
-    return response.data;
+  },
+
+  getQuiz: async (quizId: string): Promise<QuizResponse> => {
+    return apiClient.get<QuizResponse>(`/quizzes/${quizId}`);
+  },
+
+  getQuizzes: async (): Promise<Quiz[]> => {
+    return apiClient.get<Quiz[]>('/quizzes');
   },
 };

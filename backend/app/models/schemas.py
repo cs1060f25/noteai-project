@@ -29,6 +29,7 @@ class ProcessingStage(str, Enum):
     CONTENT_ANALYSIS = "content_analysis"
     SEGMENTATION = "segmentation"
     COMPILATION = "compilation"
+    PODCAST_GENERATION = "podcast_generation"
     COMPLETE = "complete"
 
 
@@ -148,6 +149,9 @@ class JobResponse(BaseModel):
     progress: JobProgress | None = Field(None, description="Current progress information")
     error_message: str | None = Field(None, description="Error message if failed")
     thumbnail_url: HttpUrl | None = Field(None, description="URL to video thumbnail")
+    podcast_status: str | None = Field(None, description="Status of podcast generation")
+    podcast_url: HttpUrl | None = Field(None, description="URL to download podcast MP3")
+    podcast_duration: float | None = Field(None, description="Duration of podcast in seconds")
 
 
 class JobListResponse(BaseModel):

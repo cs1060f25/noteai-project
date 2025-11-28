@@ -3,7 +3,9 @@ import { useEffect } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Outlet, createFileRoute, useNavigate, useLocation } from '@tanstack/react-router';
 
+import { AudioPlayer } from '@/components/AudioPlayer';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { PlayerProvider } from '@/context/PlayerProvider';
 
 const AuthenticatedLayout = () => {
   const { isSignedIn, isLoaded, user } = useUser();
@@ -48,20 +50,24 @@ const AuthenticatedLayout = () => {
   }
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
-      <DashboardSidebar user={user} onLogout={handleLogout} />
+    <PlayerProvider>
+      <div className="h-screen flex bg-background overflow-hidden">
+        <DashboardSidebar user={user} onLogout={handleLogout} />
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-hidden lg:mt-0 mt-16">
-        <div className="h-full overflow-auto">
-          <div className="px-4 pt-8 pb-4">
-            <div className="max-w-8xl mx-auto">
-              <Outlet />
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden lg:mt-0 mt-16">
+          <div className="h-full overflow-auto">
+            <div className="px-4 pt-8 pb-4">
+              <div className="max-w-8xl mx-auto">
+                <Outlet />
+              </div>
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+
+        <AudioPlayer />
+      </div>
+    </PlayerProvider>
   );
 };
 

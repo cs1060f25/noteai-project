@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.core.settings import settings
-from app.models.database import Transcript
+from app.models.database import Quiz, Transcript
+from app.models.database import QuizQuestion as QuizQuestionDB
 from app.models.schemas import QuizQuestion, QuizResponse
 
 logger = get_logger(__name__)
@@ -114,9 +115,40 @@ def generate_quiz(
 
             questions.append(QuizQuestion(**q_data))
 
+        # 6. Save to Database
+        import uuid
+
+        quiz_id = f"quiz_{uuid.uuid4().hex}"
+
+        # Create Quiz record
+        quiz = Quiz(
+            quiz_id=quiz_id,
+            job_id=job_id,
+            difficulty=difficulty,
+            num_questions=len(questions),
+        )
+        db.add(quiz)
+        db.flush()  # Flush to ensure quiz exists for foreign keys
+
+        # Create Question records
+        for q in questions:
+            question_id = f"q_{uuid.uuid4().hex}"
+            question = QuizQuestionDB(
+                question_id=question_id,
+                quiz_id=quiz_id,
+                question_text=q.question,
+                question_type=q.type,
+                options=q.options,
+                correct_answer_index=q.correct_answer,
+                explanation=q.explanation,
+            )
+            db.add(question)
+
+        db.commit()
+
         logger.info(
-            "Quiz generation complete",
-            extra={"job_id": job_id, "questions_count": len(questions)},
+            "Quiz generation complete and saved",
+            extra={"job_id": job_id, "quiz_id": quiz_id, "questions_count": len(questions)},
         )
 
         return QuizResponse(job_id=job_id, questions=questions)
