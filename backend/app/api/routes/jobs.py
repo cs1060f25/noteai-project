@@ -1,6 +1,7 @@
 """job management api routes for tracking processing status."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.clerk_auth import get_current_user_clerk
@@ -139,6 +140,15 @@ def get_job_status(
         progress=progress,
         error_message=job.error_message,
         thumbnail_url=_get_job_thumbnail(job),
+        podcast_status=job.podcast_status,
+        podcast_duration=job.podcast_duration,
+        podcast_url=(
+            s3_service.generate_presigned_url(
+                job.podcast_s3_key, expiration=settings.s3_presigned_url_expiry
+            )
+            if job.podcast_s3_key
+            else None
+        ),
     )
 
 
@@ -200,6 +210,15 @@ def list_jobs(
                 progress=progress,
                 error_message=job.error_message,
                 thumbnail_url=_get_job_thumbnail(job),
+                podcast_status=job.podcast_status,
+                podcast_duration=job.podcast_duration,
+                podcast_url=(
+                    s3_service.generate_presigned_url(
+                        job.podcast_s3_key, expiration=settings.s3_presigned_url_expiry
+                    )
+                    if job.podcast_s3_key
+                    else None
+                ),
             )
         )
 
@@ -217,3 +236,178 @@ def list_jobs(
         jobs=job_responses,
         total=total,
     )
+
+
+
+
+
+class PodcastGenerationRequest(BaseModel):
+    num_speakers: int = Field(2, alias="numSpeakers")
+    voice1: str = "Kore"
+    voice2: str = "Puck"
+
+
+@router.post(
+    "/{job_id}/podcast",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate podcast",
+    description="Trigger podcast generation for a job.",
+)
+@limiter.limit(settings.rate_limit_job_create)
+def generate_podcast_endpoint(
+    job_id: str,
+    request: Request,
+    response: Response,
+    body: PodcastGenerationRequest = None,
+    current_user: User = Depends(get_current_user_clerk),
+    db: Session = Depends(get_db),
+):
+    """trigger podcast generation."""
+    db_service = DatabaseService(db)
+    job = db_service.jobs.get_by_id(job_id)
+
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "JOB_NOT_FOUND", "message": "Job not found"}},
+        )
+
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "FORBIDDEN", "message": "Unauthorized"}},
+        )
+
+    if job.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "JOB_NOT_COMPLETED",
+                    "message": "Job must be completed before generating podcast",
+                }
+            },
+        )
+
+    # Check if already exists or processing
+    if job.podcast_status in ["processing", "completed"]:
+        return {"message": "Podcast generation already in progress or completed"}
+
+    # Trigger task
+    from pipeline.tasks import generate_podcast
+
+    job.podcast_status = "pending"
+    db.commit()
+
+    # Default options if not provided
+    options = {
+        "num_speakers": body.num_speakers if body else 2,
+        "voice1": body.voice1 if body else "Kore",
+        "voice2": body.voice2 if body else "Puck",
+    }
+
+    # Save options to extra_metadata
+    if not job.extra_metadata:
+        job.extra_metadata = {}
+    job.extra_metadata["podcast_options"] = options
+    # Force update of JSON field
+    from sqlalchemy.orm.attributes import flag_modified
+
+    flag_modified(job, "extra_metadata")
+
+    db.commit()
+
+    generate_podcast.delay(job_id)
+
+    return {"message": "Podcast generation started"}
+
+
+@router.get(
+    "/{job_id}/podcast",
+    summary="Get podcast download URL",
+    description="Get a pre-signed URL to download the generated podcast.",
+)
+@limiter.limit(settings.rate_limit_job_status)
+def get_podcast_url(
+    job_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user_clerk),
+    db: Session = Depends(get_db),
+):
+    """get podcast download url."""
+    db_service = DatabaseService(db)
+    job = db_service.jobs.get_by_id(job_id)
+
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "JOB_NOT_FOUND", "message": "Job not found"}},
+        )
+
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "FORBIDDEN", "message": "Unauthorized"}},
+        )
+
+    if not job.podcast_s3_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "PODCAST_NOT_FOUND", "message": "Podcast not found"}},
+        )
+
+    url = s3_service.generate_presigned_url(
+        object_key=job.podcast_s3_key,
+        expiration=settings.s3_presigned_url_expiry,
+    )
+
+    return {"url": url, "duration": job.podcast_duration, "file_size": job.podcast_file_size}
+
+
+@router.delete(
+    "/{job_id}/podcast",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete podcast",
+    description="Delete the generated podcast for a job.",
+)
+@limiter.limit(settings.rate_limit_job_create)
+def delete_podcast(
+    job_id: str,
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user_clerk),
+    db: Session = Depends(get_db),
+):
+    """delete podcast."""
+    db_service = DatabaseService(db)
+    job = db_service.jobs.get_by_id(job_id)
+
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "JOB_NOT_FOUND", "message": "Job not found"}},
+        )
+
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "FORBIDDEN", "message": "Unauthorized"}},
+        )
+
+    if job.podcast_s3_key:
+        try:
+            s3_service.delete_file(job.podcast_s3_key)
+        except Exception as e:
+            logger.error(
+                "Failed to delete podcast from S3",
+                exc_info=e,
+                extra={"job_id": job_id, "s3_key": job.podcast_s3_key},
+            )
+
+    job.podcast_status = None
+    job.podcast_s3_key = None
+    job.podcast_duration = None
+    job.podcast_file_size = None
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

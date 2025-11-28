@@ -19,6 +19,7 @@ import {
   Shield,
   Briefcase,
   Users,
+  BookOpen,
 } from 'lucide-react';
 
 import { AdminBadge } from '@/components/admin/AdminBadge';
@@ -53,6 +54,7 @@ export const DashboardSidebar = ({ user, onLogout }: DashboardSidebarProps) => {
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { id: 'upload', name: 'Upload', icon: Upload, path: '/upload' },
     { id: 'library', name: 'Library', icon: Library, path: '/library' },
+    { id: 'content', name: 'My Content', icon: BookOpen, path: '/content' },
     { id: 'settings', name: 'Settings', icon: Settings, path: '/settings' },
   ];
 

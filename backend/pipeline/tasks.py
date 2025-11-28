@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -19,6 +20,7 @@ from agents.layout_detector import detect_layout
 from agents.segment_extractor import extract_segments
 from agents.silence_detector import detect_silence
 from agents.transcript_agent import generate_transcript
+from agents.utils.ffmpeg_helper import FFmpegHelper
 from agents.video_compiler import VideoCompiler, compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
@@ -1845,3 +1847,151 @@ def start_metrics_server(**_kwargs):
             exc_info=e,
             extra={"port": 9090},
         )
+
+
+@celery_app.task(
+    bind=True,
+    base=BaseProcessingTask,
+    name="pipeline.tasks.generate_podcast",
+)
+def generate_podcast(self, job_id: str) -> dict[str, Any]:
+    """Generate AI-narrated podcast from video content.
+
+    Args:
+        job_id: job identifier
+
+    Returns:
+        result dictionary with podcast info
+    """
+    logger.info("Starting AI podcast generation", extra={"job_id": job_id})
+
+    db = get_task_db()
+    try:
+        temp_dir = Path(f"/tmp/podcast_{job_id}")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        db_service = DatabaseService(db)
+        job = db_service.jobs.get_by_id(job_id)
+
+        if not job:
+            raise ValueError(f"Job not found: {job_id}")
+
+        # Update status to processing
+        job.podcast_status = "processing"
+        db.commit()
+
+        # Get options from extra_metadata
+        options = job.extra_metadata.get("podcast_options", {})
+
+        # 1. Gather Content (Transcripts & Slides)
+        transcripts = db_service.transcripts.get_by_job_id(job_id)
+        transcript_text = " ".join([t.text for t in transcripts])
+
+        logger.info("Transcript text: ", transcript_text)
+
+        slide_content = db_service.slide_content.get_by_job_id(job_id)
+        visual_summary = ""
+        if slide_content:
+            visual_summary = f"Key Concepts: {', '.join(slide_content.key_concepts)}\n"
+            visual_summary += f"Visual Elements: {', '.join(slide_content.visual_elements)}\n"
+            visual_summary += f"Text Blocks: {len(slide_content.text_blocks)} detected."
+
+        logger.info("Visual summary: ", visual_summary)
+
+        # 2. Generate Script
+        from agents.podcast_agent import PodcastAgent
+
+        api_key = get_user_api_key(job_id)
+        agent = PodcastAgent(api_key=api_key)
+
+        # Default options
+        num_speakers = options.get("num_speakers", 2)
+
+        logger.info("Num speakers: ", num_speakers)
+
+        script = agent.generate_script(
+            transcript_text=transcript_text,
+            visual_summary=visual_summary,
+            num_speakers=num_speakers,
+            style="Casual and engaging",
+        )
+
+        # 3. Generate Audio
+        audio_files = agent.generate_audio(script, temp_dir, options)
+
+        # 4. Assemble Audio
+        output_filename = f"podcast_{job_id}.mp3"
+        output_path = temp_dir / output_filename
+
+        agent.assemble_audio(audio_files, output_path)
+
+        # 5. Upload to S3
+        s3_key = f"podcasts/{job.user_id}/{job_id}/{output_filename}"
+
+        s3_service.upload_file(
+            file_path=str(output_path), object_key=s3_key, content_type="audio/mpeg"
+        )
+
+        # 6. Update Job
+        # Use FFmpegHelper to get duration (avoids mutagen dependency)
+        ffmpeg_helper = FFmpegHelper()
+        duration = ffmpeg_helper.get_media_duration(output_path)
+        file_size = output_path.stat().st_size
+
+        job.podcast_s3_key = s3_key
+        job.podcast_duration = duration
+        job.podcast_file_size = file_size
+        job.podcast_status = "completed"
+        db.commit()
+
+        # Send email notification
+        try:
+            if job.user and job.user.email:
+                email_service = EmailService()
+                # TODO: Get frontend URL from settings
+                podcast_url = "http://localhost:5173/content"
+
+                email_service.send_podcast_completed_email(
+                    to_email=job.user.email,
+                    video_title=f"AI Podcast: {job.filename}",
+                    podcast_url=podcast_url,
+                )
+        except Exception as e:
+            logger.error("Failed to send podcast completion email", exc_info=e)
+
+        return {"job_id": job_id, "status": "completed", "duration": duration}
+
+    except Exception as e:
+        logger.error("Podcast generation failed", exc_info=e, extra={"job_id": job_id})
+
+        # Update podcast status to failed BUT DO NOT FAIL THE JOB
+        try:
+            # Re-fetch job to ensure session is valid
+            # We need to use a new session if the previous one was closed or rolled back
+            # But here we are in the same scope, so we try to use existing db session
+            # If db session is closed, we might need a new one.
+            # Safest is to use the existing db object if open, or create new one.
+            # For simplicity in this context, we'll try to use the existing 'db' and 'db_service'
+            # assuming they are still valid or we can rollback.
+
+            if "db" in locals() and db.is_active:
+                db.rollback()  # Rollback any previous transaction failure
+
+            # Re-query job
+            job = db_service.jobs.get_by_id(job_id)
+            if job:
+                job.podcast_status = "failed"
+                db.commit()
+        except Exception as db_e:
+            logger.error("Failed to update podcast status to failed", exc_info=db_e)
+
+        # Return error result but don't raise exception to avoid BaseProcessingTask.on_failure
+        return {"job_id": job_id, "status": "failed", "error": str(e)}
+    finally:
+        if "db" in locals():
+            db.close()
+        # Cleanup temp files
+        import shutil
+
+        if "temp_dir" in locals() and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)

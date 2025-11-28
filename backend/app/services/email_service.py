@@ -147,3 +147,134 @@ class EmailService:
                 extra={"to_email": to_email},
             )
             # do not raise exception to prevent job failure
+
+    def send_podcast_completed_email(
+        self, to_email: str, video_title: str, podcast_url: str
+    ) -> None:
+        """send podcast completion email to user.
+
+        args:
+            to_email: recipient email address
+            video_title: title of the source video
+            podcast_url: link to listen to the podcast
+        """
+        if not settings.resend_api_key:
+            logger.warning("Skipping email send: RESEND_API_KEY not set")
+            return
+
+        try:
+            params = {
+                "from": settings.resend_from_email,
+                "to": [to_email],
+                "subject": "Your AI Podcast is ready! 🎙️",
+                "html": f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <style>
+                        body {{
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                            background-color: #f4f4f5;
+                            margin: 0;
+                            padding: 0;
+                        }}
+                        .container {{
+                            max-width: 600px;
+                            margin: 0 auto;
+                            background-color: #ffffff;
+                            border-radius: 12px;
+                            overflow: hidden;
+                            margin-top: 40px;
+                            margin-bottom: 40px;
+                            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                            border: 1px solid rgba(0, 0, 0, 0.1);
+                        }}
+                        .header {{
+                            background-color: #7c3aed; /* Purple for podcast */
+                            padding: 32px;
+                            text-align: center;
+                        }}
+                        .header h1 {{
+                            color: #ffffff;
+                            margin: 0;
+                            font-size: 24px;
+                            font-weight: 600;
+                            letter-spacing: -0.025em;
+                        }}
+                        .content {{
+                            padding: 40px 32px;
+                            color: #030213;
+                            line-height: 1.6;
+                        }}
+                        .btn {{
+                            display: inline-block;
+                            background-color: #7c3aed;
+                            color: #ffffff;
+                            padding: 14px 28px;
+                            text-decoration: none;
+                            border-radius: 8px;
+                            font-weight: 500;
+                            margin-top: 32px;
+                            transition: opacity 0.2s;
+                        }}
+                        .btn:hover {{
+                            opacity: 0.9;
+                        }}
+                        .footer {{
+                            padding: 32px;
+                            text-align: center;
+                            color: #717182;
+                            font-size: 13px;
+                            background-color: #f9fafb;
+                            border-top: 1px solid #ececf0;
+                        }}
+                        h2 {{
+                            color: #7c3aed;
+                            font-size: 20px;
+                            font-weight: 600;
+                            margin-top: 0;
+                            margin-bottom: 16px;
+                        }}
+                        p {{
+                            margin-bottom: 16px;
+                            color: #374151;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>NoteAI</h1>
+                        </div>
+                        <div class="content">
+                            <h2>Your AI Podcast is ready! 🎙️</h2>
+                            <p>We've finished generating an audio podcast for <strong>{video_title}</strong>.</p>
+                            <p>Listen to the key concepts explained in an engaging dialogue format, perfect for learning on the go.</p>
+                            <div style="text-align: center;">
+                                <a href="{podcast_url}" class="btn">Listen to Podcast</a>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>&copy; {settings.app_name or "NoteAI"}. All rights reserved.</p>
+                            <p>If you didn't request this, please ignore this email.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """,
+            }
+
+            email = resend.Emails.send(params)
+            logger.info(
+                "Podcast completion email sent successfully",
+                extra={"to_email": to_email, "email_id": email.get("id")},
+            )
+
+        except Exception as e:
+            logger.error(
+                "Failed to send podcast completion email",
+                exc_info=e,
+                extra={"to_email": to_email},
+            )

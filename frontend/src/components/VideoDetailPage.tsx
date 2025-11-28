@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import {
   ArrowLeft,
   Play,
@@ -10,9 +12,7 @@ import {
   Mic,
   Brain,
   MessageSquare,
-  BookOpen,
   Clock,
-  Trash2,
   ChevronRight,
   Loader2,
   X,
@@ -38,13 +38,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { useJobResults } from '@/hooks/useAppQueries';
+import { useJobDetails, useJobResults } from '@/hooks/useAppQueries';
 import { api } from '@/types/api';
 import type { ClipMetadata, QuizQuestion } from '@/types/api';
-
+import { generatePodcast, getPodcastUrl } from '@/services/uploadService';
 import { ImageWithFallback } from './ImageWithFallback';
 import { QuizPage } from './QuizPage';
 import { VideoPlayer } from './VideoPlayer';
@@ -74,6 +72,55 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
 
   const [podcastDialogOpen, setPodcastDialogOpen] = useState(false);
+  const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
+  const [numSpeakers, setNumSpeakers] = useState<1 | 2>(2);
+  const [voice1, setVoice1] = useState('Kore');
+  const [voice2, setVoice2] = useState('Puck');
+
+  const voiceOptions = [
+    'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Aoede', 'Callirrhoe',
+    'Autonoe', 'Enceladus', 'Iapetus', 'Umbriel', 'Algieba', 'Despina', 'Erinome',
+    'Algenib', 'Rasalgethi', 'Laomedeia', 'Achernar', 'Alnilam', 'Schedar', 'Gacrux',
+    'Pulcherrima', 'Achird', 'Zubenelgenubi', 'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat'
+  ];
+  
+  const { data: job } = useJobDetails(lectureId);
+  const { data: podcastData } = useQuery({
+    queryKey: ['podcast', lectureId],
+    queryFn: () => getPodcastUrl(lectureId),
+    enabled: !!job && job.podcast_status === 'completed',
+  });
+
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  const handleGeneratePodcast = async () => {
+    try {
+      setIsGeneratingPodcast(true);
+      await generatePodcast(lectureId, { numSpeakers, voice1, voice2 });
+      toast.success('Podcast generation started', {
+        description: 'We will notify you via email when it is ready. You can also find it in "My Content".',
+        action: {
+          label: 'View Content',
+          onClick: () => navigate({ to: '/content' }),
+        },
+      });
+      setPodcastDialogOpen(false);
+      // Invalidate job details to show processing status
+      queryClient.invalidateQueries({ queryKey: ['jobs', lectureId] });
+    } catch (error) {
+      toast.error('Failed to start podcast generation');
+      console.error(error);
+    } finally {
+      setIsGeneratingPodcast(false);
+    }
+  };
+
+
+
+  // ... (inside render)
+
+
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [socialDialogOpen, setSocialDialogOpen] = useState(false);
@@ -183,26 +230,10 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
     {
       id: 'summary',
       title: 'Create Summary',
-      description: 'Get a concise text or video summary',
+      description: 'Get a concise text summary',
       icon: FileText,
       color: 'bg-green-500',
       onClick: () => setSummaryDialogOpen(true),
-    },
-    {
-      id: 'social',
-      title: 'Social Media Posts',
-      description: 'Generate posts for Twitter, LinkedIn, etc.',
-      icon: MessageSquare,
-      color: 'bg-pink-500',
-      onClick: () => setSocialDialogOpen(true),
-    },
-    {
-      id: 'study',
-      title: 'Study Guide',
-      description: 'Create comprehensive study materials',
-      icon: BookOpen,
-      color: 'bg-orange-500',
-      onClick: () => toast.success('Study guide generation started!'),
     },
     {
       id: 'transcript',
@@ -341,7 +372,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
             <div className="flex-1">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h1 className="mb-2">Video Lecture</h1>
+                  <h1 className="mb-2">{job?.filename || 'Video Lecture'}</h1>
                   <p className="text-muted-foreground mb-3">
                     Processed video with {clips.length} highlight{clips.length !== 1 ? 's' : ''}
                   </p>
@@ -430,7 +461,7 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
                 <Sparkles className="w-4 h-4 mr-2" />
                 AI Features
               </TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+
             </TabsList>
           </div>
 
@@ -536,117 +567,66 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
             </div>
           </TabsContent>
 
-          {/* Settings Tab */}
-          <TabsContent value="settings">
-            <div className="space-y-6 max-w-2xl">
-              <div>
-                <h2 className="mb-2">Video Settings</h2>
-                <p className="text-muted-foreground mb-6">Manage settings for this video</p>
-              </div>
 
-              <div className="glass-card rounded-xl border border-border/50 p-6 space-y-4">
-                <div>
-                  <Label>Video Title</Label>
-                  <input
-                    type="text"
-                    defaultValue={results.metadata?.title || 'Video Lecture'}
-                    className="w-full mt-2 px-3 py-2 bg-background border border-border/50 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <Label>Description</Label>
-                  <Textarea
-                    defaultValue={results.metadata?.description || 'No description'}
-                    className="mt-2"
-                    rows={4}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="glass-card text-destructive"
-                    onClick={() => toast.error('Delete functionality not yet implemented')}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Video
-                  </Button>
-                  <Button
-                    className="ml-auto glass-button bg-primary"
-                    onClick={() => toast.success('Settings saved!')}
-                  >
-                    Save Changes
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
       </div>
 
       {/* Podcast Dialog */}
       <Dialog open={podcastDialogOpen} onOpenChange={setPodcastDialogOpen}>
-        <DialogContent className="glass-card border-border/50 max-w-lg">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create AI Podcast</DialogTitle>
+            <DialogTitle>Generate AI Podcast</DialogTitle>
             <DialogDescription>
-              Generate an audio podcast with AI narration from your video clips
+              Create an engaging audio summary of this lecture using AI voices.
             </DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4 mt-4">
             <div>
-              <Label>Voice Style</Label>
-              <Select defaultValue="professional">
+              <Label>Number of Speakers</Label>
+              <Select 
+                value={numSpeakers.toString()} 
+                onValueChange={(v) => setNumSpeakers(parseInt(v) as 1 | 2)}
+              >
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="professional">Professional Male</SelectItem>
-                  <SelectItem value="friendly">Friendly Female</SelectItem>
-                  <SelectItem value="energetic">Energetic</SelectItem>
-                  <SelectItem value="calm">Calm & Soothing</SelectItem>
+                  <SelectItem value="1">1 Speaker (Monologue)</SelectItem>
+                  <SelectItem value="2">2 Speakers (Dialogue)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>Background Music</Label>
-              <Select defaultValue="none">
+              <Label>Host Voice {numSpeakers === 2 && '(Speaker 1)'}</Label>
+              <Select value={voice1} onValueChange={setVoice1}>
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="ambient">Ambient</SelectItem>
-                  <SelectItem value="upbeat">Upbeat</SelectItem>
-                  <SelectItem value="classical">Classical</SelectItem>
+                <SelectContent className="glass-card border-border/50 max-h-[200px]">
+                  {voiceOptions.map(voice => (
+                    <SelectItem key={voice} value={voice}>{voice}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div>
-              <Label>Include Clips</Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                Select which clips to include in the podcast
-              </p>
-              <div className="mt-2 space-y-2 max-h-48 overflow-auto">
-                {clips.map((clip) => (
-                  <div
-                    key={clip.clip_id}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent"
-                  >
-                    <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm flex-1">{clip.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDuration(clip.duration)}
-                    </span>
-                  </div>
-                ))}
+            {numSpeakers === 2 && (
+              <div>
+                <Label>Expert Voice (Speaker 2)</Label>
+                <Select value={voice2} onValueChange={setVoice2}>
+                  <SelectTrigger className="mt-2 glass-card border-border/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="glass-card border-border/50 max-h-[200px]">
+                    {voiceOptions.map(voice => (
+                      <SelectItem key={voice} value={voice}>{voice}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
 
             <div className="flex gap-2 pt-4">
               <Button
@@ -658,13 +638,20 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
               </Button>
               <Button
                 className="flex-1 glass-button bg-purple-500 hover:bg-purple-600"
-                onClick={() => {
-                  setPodcastDialogOpen(false);
-                  toast.success("Podcast generation started! You'll be notified when ready.");
-                }}
+                onClick={handleGeneratePodcast}
+                disabled={isGeneratingPodcast}
               >
-                <Mic className="w-4 h-4 mr-2" />
-                Generate Podcast
+                {isGeneratingPodcast ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-4 h-4 mr-2" />
+                    Generate Podcast
+                  </>
+                )}
               </Button>
             </div>
           </div>

@@ -66,6 +66,9 @@ export interface JobResponse {
   progress?: JobProgress;
   error_message?: string;
   thumbnail_url?: string | null;
+  podcast_status?: string | null;
+  podcast_url?: string | null;
+  podcast_duration?: number | null;
 }
 
 export interface JobListResponse {

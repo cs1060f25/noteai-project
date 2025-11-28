@@ -110,19 +110,11 @@ cors_kwargs = {
     "allow_methods": ["*"],
     "allow_headers": ["*"],
 }
-if settings.is_development:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.get_allowed_origins(),
-        allow_origin_regex=r"^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$",
-        **cors_kwargs,
-    )
-else:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.get_allowed_origins(),
-        **cors_kwargs,
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.get_allowed_origins(),
+    **cors_kwargs,
+)
 
 
 @app.get("/health", tags=["Health"])

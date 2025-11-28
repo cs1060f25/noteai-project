@@ -30,6 +30,12 @@ class Job(Base):
     original_s3_key = Column(String(500), nullable=False)
     compiled_video_s3_key = Column(String(500), nullable=True)  # Highlight video (compiled clips)
 
+    # Podcast information
+    podcast_s3_key = Column(String(500), nullable=True)
+    podcast_duration = Column(Float, nullable=True)
+    podcast_file_size = Column(Integer, nullable=True)
+    podcast_status = Column(String(20), nullable=True)  # pending, processing, completed, failed
+
     # Video metadata
     video_duration = Column(Float, nullable=True)
     video_metadata = Column(JSON, default=dict)
@@ -97,6 +103,10 @@ class Job(Base):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "completed_at": self.completed_at,
+            "podcast_s3_key": self.podcast_s3_key,
+            "podcast_duration": self.podcast_duration,
+            "podcast_file_size": self.podcast_file_size,
+            "podcast_status": self.podcast_status,
         }
 
 

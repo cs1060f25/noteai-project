@@ -47,6 +47,7 @@ dependencies = [
     "google-cloud-speech>=2.34.0",
     "yt-dlp>=2023.10.0",
     "resend>=2.19.0",
+    "google-genai>=1.52.0",
 ]
 
 [project.optional-dependencies]
