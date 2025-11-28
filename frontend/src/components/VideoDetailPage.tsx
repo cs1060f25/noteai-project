@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
   ArrowLeft,
@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useJobDetails, useJobResults } from '@/hooks/useAppQueries';
-import { generatePodcast } from '@/services/uploadService';
+import { generatePodcast, getPodcastUrl } from '@/services/uploadService';
 import { api } from '@/types/api';
 import type { ClipMetadata, QuizQuestion } from '@/types/api';
 
@@ -113,6 +113,11 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
   ];
 
   const { data: job } = useJobDetails(lectureId);
+  const { data: podcastData } = useQuery({
+    queryKey: ['podcast', lectureId],
+    queryFn: () => getPodcastUrl(lectureId),
+    enabled: !!job && job.podcast_status === 'completed',
+  });
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
