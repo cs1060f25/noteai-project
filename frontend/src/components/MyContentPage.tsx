@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Mic, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Input } from '@/components/ui/input';
 import { useJobs } from '@/hooks/useAppQueries';
 import { deletePodcast } from '@/services/uploadService';
+import { api } from '@/types/api';
 
 import { EmptyState } from './content/EmptyState';
 import { PodcastCard } from './content/PodcastCard';
 import { QuizCard } from './content/QuizCard';
 
-import type { Quiz, Podcast } from './content/types';
+import type { Podcast } from './content/types';
 
 interface MyContentPageProps {
-  onStartQuiz?: (quizId: string) => void;
+  onStartQuiz?: (quizId: string, lectureId: string | number) => void;
   onPlayPodcast?: (podcastId: string) => void;
 }
 
@@ -24,7 +25,7 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'quizzes' | 'podcasts'>('quizzes');
   const [searchQuery, setSearchQuery] = useState('');
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
 
   // Helper to format duration from seconds to MM:SS
@@ -34,9 +35,10 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    loadQuizzes();
-  }, []);
+  const { data: quizzes = [] } = useQuery({
+    queryKey: ['quizzes'],
+    queryFn: api.getQuizzes,
+  });
 
   useEffect(() => {
     if (jobsData?.jobs) {
@@ -61,61 +63,16 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
     }
   }, [jobsData]);
 
-  const loadQuizzes = () => {
-    const saved = localStorage.getItem('generated_quizzes');
-    if (saved) {
-      setQuizzes(JSON.parse(saved));
-    } else {
-      // Mock data for demonstration
-      const mockQuizzes: Quiz[] = [
-        {
-          id: '1',
-          lectureTitle: 'Introduction to Machine Learning',
-          lectureId: 1,
-          questionsCount: 10,
-          difficulty: 'medium',
-          createdAt: '2024-11-25T10:30:00Z',
-          lastAttempt: {
-            score: 8,
-            totalQuestions: 10,
-            completedAt: '2024-11-25T11:00:00Z',
-          },
-          status: 'completed',
-        },
-        {
-          id: '2',
-          lectureTitle: 'Neural Networks Deep Dive',
-          lectureId: 2,
-          questionsCount: 15,
-          difficulty: 'hard',
-          createdAt: '2024-11-24T14:20:00Z',
-          status: 'not-started',
-        },
-        {
-          id: '3',
-          lectureTitle: 'Data Preprocessing Techniques',
-          lectureId: 3,
-          questionsCount: 8,
-          difficulty: 'easy',
-          createdAt: '2024-11-23T09:15:00Z',
-          lastAttempt: {
-            score: 6,
-            totalQuestions: 8,
-            completedAt: '2024-11-23T09:45:00Z',
-          },
-          status: 'completed',
-        },
-      ];
-      setQuizzes(mockQuizzes);
-      localStorage.setItem('generated_quizzes', JSON.stringify(mockQuizzes));
+  const handleDeleteQuiz = async (_quizId: string) => {
+    try {
+      // TODO: Implement delete quiz API endpoint
+      // await api.deleteQuiz(quizId);
+      // refetchQuizzes();
+      toast.error('Delete functionality not yet implemented in backend');
+    } catch (error) {
+      console.error('Failed to delete quiz:', error);
+      toast.error('Failed to delete quiz');
     }
-  };
-
-  const handleDeleteQuiz = (quizId: string) => {
-    const updated = quizzes.filter((q) => q.id !== quizId);
-    setQuizzes(updated);
-    localStorage.setItem('generated_quizzes', JSON.stringify(updated));
-    toast.success('Quiz deleted successfully');
   };
 
   const handleDeletePodcast = async (podcastId: string) => {
@@ -217,7 +174,7 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
                   key={quiz.id}
                   quiz={quiz}
                   index={index}
-                  onStart={(id) => onStartQuiz?.(id)}
+                  onStart={(id, lectureId) => onStartQuiz?.(id, lectureId)}
                   onDelete={handleDeleteQuiz}
                   formatDate={formatDate}
                 />

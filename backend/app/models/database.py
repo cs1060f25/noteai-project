@@ -78,6 +78,7 @@ class Job(Base):
     processing_logs = relationship(
         "ProcessingLog", back_populates="job", cascade="all, delete-orphan"
     )
+    quizzes = relationship("Quiz", back_populates="job", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary.
@@ -427,14 +428,66 @@ class ProcessingLog(Base):
         Returns:
             Dictionary representation of the processing log
         """
+
+class Quiz(Base):
+    """Quiz database model."""
+
+    __tablename__ = "quizzes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quiz_id = Column(String(100), unique=True, index=True, nullable=False)
+    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, index=True)
+
+    # Quiz details
+    difficulty = Column(String(20), nullable=False)  # 'easy', 'medium', 'hard'
+    num_questions = Column(Integer, nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    job = relationship("Job", back_populates="quizzes")
+    questions = relationship("QuizQuestion", back_populates="quiz", cascade="all, delete-orphan")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert model to dictionary."""
         return {
-            "log_id": self.log_id,
+            "quiz_id": self.quiz_id,
             "job_id": self.job_id,
-            "stage": self.stage,
-            "agent_name": self.agent_name,
-            "status": self.status,
-            "duration_seconds": self.duration_seconds,
-            "error_message": self.error_message,
-            "extra_metadata": self.extra_metadata,
+            "difficulty": self.difficulty,
+            "num_questions": self.num_questions,
             "created_at": self.created_at,
+            "questions": [q.to_dict() for q in self.questions],
+        }
+
+
+class QuizQuestion(Base):
+    """Quiz question database model."""
+
+    __tablename__ = "quiz_questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    question_id = Column(String(100), unique=True, index=True, nullable=False)
+    quiz_id = Column(String(100), ForeignKey("quizzes.quiz_id"), nullable=False, index=True)
+
+    # Question content
+    question_text = Column(Text, nullable=False)
+    question_type = Column(String(20), nullable=False)  # 'multiple-choice', 'true-false'
+    options = Column(JSON, nullable=False)  # List of strings
+    correct_answer_index = Column(Integer, nullable=False)
+    explanation = Column(Text, nullable=True)
+
+    # Relationships
+    quiz = relationship("Quiz", back_populates="questions")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert model to dictionary."""
+        return {
+            "id": self.id,  # Use internal ID for frontend key
+            "type": self.question_type,
+            "question": self.question_text,
+            "options": self.options,
+            "correctAnswer": self.correct_answer_index,
+            "explanation": self.explanation,
+            "difficulty": self.quiz.difficulty if self.quiz else "medium",
         }

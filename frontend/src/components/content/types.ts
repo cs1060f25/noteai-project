@@ -1,7 +1,7 @@
 export interface Quiz {
   id: string;
   lectureTitle: string;
-  lectureId: number;
+  lectureId: string | number;
   questionsCount: number;
   difficulty: 'easy' | 'medium' | 'hard';
   createdAt: string;

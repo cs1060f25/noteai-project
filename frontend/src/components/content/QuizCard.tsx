@@ -26,7 +26,7 @@ import type { Quiz } from './types';
 interface QuizCardProps {
   quiz: Quiz;
   index: number;
-  onStart: (id: string) => void;
+  onStart: (id: string, lectureId: string | number) => void;
   onDelete: (id: string) => void;
   formatDate: (date: string) => string;
 }
@@ -91,12 +91,12 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card border-border/50">
-                  <DropdownMenuItem onClick={() => onStart(quiz.id)}>
+                  <DropdownMenuItem onClick={() => onStart(quiz.id, quiz.lectureId)}>
                     <Eye className="w-4 h-4 mr-2" />
                     View Quiz
                   </DropdownMenuItem>
                   {quiz.status === 'completed' && (
-                    <DropdownMenuItem onClick={() => onStart(quiz.id)}>
+                    <DropdownMenuItem onClick={() => onStart(quiz.id, quiz.lectureId)}>
                       <RotateCcw className="w-4 h-4 mr-2" />
                       Retake Quiz
                     </DropdownMenuItem>
@@ -149,7 +149,7 @@ export function QuizCard({ quiz, index, onStart, onDelete, formatDate }: QuizCar
             )}
 
             <div className="flex gap-2">
-              <Button onClick={() => onStart(quiz.id)} className="gap-2">
+              <Button onClick={() => onStart(quiz.id, quiz.lectureId)} className="gap-2">
                 {quiz.status === 'completed' ? (
                   <>
                     <RotateCcw className="w-4 h-4" />

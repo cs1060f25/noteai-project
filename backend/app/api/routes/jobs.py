@@ -328,6 +328,7 @@ def generate_podcast_endpoint(
 def get_podcast_url(
     job_id: str,
     request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user_clerk),
     db: Session = Depends(get_db),
 ):

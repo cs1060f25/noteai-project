@@ -40,9 +40,10 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useJobDetails, useJobResults } from '@/hooks/useAppQueries';
+import { generatePodcast, getPodcastUrl } from '@/services/uploadService';
 import { api } from '@/types/api';
 import type { ClipMetadata, QuizQuestion } from '@/types/api';
-import { generatePodcast, getPodcastUrl } from '@/services/uploadService';
+
 import { ImageWithFallback } from './ImageWithFallback';
 import { QuizPage } from './QuizPage';
 import { VideoPlayer } from './VideoPlayer';
@@ -51,6 +52,7 @@ import { ResultsError } from '../services/resultsService';
 interface VideoDetailPageProps {
   lectureId: string;
   onBack: () => void;
+  initialQuizId?: string;
 }
 
 // Helper function to format duration from seconds to MM:SS or HH:MM:SS
@@ -65,7 +67,7 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
+export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetailPageProps) {
   const { data: results, isLoading: loading, error: queryError } = useJobResults(lectureId);
   const [error, setError] = useState<string | null>(null);
   const [selectedClip, setSelectedClip] = useState<ClipMetadata | null>(null);
@@ -161,9 +163,15 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
 
       const response = await api.generateQuiz(lectureId, numQuestions, difficulty);
       setQuizQuestions(response.questions);
+      
       setQuizDialogOpen(false);
       setIsQuizActive(true);
-      toast.success('Quiz generated successfully!');
+      toast.success('Quiz generated successfully!', {
+        action: {
+          label: 'View Content',
+          onClick: () => navigate({ to: '/content' }),
+        },
+      });
     } catch (error) {
       console.error('Failed to generate quiz:', error);
       toast.error('Failed to generate quiz. Please try again.');
@@ -192,6 +200,26 @@ export function VideoDetailPage({ lectureId, onBack }: VideoDetailPageProps) {
       setError(null);
     }
   }, [queryError]);
+  
+  // Fetch quiz if initialQuizId is provided
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      if (initialQuizId) {
+        try {
+          const quizResponse = await api.getQuiz(initialQuizId);
+          setQuizQuestions(quizResponse.questions);
+          setIsQuizActive(true);
+        } catch (error) {
+          console.error("Failed to fetch quiz:", error);
+          toast.error("Failed to load quiz");
+        }
+      }
+    };
+    
+    if (initialQuizId) {
+        fetchQuiz();
+    }
+  }, [initialQuizId]);
 
   const handleClipClick = (clip: ClipMetadata) => {
     if (!clip.url) {
