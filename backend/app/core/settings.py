@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # API
     api_v1_prefix: str = "/api/v1"
     allowed_origins: str = Field(
-        default="http://localhost:3000,http://localhost:5173",
+        default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
         description="CORS allowed origins (comma-separated)",
     )
     max_upload_size_mb: int = Field(default=500, description="Max upload size in MB")
@@ -170,6 +170,10 @@ class Settings(BaseSettings):
     rate_limit_jobs_list: str = Field(
         default="30/minute",
         description="Rate limit for jobs list endpoint",
+    )
+    rate_limit_job_create: str = Field(
+        default="10/minute",
+        description="Rate limit for job creation/trigger endpoints",
     )
 
     @field_validator("log_level")

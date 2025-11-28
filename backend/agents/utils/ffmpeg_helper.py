@@ -828,3 +828,115 @@ class FFmpegHelper:
         except subprocess.CalledProcessError as e:
             logger.error("FFmpeg transcoding failed", exc_info=e, extra={"stderr": e.stderr})
             raise FFmpegError(f"Failed to transcode video: {e.stderr}") from e
+
+    def process_podcast_audio(
+        self,
+        input_path: Path,
+        output_path: Path,
+        silence_regions: list[dict[str, float]] | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> None:
+        """Process audio for podcast: remove silence, normalize, and encode to MP3.
+
+        Args:
+            input_path: Input video/audio path
+            output_path: Output MP3 path
+            silence_regions: List of silence regions to remove (start_time, end_time)
+            metadata: ID3 tags to add
+
+        Raises:
+            FFmpegError: If processing fails
+        """
+        # 1. Build filter complex
+        filters = []
+
+        # Select audio stream
+        # [0:a] is the input audio
+        current_stream = "[0:a]"
+
+        # Silence removal (if regions provided)
+        if silence_regions and len(silence_regions) > 0:
+            # We need to keep the NON-silent parts.
+            # So if silence is 10-20, we keep 0-10 and 20-end.
+
+            # Sort regions just in case
+            sorted_regions = sorted(silence_regions, key=lambda x: x["start_time"])
+
+            select_parts = []
+            last_end = 0.0
+
+            for region in sorted_regions:
+                start = region["start_time"]
+                end = region["end_time"]
+
+                # Keep segment before silence if it has duration
+                if start > last_end:
+                    select_parts.append(f"between(t,{last_end},{start})")
+
+                last_end = end
+
+            # Add final segment (from last silence end to infinity)
+            select_parts.append(f"gte(t,{last_end})")
+
+            select_expr = "+".join(select_parts)
+
+            # Use aselect filter to keep non-silent parts
+            # asetpts=N/SR/TB resets timestamps to be continuous
+            filters.append(f"{current_stream}aselect='{select_expr}',asetpts=N/SR/TB[selected]")
+            current_stream = "[selected]"
+
+        # Audio normalization (Loudness Normalization)
+        # Target: -16 LUFS (standard for podcasts), True Peak -1.5 dBTP
+        filters.append(f"{current_stream}loudnorm=I=-16:TP=-1.5:LRA=11[normalized]")
+        current_stream = "[normalized]"
+
+        # Build command
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_path),
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            current_stream,
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "128k",
+            "-ar",
+            "44100",
+            "-ac",
+            "2",
+        ]
+
+        # Add metadata
+        if metadata:
+            for key, value in metadata.items():
+                cmd.extend(["-metadata", f"{key}={value}"])
+
+        cmd.append(str(output_path))
+
+        try:
+            subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=600,  # 10 minutes max
+            )
+            logger.info(
+                "Podcast audio processed",
+                extra={
+                    "input": str(input_path),
+                    "output": str(output_path),
+                    "silence_regions_removed": len(silence_regions) if silence_regions else 0,
+                },
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                "FFmpeg podcast processing failed",
+                exc_info=e,
+                extra={"stderr": e.stderr, "cmd": " ".join(cmd)},
+            )
+            raise FFmpegError(f"Failed to process podcast audio: {e.stderr}") from e

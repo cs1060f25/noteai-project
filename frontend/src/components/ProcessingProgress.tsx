@@ -292,10 +292,11 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <Badge
-                  className={`${processingMode === 'vision'
+                  className={`${
+                    processingMode === 'vision'
                       ? 'bg-indigo-500/10 text-indigo-500'
                       : 'bg-purple-500/10 text-purple-500'
-                    } border-0 text-xs`}
+                  } border-0 text-xs`}
                 >
                   {processingMode === 'vision' ? (
                     <>
@@ -374,10 +375,11 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`glass-card rounded-xl border p-4 transition-all ${stage.status === 'processing'
+            className={`glass-card rounded-xl border p-4 transition-all ${
+              stage.status === 'processing'
                 ? 'border-primary shadow-lg shadow-primary/10'
                 : 'border-border/50'
-              } ${stage.isParallel ? 'ring-2 ring-blue-500/20' : ''}`}
+            } ${stage.isParallel ? 'ring-2 ring-blue-500/20' : ''}`}
           >
             <div className="flex items-start gap-3 mb-3">
               <div
