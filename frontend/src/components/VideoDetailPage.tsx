@@ -41,13 +41,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useJobDetails, useJobResults } from '@/hooks/useAppQueries';
 import { generatePodcast, getPodcastUrl } from '@/services/uploadService';
+import { exportTranscript, ResultsError } from '@/services/resultsService';
 import { api } from '@/types/api';
 import type { ClipMetadata, QuizQuestion } from '@/types/api';
 
 import { ImageWithFallback } from './ImageWithFallback';
 import { QuizPage } from './QuizPage';
 import { VideoPlayer } from './VideoPlayer';
-import { ResultsError } from '../services/resultsService';
 
 interface VideoDetailPageProps {
   lectureId: string;
@@ -153,6 +153,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [isExportingTranscript, setIsExportingTranscript] = useState(false);
 
   const handleGenerateQuiz = async () => {
     try {
@@ -177,6 +178,28 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
       toast.error('Failed to generate quiz. Please try again.');
     } finally {
       setIsGeneratingQuiz(false);
+    }
+  };
+
+  const handleExportTranscript = async () => {
+    if (!results?.transcript || results.transcript.length === 0) {
+      toast.error('No transcript available for export');
+      return;
+    }
+
+    try {
+      setIsExportingTranscript(true);
+      await exportTranscript(lectureId);
+      toast.success('Transcript exported successfully!');
+    } catch (error) {
+      console.error('Failed to export transcript:', error);
+      if (error instanceof ResultsError) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to export transcript. Please try again.');
+      }
+    } finally {
+      setIsExportingTranscript(false);
     }
   };
 
@@ -270,6 +293,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
       icon: Mic,
       color: 'bg-purple-500',
       onClick: () => setPodcastDialogOpen(true),
+      isLoading: false,
     },
     {
       id: 'quiz',
@@ -278,6 +302,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
       icon: Brain,
       color: 'bg-blue-500',
       onClick: () => setQuizDialogOpen(true),
+      isLoading: false,
     },
     {
       id: 'summary',
@@ -286,6 +311,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
       icon: FileText,
       color: 'bg-green-500',
       onClick: () => setSummaryDialogOpen(true),
+      isLoading: false,
     },
     {
       id: 'transcript',
@@ -293,7 +319,9 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
       description: 'Download full transcript with timestamps',
       icon: FileText,
       color: 'bg-cyan-500',
-      onClick: () => toast.success('Transcript exported!'),
+      onClick: handleExportTranscript,
+      isLoading: isExportingTranscript,
+      disabled: !results?.transcript || results.transcript.length === 0,
     },
   ];
 
@@ -597,21 +625,34 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.1 }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: feature.disabled ? 1 : 1.02 }}
+                    whileTap={{ scale: feature.disabled ? 1 : 0.98 }}
                     onClick={feature.onClick}
-                    className="glass-card rounded-xl border border-border/50 p-6 hover:border-primary/20 transition-all text-left group"
+                    disabled={feature.disabled || feature.isLoading}
+                    className={`glass-card rounded-xl border border-border/50 p-6 transition-all text-left group ${
+                      feature.disabled
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:border-primary/20 cursor-pointer'
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div
                         className={`w-12 h-12 rounded-xl ${feature.color} flex items-center justify-center`}
                       >
-                        <feature.icon className="w-6 h-6 text-white" />
+                        {feature.isLoading ? (
+                          <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        ) : (
+                          <feature.icon className="w-6 h-6 text-white" />
+                        )}
                       </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      {!feature.disabled && !feature.isLoading && (
+                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      )}
                     </div>
                     <h3 className="text-sm mb-2">{feature.title}</h3>
-                    <p className="text-xs text-muted-foreground">{feature.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {feature.isLoading ? 'Exporting...' : feature.description}
+                    </p>
                   </motion.button>
                 ))}
               </div>
