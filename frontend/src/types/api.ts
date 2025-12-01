@@ -294,6 +294,26 @@ export interface QuizResponse {
   questions: QuizQuestion[];
 }
 
+// summary types
+
+export interface Summary {
+  summary_id: string;
+  job_id: string;
+  summary_text: string;
+  key_takeaways: string[];
+  topics_covered: string[];
+  learning_objectives: string[];
+  word_count: number;
+  model_used: string;
+  created_at: string;
+}
+
+export interface GenerateSummaryRequest {
+  api_key?: string;
+  size?: 'brief' | 'medium' | 'detailed';
+  style?: 'academic' | 'casual' | 'concise';
+}
+
 import type { Quiz } from '@/components/content/types';
 // API client
 import { apiClient } from '@/lib/clerk-api';
@@ -353,5 +373,17 @@ export const api = {
 
   getQuizzes: async (): Promise<Quiz[]> => {
     return apiClient.get<Quiz[]>('/quizzes');
+  },
+
+  generateSummary: async (jobId: string, options?: GenerateSummaryRequest): Promise<Summary> => {
+    return apiClient.post<Summary>(`/jobs/${jobId}/summary`, options || {});
+  },
+
+  getSummary: async (jobId: string): Promise<Summary> => {
+    return apiClient.get<Summary>(`/jobs/${jobId}/summary`);
+  },
+
+  getAllSummaries: async (): Promise<Summary[]> => {
+    return apiClient.get<Summary[]>('/summaries');
   },
 };

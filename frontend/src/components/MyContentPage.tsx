@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Mic, Search } from 'lucide-react';
+import { BookOpen, Mic, Search, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,9 @@ import { api } from '@/types/api';
 import { EmptyState } from './content/EmptyState';
 import { PodcastCard } from './content/PodcastCard';
 import { QuizCard } from './content/QuizCard';
+import { SummaryCard } from './content/SummaryCard';
 
-import type { Podcast } from './content/types';
+import type { Podcast, SummaryItem } from './content/types';
 
 interface MyContentPageProps {
   onStartQuiz?: (quizId: string, lectureId: string | number) => void;
@@ -23,10 +24,11 @@ interface MyContentPageProps {
 export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps) {
   const { data: jobsData } = useJobs();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'quizzes' | 'podcasts'>('quizzes');
+  const [activeTab, setActiveTab] = useState<'quizzes' | 'podcasts' | 'summaries'>('quizzes');
   const [searchQuery, setSearchQuery] = useState('');
 
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
+  const [summaries, setSummaries] = useState<SummaryItem[]>([]);
 
   // Helper to format duration from seconds to MM:SS
   const formatDuration = (seconds: number): string => {
@@ -60,6 +62,38 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
           audioUrl: job.podcast_url || undefined,
         }));
       setPodcasts(realPodcasts);
+
+      // fetch all summaries in one request (more efficient)
+      const fetchSummaries = async () => {
+        try {
+          const allSummaries = await api.getAllSummaries();
+
+          // map summaries to SummaryItem with job info
+          const summaryItems: SummaryItem[] = allSummaries.map((summary) => {
+            const job = jobsData.jobs.find((j) => j.job_id === summary.job_id);
+            return {
+              id: summary.summary_id,
+              lectureTitle: job?.filename || 'Unknown',
+              lectureId: summary.job_id,
+              wordCount: summary.word_count,
+              style: 'academic' as const, // could be stored in metadata
+              size: 'medium' as const, // could be stored in metadata
+              createdAt: summary.created_at,
+              summaryText: summary.summary_text,
+              keyTakeaways: summary.key_takeaways,
+              topicsCovered: summary.topics_covered,
+              learningObjectives: summary.learning_objectives,
+            };
+          });
+
+          setSummaries(summaryItems);
+        } catch (error) {
+          console.error('Failed to fetch summaries:', error);
+          // fail silently - summaries tab will show empty state
+        }
+      };
+
+      fetchSummaries();
     }
   }, [jobsData]);
 
@@ -87,6 +121,16 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
     }
   };
 
+  const handleDeleteSummary = async (_summaryId: string) => {
+    try {
+      // TODO: Implement delete summary API endpoint
+      toast.error('Delete functionality not yet implemented in backend');
+    } catch (error) {
+      console.error('Failed to delete summary:', error);
+      toast.error('Failed to delete summary');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
@@ -104,6 +148,10 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
 
   const filteredPodcasts = podcasts.filter((podcast) =>
     podcast.lectureTitle.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredSummaries = summaries.filter((summary) =>
+    summary.lectureTitle.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -146,6 +194,19 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
                 <span>Podcasts ({podcasts.length})</span>
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab('summaries')}
+              className={`px-6 py-2 rounded-md transition-all ${
+                activeTab === 'summaries'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                <span>Summaries ({summaries.length})</span>
+              </div>
+            </button>
           </div>
 
           <div className="relative w-full sm:w-80">
@@ -181,7 +242,7 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
               ))
             )}
           </div>
-        ) : (
+        ) : activeTab === 'podcasts' ? (
           <div className="space-y-4">
             {filteredPodcasts.length === 0 ? (
               <EmptyState
@@ -197,6 +258,26 @@ export function MyContentPage({ onStartQuiz, onPlayPodcast }: MyContentPageProps
                   index={index}
                   onPlay={(id) => onPlayPodcast?.(id)}
                   onDelete={handleDeletePodcast}
+                  formatDate={formatDate}
+                />
+              ))
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredSummaries.length === 0 ? (
+              <EmptyState
+                icon={FileText}
+                title="No summaries yet"
+                description="Generate your first summary from any lecture video"
+              />
+            ) : (
+              filteredSummaries.map((summary, index) => (
+                <SummaryCard
+                  key={summary.id}
+                  summary={summary}
+                  index={index}
+                  onDelete={handleDeleteSummary}
                   formatDate={formatDate}
                 />
               ))

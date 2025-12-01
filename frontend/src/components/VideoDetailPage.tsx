@@ -40,8 +40,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useJobDetails, useJobResults } from '@/hooks/useAppQueries';
-import { generatePodcast, getPodcastUrl } from '@/services/uploadService';
 import { exportTranscript, ResultsError } from '@/services/resultsService';
+import { generatePodcast, getPodcastUrl } from '@/services/uploadService';
 import { api } from '@/types/api';
 import type { ClipMetadata, QuizQuestion } from '@/types/api';
 
@@ -154,6 +154,9 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [isExportingTranscript, setIsExportingTranscript] = useState(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [summarySize, setSummarySize] = useState<'brief' | 'medium' | 'detailed'>('medium');
+  const [summaryStyle, setSummaryStyle] = useState<'academic' | 'casual' | 'concise'>('academic');
 
   const handleGenerateQuiz = async () => {
     try {
@@ -200,6 +203,29 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
       }
     } finally {
       setIsExportingTranscript(false);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    try {
+      setIsGeneratingSummary(true);
+      await api.generateSummary(lectureId, {
+        size: summarySize,
+        style: summaryStyle,
+      });
+      toast.success('Summary generated successfully!', {
+        description: 'You can view it in the "My Content" section.',
+        action: {
+          label: 'View Content',
+          onClick: () => navigate({ to: '/content' }),
+        },
+      });
+      setSummaryDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to generate summary:', error);
+      toast.error('Failed to generate summary. Please try again.');
+    } finally {
+      setIsGeneratingSummary(false);
     }
   };
 
@@ -850,30 +876,35 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div>
-              <Label>Summary Type</Label>
-              <Select defaultValue="text">
+              <Label>Summary Size</Label>
+              <Select
+                value={summarySize}
+                onValueChange={(v) => setSummarySize(v as typeof summarySize)}
+              >
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="text">Text Summary</SelectItem>
-                  <SelectItem value="bullet">Bullet Points</SelectItem>
-                  <SelectItem value="video">Video Summary</SelectItem>
-                  <SelectItem value="infographic">Infographic</SelectItem>
+                  <SelectItem value="brief">Brief (200-300 words)</SelectItem>
+                  <SelectItem value="medium">Medium (500-800 words)</SelectItem>
+                  <SelectItem value="detailed">Detailed (1000-1500 words)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>Length</Label>
-              <Select defaultValue="medium">
+              <Label>Summary Style</Label>
+              <Select
+                value={summaryStyle}
+                onValueChange={(v) => setSummaryStyle(v as typeof summaryStyle)}
+              >
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="brief">Brief (100-200 words)</SelectItem>
-                  <SelectItem value="medium">Medium (300-500 words)</SelectItem>
-                  <SelectItem value="detailed">Detailed (500+ words)</SelectItem>
+                  <SelectItem value="academic">Academic - Formal, scholarly language</SelectItem>
+                  <SelectItem value="casual">Casual - Conversational, accessible</SelectItem>
+                  <SelectItem value="concise">Concise - Brief, direct language</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -883,18 +914,26 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
                 variant="outline"
                 onClick={() => setSummaryDialogOpen(false)}
                 className="glass-card"
+                disabled={isGeneratingSummary}
               >
                 Cancel
               </Button>
               <Button
                 className="flex-1 glass-button bg-green-500 hover:bg-green-600"
-                onClick={() => {
-                  setSummaryDialogOpen(false);
-                  toast.success("Summary generation started! You'll be notified when ready.");
-                }}
+                onClick={handleGenerateSummary}
+                disabled={isGeneratingSummary}
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Generate Summary
+                {isGeneratingSummary ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Generate Summary
+                  </>
+                )}
               </Button>
             </div>
           </div>

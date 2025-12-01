@@ -13,9 +13,11 @@ from app.models.schemas import (
     ClipsResponse,
     ContentSegmentResponse,
     ContentSegmentsResponse,
+    GenerateSummaryRequest,
     LayoutAnalysisResponse,
     SilenceRegionResponse,
     SilenceRegionsResponse,
+    SummaryResponse,
     TranscriptSegment,
     TranscriptsResponse,
 )
@@ -419,3 +421,240 @@ def get_layout_analysis(
         sample_frame_time=layout_db.sample_frame_time,
         created_at=layout_db.created_at,
     )
+
+
+@router.get(
+    "/{job_id}/summary",
+    response_model=SummaryResponse,
+    summary="Get lecture summary (Admin only)",
+    description="""
+    Retrieve AI-generated summary for a completed job.
+
+    Returns structured summary with:
+    - Comprehensive summary text (500-800 words)
+    - Key takeaways (3-5 bullet points)
+    - Topics covered (chronological list)
+    - Learning objectives (3-5 items)
+    - Generation metadata
+
+    **Requirements:**
+    - Admin role required
+    - Job must be completed
+
+    **Note**: If no summary exists, returns 404.
+    """,
+)
+@limiter.limit(settings.rate_limit_results)
+def get_summary(
+    request: Request,
+    response: Response,
+    job_id: str,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> SummaryResponse:
+    """get summary for a completed job (admin only)."""
+    # verify job exists and is completed
+    verify_job_exists_and_completed(job_id, db)
+
+    db_service = DatabaseService(db)
+
+    # get summary
+    summary_db = db_service.summaries.get_by_job_id(job_id)
+
+    if not summary_db:
+        # use debug level since this is expected when summary hasn't been generated
+        logger.debug(
+            "Summary not found for job",
+            extra={"job_id": job_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "SUMMARY_NOT_FOUND",
+                    "message": f"Summary not found for job '{job_id}'. Generate a summary first.",
+                }
+            },
+        )
+
+    logger.info(
+        "Summary retrieved",
+        extra={
+            "job_id": job_id,
+            "summary_id": summary_db.summary_id,
+            "word_count": summary_db.word_count,
+        },
+    )
+
+    return SummaryResponse(
+        summary_id=summary_db.summary_id,
+        job_id=summary_db.job_id,
+        summary_text=summary_db.summary_text,
+        key_takeaways=summary_db.key_takeaways,
+        topics_covered=summary_db.topics_covered,
+        learning_objectives=summary_db.learning_objectives,
+        word_count=summary_db.word_count,
+        model_used=summary_db.model_used,
+        created_at=summary_db.created_at,
+    )
+
+
+@router.post(
+    "/{job_id}/summary",
+    response_model=SummaryResponse,
+    summary="Generate lecture summary (Admin only)",
+    description="""
+    Generate an AI-powered summary for a completed job.
+
+    Creates a structured summary using the lecture transcript and content segments.
+    If a summary already exists, it will be replaced.
+
+    **Requirements:**
+    - Admin role required
+    - Job must be completed
+    - Transcripts must exist
+
+    **Returns**: Generated summary with all fields populated.
+    """,
+)
+@limiter.limit(settings.rate_limit_results)
+def generate_summary_endpoint(
+    request: Request,
+    response: Response,
+    job_id: str,
+    body: GenerateSummaryRequest,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> SummaryResponse:
+    """generate summary for a completed job (admin only)."""
+    # verify job exists and is completed
+    verify_job_exists_and_completed(job_id, db)
+
+    logger.info("Summary generation requested", extra={"job_id": job_id})
+
+    # import here to avoid circular dependency
+    from agents.summary_agent import generate_summary
+
+    try:
+        # generate summary using the agent
+        result = generate_summary(job_id, api_key=body.api_key, size=body.size, style=body.style)
+
+        logger.info(
+            "Summary generated successfully",
+            extra={
+                "job_id": job_id,
+                "summary_id": result["summary_id"],
+                "processing_time": result["processing_time_seconds"],
+                "size": body.size,
+                "style": body.style,
+            },
+        )
+
+        # retrieve the generated summary from database
+        db_service = DatabaseService(db)
+        summary_db = db_service.summaries.get_by_job_id(job_id)
+
+        if not summary_db:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "error": {
+                        "code": "SUMMARY_GENERATION_FAILED",
+                        "message": "Summary generation completed but could not retrieve result.",
+                    }
+                },
+            )
+
+        return SummaryResponse(
+            summary_id=summary_db.summary_id,
+            job_id=summary_db.job_id,
+            summary_text=summary_db.summary_text,
+            key_takeaways=summary_db.key_takeaways,
+            topics_covered=summary_db.topics_covered,
+            learning_objectives=summary_db.learning_objectives,
+            word_count=summary_db.word_count,
+            model_used=summary_db.model_used,
+            created_at=summary_db.created_at,
+        )
+
+    except ValueError as e:
+        logger.error(
+            "Summary generation failed - validation error",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": str(e),
+                }
+            },
+        ) from e
+    except Exception as e:
+        logger.error(
+            "Summary generation failed",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "SUMMARY_GENERATION_FAILED",
+                    "message": f"Failed to generate summary: {e!s}",
+                }
+            },
+        ) from e
+
+
+@router.get(
+    "/summaries",
+    response_model=list[SummaryResponse],
+    summary="Get all summaries (Admin only)",
+    description="""
+    Retrieve summaries for all completed jobs that have summaries generated.
+
+    More efficient than making individual requests for each job.
+
+    **Requirements:**
+    - Admin role required
+
+    **Returns**: List of all available summaries.
+    """,
+)
+@limiter.limit(settings.rate_limit_results)
+def get_all_summaries(
+    request: Request,
+    response: Response,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[SummaryResponse]:
+    """get all summaries for completed jobs (admin only)."""
+    from app.models.database import Summary
+
+    summaries = db.query(Summary).all()
+
+    logger.info(
+        "All summaries retrieved",
+        extra={
+            "count": len(summaries),
+            "user_id": admin_user.user_id,
+        },
+    )
+
+    return [
+        SummaryResponse(
+            summary_id=s.summary_id,
+            job_id=s.job_id,
+            summary_text=s.summary_text,
+            key_takeaways=s.key_takeaways,
+            topics_covered=s.topics_covered,
+            learning_objectives=s.learning_objectives,
+            word_count=s.word_count,
+            model_used=s.model_used,
+            created_at=s.created_at,
+        )
+        for s in summaries
+    ]

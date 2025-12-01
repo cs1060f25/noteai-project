@@ -508,4 +508,4 @@ def export_transcript(
                     "message": "Failed to generate transcript export",
                 }
             },
-        )
+        ) from e
