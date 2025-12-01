@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.core.settings import settings
-from app.models.database import Quiz, Transcript
+from app.models.database import Job, Quiz, Transcript
 from app.models.database import QuizQuestion as QuizQuestionDB
 from app.models.schemas import QuizQuestion, QuizResponse
 
@@ -120,12 +120,19 @@ def generate_quiz(
 
         quiz_id = f"quiz_{uuid.uuid4().hex}"
 
+        # get job details for title
+        job = db.query(Job).filter(Job.job_id == job_id).first()
+        quiz_title = f"Quiz: {job.filename}" if job else "Quiz"
+
         # Create Quiz record
         quiz = Quiz(
             quiz_id=quiz_id,
             job_id=job_id,
+            user_id=job.user_id if job else None,
+            title=quiz_title,
+            description=f"AI-generated quiz with {len(questions)} questions",
             difficulty=difficulty,
-            num_questions=len(questions),
+            total_questions=len(questions),
         )
         db.add(quiz)
         db.flush()  # Flush to ensure quiz exists for foreign keys

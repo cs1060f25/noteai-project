@@ -395,3 +395,38 @@ class UserUpdateRequest(BaseModel):
     processing_notifications: bool | None = Field(
         None, description="Processing notifications enabled"
     )
+
+
+# Summary Models
+
+
+class SummaryResponse(BaseModel):
+    """Summary information response."""
+
+    summary_id: str = Field(..., description="Unique summary identifier")
+    job_id: str = Field(..., description="Associated job identifier")
+    summary_text: str = Field(..., description="Main summary text (500-800 words)")
+    key_takeaways: list[str] = Field(..., description="Key takeaways from the lecture (3-5 items)")
+    topics_covered: list[str] = Field(..., description="Main topics covered in the lecture")
+    learning_objectives: list[str] | None = Field(
+        None, description="Learning objectives identified (3-5 items)"
+    )
+    word_count: int | None = Field(None, description="Word count of summary text")
+    model_used: str | None = Field(None, description="AI model used for generation")
+    created_at: datetime = Field(..., description="Summary creation timestamp")
+
+
+class GenerateSummaryRequest(BaseModel):
+    """Request to generate a summary."""
+
+    api_key: str | None = Field(None, description="Optional Gemini API key override")
+    size: str = Field(
+        default="medium",
+        description="Summary size: brief (200-300 words), medium (500-800 words), detailed (1000-1500 words)",
+        pattern="^(brief|medium|detailed)$",
+    )
+    style: str = Field(
+        default="academic",
+        description="Summary style: academic (formal and scholarly), casual (conversational), concise (bullet-point focused)",
+        pattern="^(academic|casual|concise)$",
+    )

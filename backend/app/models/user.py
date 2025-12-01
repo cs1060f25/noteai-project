@@ -63,6 +63,7 @@ class User(Base):
 
     # relationships
     jobs = relationship("Job", back_populates="user", cascade="all, delete-orphan")
+    quizzes = relationship("Quiz", back_populates="user", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict:
         """convert model to dictionary.

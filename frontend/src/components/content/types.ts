@@ -23,3 +23,17 @@ export interface Podcast {
   status: 'generating' | 'ready' | 'failed';
   audioUrl?: string;
 }
+
+export interface SummaryItem {
+  id: string;
+  lectureTitle: string;
+  lectureId: string;
+  wordCount: number;
+  style: 'academic' | 'casual' | 'concise';
+  size: 'brief' | 'medium' | 'detailed';
+  createdAt: string;
+  summaryText: string;
+  keyTakeaways: string[];
+  topicsCovered: string[];
+  learningObjectives: string[];
+}

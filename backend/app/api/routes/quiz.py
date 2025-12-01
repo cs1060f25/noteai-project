@@ -76,7 +76,7 @@ def list_quizzes(
             "id": q.quiz_id,
             "lectureTitle": q.job.filename,
             "lectureId": q.job_id,
-            "questionsCount": q.num_questions,
+            "questionsCount": q.total_questions,
             "difficulty": q.difficulty,
             "createdAt": q.created_at.isoformat(),
             "status": "completed",  # Quizzes are generated synchronously for now
