@@ -409,12 +409,15 @@ class ProcessingLog(Base):
 
     # Log details
     stage = Column(String(50), nullable=False, index=True)
+    agent_name = Column(String(50), nullable=True)
     status = Column(String(20), nullable=False)
     message = Column(Text, nullable=True)
     error_details = Column(JSON, nullable=True)
+    duration_seconds = Column(Float, nullable=True)
 
     # Timestamps
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
     job = relationship("Job", back_populates="processing_logs")
@@ -429,10 +432,13 @@ class ProcessingLog(Base):
             "log_id": self.log_id,
             "job_id": self.job_id,
             "stage": self.stage,
+            "agent_name": self.agent_name,
             "status": self.status,
             "message": self.message,
             "error_details": self.error_details,
+            "duration_seconds": self.duration_seconds,
             "timestamp": self.timestamp,
+            "created_at": self.created_at,
         }
 
 

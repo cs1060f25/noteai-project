@@ -138,7 +138,7 @@ def generate_quiz(
         db.flush()  # Flush to ensure quiz exists for foreign keys
 
         # Create Question records
-        for q in questions:
+        for idx, q in enumerate(questions):
             question_id = f"q_{uuid.uuid4().hex}"
             question = QuizQuestionDB(
                 question_id=question_id,
@@ -148,6 +148,7 @@ def generate_quiz(
                 options=q.options,
                 correct_answer_index=q.correct_answer,
                 explanation=q.explanation,
+                question_order=idx + 1,
             )
             db.add(question)
 

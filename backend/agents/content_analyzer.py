@@ -538,6 +538,9 @@ def analyze_content(
         if not api_key:
             raise ValueError("Gemini API key is missing. Please add your API key in Settings.")
 
+        # defensive: ensure api_key is a clean string
+        api_key = api_key.strip() if api_key else None
+
         # create database session and query transcripts + layout
         db = get_db_session()
         try:

@@ -63,8 +63,15 @@ def validate_gemini_config(api_key: str | None = None) -> None:
     if not api_key and not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY not configured. Please add it to your .env file.")
 
+    # defensive: ensure api_key is a clean string if provided
+    final_api_key = api_key.strip() if api_key else settings.gemini_api_key.strip()
+
     # configure gemini
-    genai.configure(api_key=api_key or settings.gemini_api_key)
+    try:
+        genai.configure(api_key=final_api_key)
+    except Exception as e:
+        logger.error("Failed to configure Gemini API", exc_info=e)
+        raise ValueError("Invalid Gemini API configuration") from e
 
     logger.info(
         "Gemini API configured successfully",

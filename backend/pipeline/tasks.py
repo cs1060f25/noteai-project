@@ -100,7 +100,7 @@ def get_user_api_key(job_id: str) -> str:
             api_key = decrypt_string(
                 job.user.gemini_api_key_encrypted, settings.api_key_encryption_secret
             )
-            return api_key
+            return api_key.strip() if api_key else api_key
         except Exception as e:
             logger.error("Failed to decrypt API key", exc_info=e, extra={"job_id": job_id})
             raise ValueError("Invalid API key configuration") from e
@@ -165,7 +165,7 @@ def create_processing_log_entry(
             agent_name=agent_name,
             status=status,
             duration_seconds=duration_seconds,
-            error_message=error_message,
+            message=error_message,
             created_at=datetime.now(timezone.utc),
         )
         db.add(log)
@@ -924,7 +924,6 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
                 status="started",
             )
 
-            content_result = analyze_content({}, job_id, config)
             # API key already fetched above
             content_result = analyze_content({}, job_id, api_key=api_key, config=config)
 

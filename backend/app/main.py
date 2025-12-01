@@ -184,6 +184,9 @@ app.include_router(quiz.router, prefix=settings.api_v1_prefix, tags=["quiz"])
 app.include_router(jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
 app.include_router(results.router, prefix=settings.api_v1_prefix, tags=["Results"])
 app.include_router(agent_outputs.router, prefix=settings.api_v1_prefix, tags=["Agent Outputs"])
+app.include_router(
+    agent_outputs.summaries_router, prefix=settings.api_v1_prefix, tags=["Summaries"]
+)
 app.include_router(users.router, prefix=settings.api_v1_prefix, tags=["Users"])
 app.include_router(api_keys.router, prefix=settings.api_v1_prefix, tags=["User API Keys"])
 app.include_router(admin.router, prefix=settings.api_v1_prefix, tags=["Admin"])

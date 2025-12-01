@@ -93,13 +93,13 @@ TRANSCRIPT:
 {transcript_text}
 
 SUMMARY REQUIREMENTS:
-- Size: {config['words']} words
+- Size: {config["words"]} words
 - Style: {style} - {style_instruction}
 
 TASK:
 Generate a structured summary with:
-1. **summary_text** ({config['words']} words): Synthesize the main educational content, explaining key concepts and their relationships
-2. **key_takeaways** ({config['takeaways']} items): Most important concepts to remember
+1. **summary_text** ({config["words"]} words): Synthesize the main educational content, explaining key concepts and their relationships
+2. **key_takeaways** ({config["takeaways"]} items): Most important concepts to remember
 3. **topics_covered** (list): Main subjects discussed in chronological order
 4. **learning_objectives** (3-5 items): What students should understand after this lecture
 

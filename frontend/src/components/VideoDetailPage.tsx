@@ -829,10 +829,6 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
                   <input type="checkbox" defaultChecked className="rounded" />
                   <span className="text-sm">True/False</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" />
-                  <span className="text-sm">Short Answer</span>
-                </div>
               </div>
             </div>
 

@@ -27,6 +27,7 @@ from app.services.db_service import DatabaseService
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["agent-outputs"])
+summaries_router = APIRouter(tags=["summaries"])
 
 
 def verify_job_exists_and_completed(job_id: str, db: Session) -> None:
@@ -609,7 +610,7 @@ def generate_summary_endpoint(
         ) from e
 
 
-@router.get(
+@summaries_router.get(
     "/summaries",
     response_model=list[SummaryResponse],
     summary="Get all summaries (Admin only)",
