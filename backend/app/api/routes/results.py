@@ -1,6 +1,10 @@
 """results api routes for retrieving processed video clips and metadata."""
 
+from datetime import datetime
+from io import BytesIO
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.clerk_auth import get_current_user_clerk
@@ -251,3 +255,257 @@ def get_results(
         transcript=transcript_segments,
         metadata=metadata,
     )
+
+
+def format_timestamp(seconds: float) -> str:
+    """Format seconds into HH:MM:SS or MM:SS format.
+
+    Args:
+        seconds: Time in seconds
+
+    Returns:
+        Formatted timestamp string
+    """
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+
+    if hours > 0:
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def generate_transcript_text(
+    job_title: str,
+    transcript_segments: list,
+    include_timestamps: bool = True,
+    include_speaker_labels: bool = True,
+) -> str:
+    """Generate formatted transcript text.
+
+    Args:
+        job_title: Title/filename of the content
+        transcript_segments: List of transcript segment objects from database
+        include_timestamps: Whether to include timestamps
+        include_speaker_labels: Whether to include speaker labels
+
+    Returns:
+        Formatted transcript text
+    """
+    lines = []
+
+    # Header
+    lines.append("=" * 80)
+    lines.append(f"TRANSCRIPT: {job_title}")
+    lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append("=" * 80)
+    lines.append("")
+
+    # Group segments into paragraphs (segments within 2 seconds are grouped)
+    paragraphs = []
+    current_paragraph = []
+    last_end_time = -10  # Initialize to ensure first segment starts a new paragraph
+
+    for segment in transcript_segments:
+        # Start new paragraph if there's a gap > 2 seconds
+        if segment.start_time - last_end_time > 2.0:
+            if current_paragraph:
+                paragraphs.append(current_paragraph)
+            current_paragraph = [segment]
+        else:
+            current_paragraph.append(segment)
+
+        last_end_time = segment.end_time
+
+    # Add last paragraph
+    if current_paragraph:
+        paragraphs.append(current_paragraph)
+
+    # Format paragraphs
+    for para_segments in paragraphs:
+        if not para_segments:
+            continue
+
+        # Get start time of first segment in paragraph
+        start_time = para_segments[0].start_time
+
+        # Build paragraph header
+        if include_timestamps:
+            timestamp_str = f"[{format_timestamp(start_time)}]"
+            if include_speaker_labels and para_segments[0].speaker_id:
+                lines.append(f"{timestamp_str} Speaker {para_segments[0].speaker_id}:")
+            else:
+                lines.append(f"{timestamp_str}")
+        elif include_speaker_labels and para_segments[0].speaker_id:
+            lines.append(f"Speaker {para_segments[0].speaker_id}:")
+
+        # Combine segment texts into paragraph
+        paragraph_text = " ".join(seg.text.strip() for seg in para_segments)
+        lines.append(paragraph_text)
+        lines.append("")  # Blank line between paragraphs
+
+    # Footer
+    lines.append("")
+    lines.append("=" * 80)
+    lines.append(f"Total segments: {len(transcript_segments)}")
+    if transcript_segments:
+        total_duration = transcript_segments[-1].end_time
+        lines.append(f"Total duration: {format_timestamp(total_duration)}")
+    lines.append("=" * 80)
+
+    return "\n".join(lines)
+
+
+@router.get(
+    "/{job_id}/export-transcript",
+    summary="Export transcript as text file",
+    description="""
+    Export the full transcript for a job as a formatted .txt file.
+
+    The exported file includes:
+    - Clear speaker labels (if applicable)
+    - Proper line breaks and paragraph structure
+    - Timestamps for each paragraph
+    - Readable formatting with headers and footers
+
+    File naming convention: transcript_[content-title]_[date].txt
+
+    This endpoint requires the job to be completed and the user to own the job or be an admin.
+    """,
+)
+@limiter.limit(settings.rate_limit_results)
+def export_transcript(
+    request: Request,
+    job_id: str,
+    current_user: User = Depends(get_current_user_clerk),
+    db: Session = Depends(get_db),
+):
+    """Export transcript as a downloadable .txt file."""
+    db_service = DatabaseService(db)
+
+    # Get job
+    job = db_service.jobs.get_by_id(job_id)
+
+    if not job:
+        logger.warning("Job not found for transcript export", extra={"job_id": job_id})
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "JOB_NOT_FOUND",
+                    "message": f"Job with ID '{job_id}' not found",
+                }
+            },
+        )
+
+    # Verify job belongs to current user (or user is admin)
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
+        logger.warning(
+            "Unauthorized transcript export attempt",
+            extra={"job_id": job_id, "user_id": current_user.user_id, "job_owner": job.user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to export this transcript",
+                }
+            },
+        )
+
+    # Check if job is completed
+    if job.status != "completed":
+        logger.warning(
+            "Transcript export requested for incomplete job",
+            extra={"job_id": job_id, "status": job.status},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "JOB_NOT_COMPLETED",
+                    "message": f"Job is not completed. Current status: {job.status}",
+                }
+            },
+        )
+
+    # Get transcript segments
+    transcript_segments = db_service.transcripts.get_by_job_id(job_id, order_by_time=True)
+
+    if not transcript_segments:
+        logger.warning(
+            "No transcript available for export",
+            extra={"job_id": job_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "TRANSCRIPT_NOT_FOUND",
+                    "message": "No transcript available for this job",
+                }
+            },
+        )
+
+    # Generate formatted transcript
+    try:
+        # Use job filename (without extension) or job_id as title
+        job_title = job.filename
+        if job_title and "." in job_title:
+            job_title = job_title.rsplit(".", 1)[0]  # Remove extension
+        if not job_title:
+            job_title = job_id
+
+        # Check if any segments have speaker IDs
+        has_speakers = any(seg.speaker_id is not None for seg in transcript_segments)
+
+        transcript_text = generate_transcript_text(
+            job_title=job_title,
+            transcript_segments=transcript_segments,
+            include_timestamps=True,
+            include_speaker_labels=has_speakers,
+        )
+
+        # Create filename with date
+        today = datetime.now().strftime("%Y%m%d")
+        safe_title = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in job_title)
+        filename = f"transcript_{safe_title}_{today}.txt"
+
+        # Create file-like object
+        file_bytes = BytesIO(transcript_text.encode("utf-8"))
+
+        logger.info(
+            "Transcript exported",
+            extra={
+                "job_id": job_id,
+                "segments_count": len(transcript_segments),
+                "export_filename": filename,
+            },
+        )
+
+        # Return as downloadable file
+        return StreamingResponse(
+            file_bytes,
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "text/plain; charset=utf-8",
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to generate transcript export",
+            exc_info=e,
+            extra={"job_id": job_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "EXPORT_FAILED",
+                    "message": "Failed to generate transcript export",
+                }
+            },
+        )
