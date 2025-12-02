@@ -357,13 +357,8 @@ class VideoCompiler:
             )
             return None
 
-        # --- determine output resolution ---
         output_width = min(video_info["width"], 1920)
         output_height = min(video_info["height"], 1080)
-        needs_transcode = (output_width, output_height) != (
-            video_info["width"],
-            video_info["height"],
-        )
 
         # --- prepare metadata ---
         metadata = {
@@ -372,15 +367,19 @@ class VideoCompiler:
             "comment": f"Generated from job {job_id}",
             "creation_time": datetime.now(timezone.utc).isoformat(),
         }
-
         # --- extract + transcode + metadata in ONE ffmpeg pass (3x faster!) ---
         final_path = temp_path / f"final_{clip_id}.mp4"
+
+        # FORCE RE-ENCODE: We always pass resolution to force re-encoding.
+        # This is critical because "copy" mode (without re-encoding) snaps to keyframes,
+        # causing the actual start time to drift from the requested start time.
+        # This drift causes subtitles to be out of sync.
         self.ffmpeg.extract_and_process_segment(
             input_path=original_video_path,
             output_path=final_path,
             start_time=start_time,
             end_time=end_time,
-            resolution=(output_width, output_height) if needs_transcode else None,
+            resolution=(output_width, output_height),
             metadata=metadata,
             watermark_path=watermark_path,
         )
@@ -407,8 +406,8 @@ class VideoCompiler:
                 self.db.query(Transcript)
                 .filter(
                     Transcript.job_id == job_id,
-                    Transcript.start_time >= start_time,
-                    Transcript.end_time <= end_time,
+                    Transcript.end_time > start_time,
+                    Transcript.start_time < end_time,
                 )
                 .order_by(Transcript.start_time)
                 .all()

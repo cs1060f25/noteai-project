@@ -167,13 +167,14 @@ class TestVideoCompilerSubtitles:
         final_clip_path.touch()
 
         # Execute
-        result = compiler._process_clip(
-            job_id="test_job_123",
-            clip=sample_clip,
-            original_video_path=video_path,
-            temp_path=tmp_path,
-            video_info=video_info,
-        )
+        with patch("os.path.getsize", return_value=1024):
+            result = compiler._process_clip(
+                job_id="test_job_123",
+                clip=sample_clip,
+                original_video_path=video_path,
+                temp_path=tmp_path,
+                video_info=video_info,
+            )
 
         # Assert: EXPECTED behavior (will fail until bug is fixed)
         assert result is not None, "Clip processing should return metadata"
@@ -194,6 +195,89 @@ class TestVideoCompilerSubtitles:
         subtitle_uploads = [call for call in upload_calls if "subtitles/" in str(call)]
 
         assert len(subtitle_uploads) > 0, "S3 upload should be called for subtitle file"
+
+    @patch("agents.video_compiler.boto3.client")
+    @patch("agents.video_compiler.FFmpegHelper")
+    def test_overlapping_transcripts_should_be_included(
+        self, mock_ffmpeg_class, mock_boto3_client, mock_db, tmp_path
+    ):
+        """Test that transcripts partially overlapping the clip are included and clamped."""
+        # Setup mocks
+        mock_ffmpeg = MagicMock()
+        mock_ffmpeg_class.return_value = mock_ffmpeg
+        mock_s3 = MagicMock()
+        mock_boto3_client.return_value = mock_s3
+
+        compiler = VideoCompiler(db=mock_db)
+
+        # Clip: 10.0s - 20.0s (Duration 10s)
+        clip = MagicMock(
+            clip_id="clip1",
+            start_time=10.0,
+            end_time=20.0,
+            title="Test Clip",
+            topic="Test Topic",
+            clip_order=1,
+            duration=10.0,
+            extra_metadata={},
+        )
+
+        # Mock transcripts:
+        # 1. Starts before, ends inside (5.0 - 12.0) -> Should be 0.0 - 2.0 relative
+        # 2. Starts inside, ends inside (12.0 - 18.0) -> Should be 2.0 - 8.0 relative
+        # 3. Starts inside, ends after (18.0 - 25.0) -> Should be 8.0 - 10.0 relative
+        t1 = MagicMock(start_time=5.0, end_time=12.0, text="Start overlap")
+        t2 = MagicMock(start_time=12.0, end_time=18.0, text="Inside")
+        t3 = MagicMock(start_time=18.0, end_time=25.0, text="End overlap")
+
+        # Mock DB query to return these transcripts
+        mock_query = MagicMock()
+        mock_query.filter.return_value = mock_query
+        mock_query.order_by.return_value = mock_query
+        mock_query.all.return_value = [t1, t2, t3]
+        mock_db.query.return_value = mock_query
+
+        video_path = tmp_path / "video.mp4"
+        video_path.touch()
+
+        # Execute
+        with patch("os.path.getsize", return_value=1024):
+            result = compiler._process_clip(
+                job_id="test_job",
+                clip=clip,
+                original_video_path=video_path,
+                temp_path=tmp_path,
+                video_info={"duration": 100.0, "width": 1920, "height": 1080},
+            )
+
+        # Verify content written to VTT
+        # We need to find the VTT file path from the result
+        subtitle_key = result["subtitle_s3_key"]
+        assert subtitle_key is not None
+
+        # Since we can't easily inspect the temp file content after it's gone (temp_dir cleanup),
+        # we can check if the upload was called with a file that contained the right content.
+        # OR, we can mock `generate_vtt_from_transcripts` to verify it was called with clamped values.
+        # But we want to test the integration.
+
+        # Actually, `_process_clip` uses `temp_path` passed in.
+        # In the test, `tmp_path` is a pytest fixture, so it persists for the test duration.
+        subtitle_path = tmp_path / f"subtitle_{clip.clip_id}.vtt"
+        assert subtitle_path.exists()
+
+        content = subtitle_path.read_text(encoding="utf-8")
+
+        assert "Start overlap" in content
+        assert "Inside" in content
+        assert "End overlap" in content
+
+        # Check timestamps (approximate string matching)
+        # t1: 0.0 - 2.0
+        assert "00:00:00.000 --> 00:00:02.000" in content
+        # t2: 2.0 - 8.0
+        assert "00:00:02.000 --> 00:00:08.000" in content
+        # t3: 8.0 - 10.0
+        assert "00:00:08.000 --> 00:00:10.000" in content
 
     def test_subtitle_content_format(self, sample_transcripts):
         """Test that generated subtitle file follows WebVTT format.
@@ -240,13 +324,14 @@ class TestVideoCompilerSubtitles:
         final_clip_path.touch()
 
         # Execute
-        result = compiler._process_clip(
-            job_id="test_job_123",
-            clip=sample_clip,
-            original_video_path=video_path,
-            temp_path=tmp_path,
-            video_info=video_info,
-        )
+        with patch("os.path.getsize", return_value=1024):
+            result = compiler._process_clip(
+                job_id="test_job_123",
+                clip=sample_clip,
+                original_video_path=video_path,
+                temp_path=tmp_path,
+                video_info=video_info,
+            )
 
         # Assert: Should succeed without subtitles
         assert result is not None, "Clip should process successfully even without transcripts"
