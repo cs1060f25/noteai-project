@@ -20,13 +20,16 @@ class JobStatus(str, Enum):
 class ProcessingStage(str, Enum):
     """Video processing pipeline stages."""
 
+    INITIALIZING = "initializing"
     UPLOADING = "uploading"
     SILENCE_DETECTION = "silence_detection"
     TRANSCRIPTION = "transcription"
     LAYOUT_ANALYSIS = "layout_analysis"
+    IMAGE_EXTRACTION = "image_extraction"
     CONTENT_ANALYSIS = "content_analysis"
     SEGMENTATION = "segmentation"
     COMPILATION = "compilation"
+    PODCAST_GENERATION = "podcast_generation"
     COMPLETE = "complete"
 
 
@@ -121,6 +124,7 @@ class JobProgress(BaseModel):
     percent: float = Field(..., description="Progress percentage (0-100)", ge=0, le=100)
     message: str = Field(..., description="Progress message")
     eta_seconds: int | None = Field(None, description="Estimated time remaining in seconds")
+    agent_name: str | None = Field(None, description="Name of the agent currently processing")
 
 
 class JobCreate(BaseModel):
@@ -144,6 +148,10 @@ class JobResponse(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
     progress: JobProgress | None = Field(None, description="Current progress information")
     error_message: str | None = Field(None, description="Error message if failed")
+    thumbnail_url: HttpUrl | None = Field(None, description="URL to video thumbnail")
+    podcast_status: str | None = Field(None, description="Status of podcast generation")
+    podcast_url: HttpUrl | None = Field(None, description="URL to download podcast MP3")
+    podcast_duration: float | None = Field(None, description="Duration of podcast in seconds")
 
 
 class JobListResponse(BaseModel):
@@ -296,6 +304,27 @@ class ClipsResponse(BaseModel):
     total: int = Field(..., description="Total number of clips")
 
 
+class QuizQuestion(BaseModel):
+    """Quiz question model."""
+
+    id: int = Field(..., description="Question ID")
+    type: str = Field(..., description="Question type: 'multiple-choice' or 'true-false'")
+    question: str = Field(..., description="The question text")
+    options: list[str] = Field(..., description="List of options")
+    correct_answer: int = Field(
+        ..., description="Index of the correct answer", alias="correctAnswer"
+    )
+    explanation: str = Field(..., description="Explanation for the answer")
+    difficulty: str = Field(..., description="Difficulty level: 'easy', 'medium', 'hard'")
+
+
+class QuizResponse(BaseModel):
+    """Quiz generation response."""
+
+    job_id: str = Field(..., description="Job identifier")
+    questions: list[QuizQuestion] = Field(..., description="List of generated questions")
+
+
 # WebSocket Models
 
 
@@ -365,4 +394,39 @@ class UserUpdateRequest(BaseModel):
     email_notifications: bool | None = Field(None, description="Email notifications enabled")
     processing_notifications: bool | None = Field(
         None, description="Processing notifications enabled"
+    )
+
+
+# Summary Models
+
+
+class SummaryResponse(BaseModel):
+    """Summary information response."""
+
+    summary_id: str = Field(..., description="Unique summary identifier")
+    job_id: str = Field(..., description="Associated job identifier")
+    summary_text: str = Field(..., description="Main summary text (500-800 words)")
+    key_takeaways: list[str] = Field(..., description="Key takeaways from the lecture (3-5 items)")
+    topics_covered: list[str] = Field(..., description="Main topics covered in the lecture")
+    learning_objectives: list[str] | None = Field(
+        None, description="Learning objectives identified (3-5 items)"
+    )
+    word_count: int | None = Field(None, description="Word count of summary text")
+    model_used: str | None = Field(None, description="AI model used for generation")
+    created_at: datetime = Field(..., description="Summary creation timestamp")
+
+
+class GenerateSummaryRequest(BaseModel):
+    """Request to generate a summary."""
+
+    api_key: str | None = Field(None, description="Optional Gemini API key override")
+    size: str = Field(
+        default="medium",
+        description="Summary size: brief (200-300 words), medium (500-800 words), detailed (1000-1500 words)",
+        pattern="^(brief|medium|detailed)$",
+    )
+    style: str = Field(
+        default="academic",
+        description="Summary style: academic (formal and scholarly), casual (conversational), concise (bullet-point focused)",
+        pattern="^(academic|casual|concise)$",
     )

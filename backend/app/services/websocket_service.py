@@ -58,6 +58,7 @@ def send_progress_sync(
     percent: float,
     message: str,
     eta_seconds: int | None = None,
+    agent_name: str | None = None,
 ) -> None:
     """Send progress update via Redis pub/sub (called from Celery tasks).
 
@@ -70,6 +71,7 @@ def send_progress_sync(
         percent: Progress percentage (0-100)
         message: Status message
         eta_seconds: Optional estimated time to completion in seconds
+        agent_name: Optional name of the agent currently processing
     """
     payload = {
         "type": "progress",
@@ -85,6 +87,9 @@ def send_progress_sync(
     if eta_seconds is not None:
         payload["progress"]["eta_seconds"] = eta_seconds
 
+    if agent_name is not None:
+        payload["progress"]["agent_name"] = agent_name
+
     # Publish to Redis channel (FastAPI will forward to WebSocket)
     channel = f"job_progress:{job_id}"
     publish_to_redis(channel, payload)
@@ -95,6 +100,7 @@ def send_progress_sync(
             "job_id": job_id,
             "stage": stage,
             "percent": percent,
+            "agent_name": agent_name,
         },
     )
 

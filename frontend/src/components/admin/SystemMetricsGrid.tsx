@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 import {
   Users,
@@ -10,40 +10,14 @@ import {
   Loader2,
   Clock,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
-import { getSystemMetrics, AdminError } from '@/services/adminService';
-import type { SystemMetrics } from '@/types/admin';
+import { useAdminMetrics } from '@/hooks/useAppQueries';
 
 import { MetricsCard } from './MetricsCard';
 
 export const SystemMetricsGrid: React.FC = () => {
-  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const data = await getSystemMetrics();
-        setMetrics(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof AdminError ? err.message : 'Failed to fetch system metrics';
-        setError(errorMessage);
-        toast.error('Failed to load metrics', {
-          description: errorMessage,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchMetrics();
-  }, []);
+  const { data: metrics, isLoading, error: queryError } = useAdminMetrics();
+  const error = queryError ? (queryError as Error).message : null;
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';

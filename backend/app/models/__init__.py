@@ -10,6 +10,7 @@ from app.models.database import (  # Then import Job (which references User)
     LayoutAnalysis,
     ProcessingLog,
     SilenceRegion,
+    Summary,
     Transcript,
 )
 from app.models.user import User  # Import User first
@@ -22,6 +23,7 @@ __all__ = [
     "LayoutAnalysis",
     "ProcessingLog",
     "SilenceRegion",
+    "Summary",
     "Transcript",
     "User",
 ]

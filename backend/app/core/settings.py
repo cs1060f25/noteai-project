@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # API
     api_v1_prefix: str = "/api/v1"
     allowed_origins: str = Field(
-        default="http://localhost:3000,http://localhost:5173",
+        default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
         description="CORS allowed origins (comma-separated)",
     )
     max_upload_size_mb: int = Field(default=500, description="Max upload size in MB")
@@ -78,6 +78,10 @@ class Settings(BaseSettings):
         default=2,
         description="Maximum parallel workers for video clip compilation (1-4)",
     )
+    watermark_path: str = Field(
+        default="backend/watermark/watermark.png",
+        description="Path to watermark image",
+    )
 
     # AI Services
     google_cloud_credentials_path: str | None = Field(
@@ -102,7 +106,7 @@ class Settings(BaseSettings):
     )
     gemini_api_key: str | None = Field(default=None, description="Google Gemini API key")
     gemini_model: str = Field(
-        default="gemini-2.5-flash-lite",
+        default="gemini-2.5-flash",
         description="Gemini model to use for content analysis",
     )
     whisper_model: str = Field(default="whisper-1", description="Whisper model to use")
@@ -166,6 +170,14 @@ class Settings(BaseSettings):
     rate_limit_jobs_list: str = Field(
         default="30/minute",
         description="Rate limit for jobs list endpoint",
+    )
+    rate_limit_job_create: str = Field(
+        default="10/minute",
+        description="Rate limit for job creation/trigger endpoints",
+    )
+    rate_limit_contact: str = Field(
+        default="5/hour",
+        description="Rate limit for contact form submissions",
     )
 
     @field_validator("log_level")

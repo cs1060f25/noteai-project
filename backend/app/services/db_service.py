@@ -19,6 +19,7 @@ from app.models.database import (
     ProcessingLog,
     SilenceRegion,
     SlideContent,
+    Summary,
     Transcript,
 )
 from app.models.user import User
@@ -1413,6 +1414,96 @@ class UserRepository:
 
 
 # ============================================================================
+# Summary Repository
+# ============================================================================
+
+
+class SummaryRepository:
+    """Repository for Summary model operations."""
+
+    def __init__(self, db: Session):
+        """Initialize repository with database session.
+
+        Args:
+            db: SQLAlchemy database session
+        """
+        self.db = db
+
+    def create(self, summary_data: dict) -> Summary:
+        """Create a new summary.
+
+        Args:
+            summary_data: Dictionary containing summary data
+
+        Returns:
+            Created Summary instance
+        """
+        summary = Summary(**summary_data)
+        self.db.add(summary)
+        self.db.flush()
+        return summary
+
+    def get_by_job_id(self, job_id: str) -> Summary | None:
+        """Get summary by job_id.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            Summary instance or None if not found
+        """
+        return self.db.query(Summary).filter(Summary.job_id == job_id).first()
+
+    def get_by_summary_id(self, summary_id: str) -> Summary | None:
+        """Get summary by summary_id.
+
+        Args:
+            summary_id: Summary identifier
+
+        Returns:
+            Summary instance or None if not found
+        """
+        return self.db.query(Summary).filter(Summary.summary_id == summary_id).first()
+
+    def delete_by_job_id(self, job_id: str) -> int:
+        """Delete summary for a job.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            Number of deleted records
+        """
+        count = self.db.query(Summary).filter(Summary.job_id == job_id).count()
+        self.db.query(Summary).filter(Summary.job_id == job_id).delete()
+        return count
+
+    def update(self, job_id: str, summary_data: dict) -> Summary:
+        """Update an existing summary.
+
+        Args:
+            job_id: Job identifier
+            summary_data: Dictionary containing updated summary data
+
+        Returns:
+            Updated Summary instance
+
+        Raises:
+            ValueError: If summary not found
+        """
+        summary = self.get_by_job_id(job_id)
+        if not summary:
+            raise ValueError(f"Summary not found for job {job_id}")
+
+        for key, value in summary_data.items():
+            if hasattr(summary, key) and key not in ["summary_id", "job_id", "created_at"]:
+                setattr(summary, key, value)
+
+        self.db.flush()
+        return summary
+
+
+# ============================================================================
 # Database Service Facade
 # ============================================================================
 
@@ -1440,6 +1531,7 @@ class DatabaseService:
         self.clips = ClipRepository(db)
         self.processing_logs = ProcessingLogRepository(db)
         self.users = UserRepository(db)
+        self.summaries = SummaryRepository(db)
 
     def commit(self) -> None:
         """Commit current transaction."""

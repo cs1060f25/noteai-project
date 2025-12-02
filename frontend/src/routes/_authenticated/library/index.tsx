@@ -31,10 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useJobs, useDeleteJob } from '@/hooks/useAppQueries';
 import type { JobResponse } from '@/types/api';
-
-import { getResults } from '../../../services/resultsService';
-import { getJobs } from '../../../services/uploadService';
 
 // Helper function to format date
 function formatDate(dateString: string): string {
@@ -42,78 +40,29 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Extended job type with thumbnail
-interface JobWithThumbnail extends JobResponse {
-  thumbnail_url?: string | null;
-}
-
 export function LibraryPage() {
   const navigate = useNavigate();
-  const [jobs, setJobs] = useState<JobWithThumbnail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: jobsData, isLoading: loading, error: queryError } = useJobs(100, 0);
+  const { mutate: deleteJobMutation } = useDeleteJob();
+  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const error = queryError ? 'Failed to load videos. Please try again.' : null;
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('date-desc');
 
-  // Fetch jobs on mount
+  // Update jobs state when data changes
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await getJobs(100, 0); // Get up to 100 jobs
-        setJobs(response.jobs);
+    if (jobsData?.jobs) {
+      setJobs(jobsData.jobs);
+    }
+  }, [jobsData]);
 
-        // Fetch thumbnails for completed jobs (in background)
-        fetchThumbnailsForCompletedJobs(response.jobs);
-      } catch (err) {
-        setError('Failed to load videos. Please try again.');
-        console.error('Error fetching jobs:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchJobs();
-  }, []);
-
-  // Fetch thumbnails for completed jobs in the background
-  const fetchThumbnailsForCompletedJobs = async (jobList: JobResponse[]) => {
-    const completedJobs = jobList.filter((job) => job.status === 'completed');
-
-    console.log(`[Library] Fetching thumbnails for ${completedJobs.length} completed jobs`);
-
-    // Fetch thumbnails for each completed job (limit to first 20 for performance)
-    const thumbnailPromises = completedJobs.slice(0, 20).map(async (job) => {
-      try {
-        const results = await getResults(job.job_id);
-        const thumbnailUrl = results.clips[0]?.thumbnail_url || null;
-        console.log(`[Library] Job ${job.job_id}: thumbnail =`, thumbnailUrl);
-        return {
-          job_id: job.job_id,
-          thumbnail_url: thumbnailUrl,
-        };
-      } catch (err) {
-        console.error(`[Library] Failed to fetch thumbnail for job ${job.job_id}:`, err);
-        return { job_id: job.job_id, thumbnail_url: null };
-      }
-    });
-
-    const thumbnails = await Promise.all(thumbnailPromises);
-    console.log('[Library] All thumbnails fetched:', thumbnails);
-
-    // Update jobs with thumbnails
-    setJobs((prevJobs) => {
-      const updated = prevJobs.map((job) => {
-        const thumbnail = thumbnails.find((t) => t.job_id === job.job_id);
-        return thumbnail ? { ...job, thumbnail_url: thumbnail.thumbnail_url } : job;
-      });
-      console.log('[Library] Updated jobs with thumbnails:', updated);
-      return updated;
-    });
+  const handleDeleteJob = (jobId: string) => {
+    if (confirm('Are you sure you want to delete this video?')) {
+      deleteJobMutation(jobId);
+    }
   };
 
   const handleLectureClick = (jobId: string) => {
@@ -221,7 +170,7 @@ export function LibraryPage() {
               className="pl-10 glass-card border-border/50"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[140px] glass-card border-border/50">
                 <Filter className="w-4 h-4 mr-2" />
@@ -249,31 +198,33 @@ export function LibraryPage() {
               </SelectContent>
             </Select>
 
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('grid')}
-              className={viewMode === 'grid' ? 'glass-button' : 'glass-card'}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('list')}
-              className={viewMode === 'list' ? 'glass-button' : 'glass-card'}
-            >
-              <List className="w-4 h-4" />
-            </Button>
+            <div className="flex gap-2 ml-auto sm:ml-0">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('grid')}
+                className={viewMode === 'grid' ? 'glass-button' : 'glass-card'}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('list')}
+                className={viewMode === 'list' ? 'glass-button' : 'glass-card'}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Stats Bar */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
           <span>{filteredJobs.length} videos</span>
-          <span>•</span>
+          <span className="hidden sm:inline">•</span>
           <span>{filteredJobs.filter((j) => j.status === 'completed').length} completed</span>
-          <span>•</span>
+          <span className="hidden sm:inline">•</span>
           <span>{filteredJobs.filter((j) => j.status === 'running').length} processing</span>
         </div>
       </div>
@@ -364,8 +315,8 @@ export function LibraryPage() {
                 className="glass-card rounded-lg border border-border/50 p-4 hover:shadow-md transition-all cursor-pointer"
                 onClick={() => job.status === 'completed' && handleLectureClick(job.job_id)}
               >
-                <div className="flex items-center gap-4">
-                  <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="relative w-full sm:w-32 h-40 sm:h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                     {job.thumbnail_url ? (
                       <ImageWithFallback
                         src={job.thumbnail_url}
@@ -378,9 +329,9 @@ export function LibraryPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 w-full">
                     <h3 className="mb-1 truncate">{job.filename}</h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         <span>{formatDate(job.created_at)}</span>
@@ -390,7 +341,7 @@ export function LibraryPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3 mt-2 sm:mt-0">
                     {getStatusBadge(job.status)}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -401,7 +352,15 @@ export function LibraryPage() {
                       <DropdownMenuContent align="end" className="glass-card">
                         <DropdownMenuItem>View Details</DropdownMenuItem>
                         <DropdownMenuItem>Reprocess</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteJob(job.job_id);
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

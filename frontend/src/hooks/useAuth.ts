@@ -106,6 +106,53 @@ export const useAuth = () => {
     }
   };
 
+  const sendPasswordResetCode = async (email: string) => {
+    if (!signIn) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await signIn.create({
+        strategy: 'reset_password_email_code',
+        identifier: email,
+      });
+    } catch (err) {
+      // For security, do not reveal if the account exists or not.
+      // We treat it as a success so the UI proceeds to the verification step.
+      console.error('Password reset request failed (suppressed for security):', err);
+      // Do NOT set error
+      // Do NOT throw
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async (code: string, password: string) => {
+    if (!signIn) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code,
+        password,
+      });
+
+      if (result.status === 'complete') {
+        await setActiveSignIn({ session: result.createdSessionId });
+      }
+    } catch (err) {
+      const error = err as { errors?: Array<{ message: string }> };
+      setError(error.errors?.[0]?.message || 'Failed to reset password. Please try again.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
@@ -114,5 +161,7 @@ export const useAuth = () => {
     handleSignUp,
     handleVerifyEmail,
     handleOAuthSignIn,
+    sendPasswordResetCode,
+    resetPassword,
   };
 };

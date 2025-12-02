@@ -14,8 +14,10 @@ from app.api.routes import (
     admin,
     agent_outputs,
     api_keys,
+    contact,
     dashboard,
     jobs,
+    quiz,
     results,
     upload,
     users,
@@ -109,19 +111,11 @@ cors_kwargs = {
     "allow_methods": ["*"],
     "allow_headers": ["*"],
 }
-if settings.is_development:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.get_allowed_origins(),
-        allow_origin_regex=r"^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$",
-        **cors_kwargs,
-    )
-else:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.get_allowed_origins(),
-        **cors_kwargs,
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.get_allowed_origins(),
+    **cors_kwargs,
+)
 
 
 @app.get("/health", tags=["Health"])
@@ -184,11 +178,17 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
 
 app.include_router(videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["Videos"])
 app.include_router(upload.router, prefix=settings.api_v1_prefix, tags=["Upload"])
+app.include_router(admin.router, prefix=settings.api_v1_prefix, tags=["admin"])
+app.include_router(dashboard.router, prefix=settings.api_v1_prefix, tags=["dashboard"])
+app.include_router(quiz.router, prefix=settings.api_v1_prefix, tags=["quiz"])
 app.include_router(jobs.router, prefix=settings.api_v1_prefix, tags=["Jobs"])
 app.include_router(results.router, prefix=settings.api_v1_prefix, tags=["Results"])
 app.include_router(agent_outputs.router, prefix=settings.api_v1_prefix, tags=["Agent Outputs"])
+app.include_router(
+    agent_outputs.summaries_router, prefix=settings.api_v1_prefix, tags=["Summaries"]
+)
 app.include_router(users.router, prefix=settings.api_v1_prefix, tags=["Users"])
 app.include_router(api_keys.router, prefix=settings.api_v1_prefix, tags=["User API Keys"])
-app.include_router(dashboard.router, prefix=settings.api_v1_prefix, tags=["Dashboard"])
 app.include_router(admin.router, prefix=settings.api_v1_prefix, tags=["Admin"])
 app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
+app.include_router(contact.router, prefix=settings.api_v1_prefix, tags=["Contact"])

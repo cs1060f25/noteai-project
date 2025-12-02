@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -19,6 +20,7 @@ from agents.layout_detector import detect_layout
 from agents.segment_extractor import extract_segments
 from agents.silence_detector import detect_silence
 from agents.transcript_agent import generate_transcript
+from agents.utils.ffmpeg_helper import FFmpegHelper
 from agents.video_compiler import VideoCompiler, compile_clips
 from app.core.logging import get_logger
 from app.core.settings import settings
@@ -98,7 +100,7 @@ def get_user_api_key(job_id: str) -> str:
             api_key = decrypt_string(
                 job.user.gemini_api_key_encrypted, settings.api_key_encryption_secret
             )
-            return api_key
+            return api_key.strip() if api_key else api_key
         except Exception as e:
             logger.error("Failed to decrypt API key", exc_info=e, extra={"job_id": job_id})
             raise ValueError("Invalid API key configuration") from e
@@ -163,7 +165,7 @@ def create_processing_log_entry(
             agent_name=agent_name,
             status=status,
             duration_seconds=duration_seconds,
-            error_message=error_message,
+            message=error_message,
             created_at=datetime.now(timezone.utc),
         )
         db.add(log)
@@ -230,6 +232,37 @@ def get_processing_config(job_id: str) -> dict[str, Any]:
         return result
     finally:
         db.close()
+
+
+def invalidate_job_cache(job_id: str) -> None:
+    """invalidate cache for a job."""
+    import redis
+
+    try:
+        r = redis.from_url(settings.redis_url, decode_responses=True)
+        # Invalidate job details
+        # Pattern: cache:/api/v1/jobs/{job_id}*
+        # Pattern: cache:/api/v1/results/{job_id}*
+        # Pattern: cache:/api/v1/jobs* (list)
+        # Pattern: cache:/api/v1/dashboard* (stats)
+
+        keys = []
+        for pattern in [
+            f"cache:/api/v1/jobs/{job_id}*",
+            f"cache:/api/v1/results/{job_id}*",
+            "cache:/api/v1/jobs*",
+            "cache:/api/v1/dashboard*",
+        ]:
+            found = r.keys(pattern)
+            if found:
+                keys.extend(found)
+
+        if keys:
+            r.delete(*keys)
+            logger.info("Invalidated cache keys", extra={"job_id": job_id, "count": len(keys)})
+
+    except Exception as e:
+        logger.error("Failed to invalidate cache", exc_info=e, extra={"job_id": job_id})
 
 
 class BaseProcessingTask(Task):
@@ -393,6 +426,7 @@ class BaseProcessingTask(Task):
         message: str,
         status: str = "running",
         eta_seconds: int | None = None,
+        agent_name: str | None = None,
     ) -> None:
         """update job progress in database and send WebSocket update."""
         db = get_task_db()
@@ -418,11 +452,12 @@ class BaseProcessingTask(Task):
                     "stage": stage,
                     "percent": percent,
                     "status": status,
+                    "agent_name": agent_name,
                 },
             )
 
             # Send WebSocket update to connected clients
-            send_progress_sync(job_id, stage, percent, message, eta_seconds)
+            send_progress_sync(job_id, stage, percent, message, eta_seconds, agent_name)
 
         except Exception as e:
             logger.error(
@@ -453,6 +488,9 @@ class BaseProcessingTask(Task):
 
                 # Send WebSocket error notification
                 send_error_sync(job_id, error_message)
+
+                # Invalidate cache
+                invalidate_job_cache(job_id)
             else:
                 logger.error(
                     "Cannot mark job as failed - job not found",
@@ -507,6 +545,9 @@ class BaseProcessingTask(Task):
 
             # Send WebSocket completion notification
             send_completion_sync(job_id)
+
+            # Invalidate cache
+            invalidate_job_cache(job_id)
 
         except Exception as e:
             logger.error(
@@ -778,7 +819,11 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
 
             # step 1: silence detection on audio
             self.update_job_progress(
-                job_id, "silence_detection", 10.0, "Detecting silence regions (audio-only mode)"
+                job_id,
+                "silence_detection",
+                10.0,
+                "Detecting silence regions (audio-only mode)",
+                agent_name="SilenceDetector",
             )
             logger.info("Step 1/5: Silence detection (audio-only)", extra={"job_id": job_id})
 
@@ -814,7 +859,11 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
 
             # step 2: transcription
             self.update_job_progress(
-                job_id, "transcription", 20.0, "Transcribing audio (parallel chunks)"
+                job_id,
+                "transcription",
+                20.0,
+                "Transcribing audio (parallel chunks)",
+                agent_name="TranscriptAgent",
             )
             logger.info("Step 2/5: Transcription", extra={"job_id": job_id})
 
@@ -858,10 +907,12 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
 
             # step 3: content analysis (uses custom prompt if provided)
             self.update_job_progress(
-                job_id,
-                "content_analysis",
-                40.0,
-                "Analyzing content with AI (audio-only mode)",
+                job_id=job_id,
+                stage="content_analysis",
+                percent=40.0,
+                message="Analyzing content with AI (audio-only mode)",
+                status="running",
+                agent_name="ContentAnalyzer",
             )
             logger.info("Step 3/5: Content analysis", extra={"job_id": job_id})
 
@@ -893,7 +944,14 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             )
 
             # step 4: segment extraction
-            self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
+            self.update_job_progress(
+                job_id=job_id,
+                stage="segmentation",
+                percent=60.0,
+                message="Extracting highlight segments",
+                status="running",
+                agent_name="SegmentExtractor",
+            )
             logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
 
             # log start
@@ -926,7 +984,14 @@ def process_audio_only_pipeline(self, job_id: str, config: dict[str, Any]) -> di
             video_path = video_future.result()
 
         # step 5: video compilation
-        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        self.update_job_progress(
+            job_id=job_id,
+            stage="compilation",
+            percent=80.0,
+            message="Compiling final clips",
+            status="running",
+            agent_name="VideoCompiler",
+        )
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
         # log start
@@ -1078,7 +1143,12 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
                 # silence detection
                 self.update_job_progress(
-                    job_id, "silence_detection", 10.0, "Detecting silence regions"
+                    job_id=job_id,
+                    stage="silence_detection",
+                    percent=10.0,
+                    message="Detecting silence regions",
+                    status="running",
+                    agent_name="SilenceDetector",
                 )
                 logger.info("Audio track: Silence detection", extra={"job_id": job_id})
 
@@ -1106,7 +1176,12 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
                 # transcription
                 self.update_job_progress(
-                    job_id, "transcription", 20.0, "Transcribing audio (parallel chunks)"
+                    job_id=job_id,
+                    stage="transcription",
+                    percent=20.0,
+                    message="Transcribing audio (parallel chunks)",
+                    status="running",
+                    agent_name="TranscriptAgent",
                 )
                 logger.info("Audio track: Transcription", extra={"job_id": job_id})
 
@@ -1144,7 +1219,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 video_path = download_video_from_s3_to_temp(s3_key, job_id)
 
                 # layout analysis
-                self.update_job_progress(job_id, "layout_analysis", 15.0, "Analyzing video layout")
+                self.update_job_progress(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    percent=15.0,
+                    message="Analyzing video layout",
+                    status="running",
+                    agent_name="LayoutDetector",
+                )
                 logger.info("Video track: Layout analysis", extra={"job_id": job_id})
 
                 # log start
@@ -1170,6 +1252,15 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                 )
 
                 # IMAGE AGENT: extract visual content from slides
+                self.update_job_progress(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    percent=20.0,
+                    message="Starting slide content extraction with AI",
+                    status="running",
+                    agent_name="ImageAgent",
+                )
+
                 create_processing_log_entry(
                     job_id=job_id,
                     stage="image_extraction",
@@ -1177,11 +1268,25 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                     status="started",
                 )
 
+                # define progress callback for ImageAgent
+                def image_progress_callback(percent: float, message: str):
+                    # map ImageAgent's internal progress (0-100%) to overall progress (20-30%)
+                    overall_percent = 20.0 + (percent / 100.0 * 10.0)
+                    self.update_job_progress(
+                        job_id=job_id,
+                        stage="layout_analysis",
+                        percent=overall_percent,
+                        message=message,
+                        status="running",
+                        agent_name="ImageAgent",
+                    )
+
                 image_result = extract_slide_content(
                     s3_key=None,  # Video already downloaded locally
                     job_id=job_id,
                     local_video_path=video_path,  # Pass local video path
                     layout_info=layout_result,  # Use layout info to focus on screen region
+                    progress_callback=image_progress_callback,
                 )
 
                 # log completion
@@ -1190,6 +1295,15 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
                     stage="image_extraction",
                     agent_name="ImageAgent",
                     status="completed",
+                )
+
+                self.update_job_progress(
+                    job_id=job_id,
+                    stage="layout_analysis",
+                    percent=30.0,
+                    message="Image extraction completed",
+                    status="running",
+                    agent_name="ImageAgent",
                 )
 
                 return {
@@ -1216,10 +1330,12 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
 
         # step 3: content analysis (combines audio + video data)
         self.update_job_progress(
-            job_id,
-            "content_analysis",
-            40.0,
-            "Analyzing content with AI (vision mode)",
+            job_id=job_id,
+            stage="content_analysis",
+            percent=40.0,
+            message="Analyzing content with AI (vision mode)",
+            status="running",
+            agent_name="ContentAnalyzer",
         )
         logger.info("Step 3/5: Content analysis (vision mode)", extra={"job_id": job_id})
 
@@ -1252,7 +1368,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         )
 
         # step 4: segment extraction
-        self.update_job_progress(job_id, "segmentation", 60.0, "Extracting highlight segments")
+        self.update_job_progress(
+            job_id=job_id,
+            stage="segmentation",
+            percent=60.0,
+            message="Extracting highlight segments",
+            status="running",
+            agent_name="SegmentExtractor",
+        )
         logger.info("Step 4/5: Segment extraction", extra={"job_id": job_id})
 
         # log start
@@ -1282,7 +1405,14 @@ def process_vision_pipeline(self, job_id: str, config: dict[str, Any]) -> dict[s
         )
 
         # step 5: video compilation
-        self.update_job_progress(job_id, "compilation", 80.0, "Compiling final clips")
+        self.update_job_progress(
+            job_id=job_id,
+            stage="compilation",
+            percent=80.0,
+            message="Compiling final clips",
+            status="running",
+            agent_name="VideoCompiler",
+        )
         logger.info("Step 5/5: Video compilation", extra={"job_id": job_id})
 
         # log start
@@ -1392,6 +1522,7 @@ def silence_detection_task(self, job_id: str) -> dict[str, Any]:
         message="detecting silence regions in audio",
         status="running",
         eta_seconds=60,
+        agent_name="SilenceDetector",
     )
 
     s3_key = get_job_s3_key(job_id)
@@ -1409,6 +1540,7 @@ def silence_detection_task(self, job_id: str) -> dict[str, Any]:
         percent=30.0,
         message="silence detection completed",
         status="running",
+        agent_name="SilenceDetector",
     )
 
     logger.info(
@@ -1466,6 +1598,7 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
             percent=0.0,
             message="Starting audio transcription (non-silent segments only)",
             status="running",
+            agent_name="TranscriptAgent",
         )
 
         # run transcription
@@ -1480,6 +1613,7 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
             percent=100.0,
             message=f"Transcription completed ({result.get('total_segments', 0)} segments)",
             status="running",
+            agent_name="TranscriptAgent",
         )
 
         logger.info(
@@ -1500,14 +1634,38 @@ def transcription_task(self, silence_result: dict[str, Any], job_id: str) -> dic
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
-def layout_analysis_task(_self, job_id: str) -> dict[str, Any]:
+def layout_analysis_task(self, job_id: str) -> dict[str, Any]:
     """layout analysis agent task."""
     s3_key = get_job_s3_key(job_id)
+
+    # update progress: starting
+    self.update_job_progress(
+        job_id=job_id,
+        stage="layout_analysis",
+        percent=0.0,
+        message="Analyzing video layout",
+        status="running",
+        agent_name="LayoutDetector",
+    )
+
     logger.info(
         "Starting layout analysis",
         extra={"job_id": job_id, "s3_key": s3_key},
     )
-    return detect_layout(s3_key, job_id)
+
+    result = detect_layout(s3_key, job_id)
+
+    # update progress: completed
+    self.update_job_progress(
+        job_id=job_id,
+        stage="layout_analysis",
+        percent=100.0,
+        message="Layout analysis completed",
+        status="running",
+        agent_name="LayoutDetector",
+    )
+
+    return result
 
 
 @celery_app.task(bind=True, base=BaseProcessingTask)
@@ -1529,6 +1687,7 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
         message="analyzing content with AI (Gemini)",
         status="running",
         eta_seconds=30,
+        agent_name="ContentAnalyzer",
     )
 
     # fetch API key
@@ -1541,6 +1700,16 @@ def content_analysis_task(self, job_id: str) -> dict[str, Any]:
 
     # agent queries database directly, pass empty dict for legacy signature
     result = analyze_content({}, job_id, api_key=api_key)
+
+    # update progress: completed
+    self.update_job_progress(
+        job_id=job_id,
+        stage="content_analysis",
+        percent=100.0,
+        message=f"Content analysis completed ({result.get('segments_created', 0)} segments)",
+        status="running",
+        agent_name="ContentAnalyzer",
+    )
 
     logger.info(
         "content analysis completed",
@@ -1570,11 +1739,12 @@ def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
     # update progress
     self.update_job_progress(
         job_id=job_id,
-        stage="segment_extraction",
+        stage="segmentation",
         percent=65.0,
         message="extracting highlight segments with optimized boundaries",
         status="running",
         eta_seconds=10,
+        agent_name="SegmentExtractor",
     )
 
     # agent queries database directly, pass empty dicts for legacy signature
@@ -1583,10 +1753,11 @@ def segment_extraction_task(self, job_id: str) -> dict[str, Any]:
     # update progress after completion
     self.update_job_progress(
         job_id=job_id,
-        stage="segment_extraction",
+        stage="segmentation",
         percent=90.0,
         message="segment extraction completed",
         status="running",
+        agent_name="SegmentExtractor",
     )
 
     logger.info(
@@ -1627,6 +1798,7 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
         message="compiling final video clips with transitions",
         status="running",
         eta_seconds=120,
+        agent_name="VideoCompiler",
     )
 
     # get database session and compile clips
@@ -1641,6 +1813,7 @@ def video_compilation_task(self, job_id: str) -> dict[str, Any]:
             percent=100.0,
             message=f"compilation completed ({result.get('clips_generated', 0)} clips)",
             status="running",
+            agent_name="VideoCompiler",
         )
 
         logger.info(
@@ -1674,3 +1847,151 @@ def start_metrics_server(**_kwargs):
             exc_info=e,
             extra={"port": 9090},
         )
+
+
+@celery_app.task(
+    bind=True,
+    base=BaseProcessingTask,
+    name="pipeline.tasks.generate_podcast",
+)
+def generate_podcast(self, job_id: str) -> dict[str, Any]:
+    """Generate AI-narrated podcast from video content.
+
+    Args:
+        job_id: job identifier
+
+    Returns:
+        result dictionary with podcast info
+    """
+    logger.info("Starting AI podcast generation", extra={"job_id": job_id})
+
+    db = get_task_db()
+    try:
+        temp_dir = Path(f"/tmp/podcast_{job_id}")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        db_service = DatabaseService(db)
+        job = db_service.jobs.get_by_id(job_id)
+
+        if not job:
+            raise ValueError(f"Job not found: {job_id}")
+
+        # Update status to processing
+        job.podcast_status = "processing"
+        db.commit()
+
+        # Get options from extra_metadata
+        options = job.extra_metadata.get("podcast_options", {})
+
+        # 1. Gather Content (Transcripts & Slides)
+        transcripts = db_service.transcripts.get_by_job_id(job_id)
+        transcript_text = " ".join([t.text for t in transcripts])
+
+        logger.info("Transcript text: ", transcript_text)
+
+        slide_content = db_service.slide_content.get_by_job_id(job_id)
+        visual_summary = ""
+        if slide_content:
+            visual_summary = f"Key Concepts: {', '.join(slide_content.key_concepts)}\n"
+            visual_summary += f"Visual Elements: {', '.join(slide_content.visual_elements)}\n"
+            visual_summary += f"Text Blocks: {len(slide_content.text_blocks)} detected."
+
+        logger.info("Visual summary: ", visual_summary)
+
+        # 2. Generate Script
+        from agents.podcast_agent import PodcastAgent
+
+        api_key = get_user_api_key(job_id)
+        agent = PodcastAgent(api_key=api_key)
+
+        # Default options
+        num_speakers = options.get("num_speakers", 2)
+
+        logger.info("Num speakers: ", num_speakers)
+
+        script = agent.generate_script(
+            transcript_text=transcript_text,
+            visual_summary=visual_summary,
+            num_speakers=num_speakers,
+            style="Casual and engaging",
+        )
+
+        # 3. Generate Audio
+        audio_files = agent.generate_audio(script, temp_dir, options)
+
+        # 4. Assemble Audio
+        output_filename = f"podcast_{job_id}.mp3"
+        output_path = temp_dir / output_filename
+
+        agent.assemble_audio(audio_files, output_path)
+
+        # 5. Upload to S3
+        s3_key = f"podcasts/{job.user_id}/{job_id}/{output_filename}"
+
+        s3_service.upload_file(
+            file_path=str(output_path), object_key=s3_key, content_type="audio/mpeg"
+        )
+
+        # 6. Update Job
+        # Use FFmpegHelper to get duration (avoids mutagen dependency)
+        ffmpeg_helper = FFmpegHelper()
+        duration = ffmpeg_helper.get_media_duration(output_path)
+        file_size = output_path.stat().st_size
+
+        job.podcast_s3_key = s3_key
+        job.podcast_duration = duration
+        job.podcast_file_size = file_size
+        job.podcast_status = "completed"
+        db.commit()
+
+        # Send email notification
+        try:
+            if job.user and job.user.email:
+                email_service = EmailService()
+                # TODO: Get frontend URL from settings
+                podcast_url = "http://localhost:5173/content"
+
+                email_service.send_podcast_completed_email(
+                    to_email=job.user.email,
+                    video_title=f"AI Podcast: {job.filename}",
+                    podcast_url=podcast_url,
+                )
+        except Exception as e:
+            logger.error("Failed to send podcast completion email", exc_info=e)
+
+        return {"job_id": job_id, "status": "completed", "duration": duration}
+
+    except Exception as e:
+        logger.error("Podcast generation failed", exc_info=e, extra={"job_id": job_id})
+
+        # Update podcast status to failed BUT DO NOT FAIL THE JOB
+        try:
+            # Re-fetch job to ensure session is valid
+            # We need to use a new session if the previous one was closed or rolled back
+            # But here we are in the same scope, so we try to use existing db session
+            # If db session is closed, we might need a new one.
+            # Safest is to use the existing db object if open, or create new one.
+            # For simplicity in this context, we'll try to use the existing 'db' and 'db_service'
+            # assuming they are still valid or we can rollback.
+
+            if "db" in locals() and db.is_active:
+                db.rollback()  # Rollback any previous transaction failure
+
+            # Re-query job
+            job = db_service.jobs.get_by_id(job_id)
+            if job:
+                job.podcast_status = "failed"
+                db.commit()
+        except Exception as db_e:
+            logger.error("Failed to update podcast status to failed", exc_info=db_e)
+
+        # Return error result but don't raise exception to avoid BaseProcessingTask.on_failure
+        return {"job_id": job_id, "status": "failed", "error": str(e)}
+    finally:
+        if "db" in locals():
+            db.close()
+        # Cleanup temp files
+        import shutil
+
+        if "temp_dir" in locals() and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)

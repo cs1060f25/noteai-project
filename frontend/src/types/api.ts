@@ -12,6 +12,7 @@ export const ProcessingStage = {
   SILENCE_DETECTION: 'silence_detection',
   TRANSCRIPTION: 'transcription',
   LAYOUT_ANALYSIS: 'layout_analysis',
+  IMAGE_EXTRACTION: 'image_extraction',
   CONTENT_ANALYSIS: 'content_analysis',
   SEGMENTATION: 'segmentation',
   COMPILATION: 'compilation',
@@ -51,6 +52,7 @@ export interface JobProgress {
   percent: number;
   message: string;
   eta_seconds?: number;
+  agent_name?: string;
 }
 
 export interface JobResponse {
@@ -63,6 +65,10 @@ export interface JobResponse {
   completed_at?: string;
   progress?: JobProgress;
   error_message?: string;
+  thumbnail_url?: string | null;
+  podcast_status?: string | null;
+  podcast_url?: string | null;
+  podcast_duration?: number | null;
 }
 
 export interface JobListResponse {
@@ -272,3 +278,112 @@ export interface DashboardData {
   stats: DashboardStats;
   recent_videos: RecentVideo[];
 }
+
+export interface QuizQuestion {
+  id: number;
+  type: 'multiple-choice' | 'true-false';
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+}
+
+export interface QuizResponse {
+  job_id: string;
+  questions: QuizQuestion[];
+}
+
+// summary types
+
+export interface Summary {
+  summary_id: string;
+  job_id: string;
+  summary_text: string;
+  key_takeaways: string[];
+  topics_covered: string[];
+  learning_objectives: string[];
+  word_count: number;
+  model_used: string;
+  created_at: string;
+}
+
+export interface GenerateSummaryRequest {
+  api_key?: string;
+  size?: 'brief' | 'medium' | 'detailed';
+  style?: 'academic' | 'casual' | 'concise';
+}
+
+import type { Quiz } from '@/components/content/types';
+// API client
+import { apiClient } from '@/lib/clerk-api';
+
+export const api = {
+  uploadVideo: async (
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Use raw axios for upload to handle onUploadProgress properly if apiClient wrapper doesn't support it easily
+    // Or better, use apiClient.post if it supports config.
+    // Looking at clerk-api.ts, apiClient.post accepts config.
+
+    return apiClient.post<UploadResponse>('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+  },
+
+  getJob: async (jobId: string): Promise<JobResponse> => {
+    return apiClient.get<JobResponse>(`/jobs/${jobId}`);
+  },
+
+  getJobs: async (skip = 0, limit = 10): Promise<JobListResponse> => {
+    return apiClient.get<JobListResponse>('/jobs', {
+      params: { skip, limit },
+    });
+  },
+
+  getResults: async (jobId: string): Promise<ResultsResponse> => {
+    return apiClient.get<ResultsResponse>(`/results/${jobId}`);
+  },
+
+  generateQuiz: async (
+    jobId: string,
+    numQuestions: number = 5,
+    difficulty: string = 'medium'
+  ): Promise<QuizResponse> => {
+    return apiClient.post<QuizResponse>(`/jobs/${jobId}/quiz`, null, {
+      params: { num_questions: numQuestions, difficulty },
+    });
+  },
+
+  getQuiz: async (quizId: string): Promise<QuizResponse> => {
+    return apiClient.get<QuizResponse>(`/quizzes/${quizId}`);
+  },
+
+  getQuizzes: async (): Promise<Quiz[]> => {
+    return apiClient.get<Quiz[]>('/quizzes');
+  },
+
+  generateSummary: async (jobId: string, options?: GenerateSummaryRequest): Promise<Summary> => {
+    return apiClient.post<Summary>(`/jobs/${jobId}/summary`, options || {});
+  },
+
+  getSummary: async (jobId: string): Promise<Summary> => {
+    return apiClient.get<Summary>(`/jobs/${jobId}/summary`);
+  },
+
+  getAllSummaries: async (): Promise<Summary[]> => {
+    return apiClient.get<Summary[]>('/summaries');
+  },
+};

@@ -63,6 +63,67 @@ class TestVideoCompilerSubtitles:
             clip_order=1,
         )
 
+    @pytest.mark.xfail(reason="Bug: subtitle_s3_key is None")
+    @patch("agents.video_compiler.boto3.client")
+    @patch("agents.video_compiler.FFmpegHelper")
+    def test_subtitle_s3_key_is_none_bug(
+        self,
+        mock_ffmpeg_class,
+        mock_boto3_client,
+        mock_db,
+        sample_clip,
+        sample_transcripts,
+        tmp_path,
+    ):
+        """Test that demonstrates the BUG: subtitle_s3_key is always None.
+
+        This test verifies the current broken behavior where clips are compiled
+        without subtitle files, even when transcript data exists.
+
+        Expected to FAIL after bug is fixed.
+        """
+        # Setup mocks
+        mock_ffmpeg = MagicMock()
+        mock_ffmpeg_class.return_value = mock_ffmpeg
+
+        mock_s3 = MagicMock()
+        mock_boto3_client.return_value = mock_s3
+
+        compiler = VideoCompiler(db=mock_db)
+
+        video_info = {"duration": 20.0, "width": 1920, "height": 1080}
+
+        # Mock video file
+        video_path = tmp_path / "test_video.mp4"
+        video_path.touch()
+
+        # Mock database query for transcripts (simulating available data)
+        mock_query = MagicMock()
+        mock_query.filter.return_value = mock_query
+        mock_query.order_by.return_value = mock_query
+        mock_query.all.return_value = sample_transcripts[:2]  # Only transcripts within clip range
+        mock_db.query.return_value = mock_query
+
+        # Create dummy output file that _process_clip expects
+        final_clip_path = tmp_path / "final_clip_abc123.mp4"
+        final_clip_path.touch()
+
+        # Execute
+        result = compiler._process_clip(
+            job_id="test_job_123",
+            clip=sample_clip,
+            original_video_path=video_path,
+            temp_path=tmp_path,
+            video_info=video_info,
+        )
+
+        # Assert: BUG - subtitle_s3_key is None despite transcripts existing
+        assert result is not None
+        assert result["subtitle_s3_key"] is None, (
+            "BUG DETECTED: subtitle_s3_key should be populated with S3 key, "
+            "but is None even though transcripts exist for this clip"
+        )
+
     @patch("agents.video_compiler.boto3.client")
     @patch("agents.video_compiler.FFmpegHelper")
     def test_subtitle_file_should_be_generated(
@@ -100,6 +161,10 @@ class TestVideoCompilerSubtitles:
         mock_query.order_by.return_value = mock_query
         mock_query.all.return_value = sample_transcripts[:2]
         mock_db.query.return_value = mock_query
+
+        # Create dummy output file that _process_clip expects
+        final_clip_path = tmp_path / "final_clip_abc123.mp4"
+        final_clip_path.touch()
 
         # Execute
         with patch("os.path.getsize", return_value=1024):
@@ -253,6 +318,10 @@ class TestVideoCompilerSubtitles:
         mock_query.order_by.return_value = mock_query
         mock_query.all.return_value = []  # No transcripts
         mock_db.query.return_value = mock_query
+
+        # Create dummy output file that _process_clip expects
+        final_clip_path = tmp_path / "final_clip_abc123.mp4"
+        final_clip_path.touch()
 
         # Execute
         with patch("os.path.getsize", return_value=1024):

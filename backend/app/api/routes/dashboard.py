@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.dashboard import DashboardDataResponse, DashboardStatsResponse, RecentVideoResponse
 from app.services.db_service import DatabaseService
 from app.services.storage_service import StorageService
+from app.utils.cache_utils import cache_response
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
     """,
 )
 @limiter.limit(settings.rate_limit_jobs_list)
+@cache_response(ttl=300)
 def get_dashboard_data(
     request: Request,
     response: Response,

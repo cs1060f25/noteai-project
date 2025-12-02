@@ -657,6 +657,7 @@ class FFmpegHelper:
         end_time: float,
         resolution: tuple[int, int] | None = None,
         metadata: dict[str, str] | None = None,
+        watermark_path: Path | str | None = None,
     ) -> None:
         """Extract segment and optionally transcode/add metadata in a single FFmpeg pass.
 
@@ -670,6 +671,7 @@ class FFmpegHelper:
             end_time: End time in seconds
             resolution: Target resolution (width, height). If None, uses copy codec.
             metadata: Optional metadata dict to embed
+            watermark_path: Optional path to watermark image to overlay
 
         Raises:
             FFmpegError: If processing fails
@@ -725,10 +727,58 @@ class FFmpegHelper:
             for key, value in metadata.items():
                 cmd.extend(["-metadata", f"{key}={value}"])
 
-        # Encoding settings (only if we're using filters)
-        if resolution:
+        # transcode or copy
+        if resolution or watermark_path:
+            # Build filter chain
+            filters = []
+
+            # 1. Scaling (if requested)
+            if resolution:
+                width, height = resolution
+                # Scale and pad to target resolution
+                filters.append(
+                    f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1[scaled]"
+                )
+                main_stream = "[scaled]"
+            else:
+                # No scaling, use input stream directly
+                # In -filter_complex, we'd use [0:v], but in -vf we can use 'null' to pass through or implicit
+                # Using 'null' filter to label the stream
+                filters.append("null[main]")
+                main_stream = "[main]"
+
+            # 2. Watermark (if requested)
+            if watermark_path:
+                # Escape path for ffmpeg
+                wm_path = str(watermark_path).replace("\\", "/").replace(":", "\\:")
+
+                # Load watermark
+                filters.append(f"movie={wm_path}[wm]")
+
+                # Scale watermark relative to video (10% width)
+                # [wm][main]scale2ref... outputs [wm_scaled][main_ref]
+                filters.append(f"[wm]{main_stream}scale2ref=w=iw*0.1:h=-1[wm_scaled][main_ref]")
+
+                # Overlay watermark (bottom-right with 10px padding)
+                filters.append("[main_ref][wm_scaled]overlay=W-w-10:H-h-10")
+            else:
+                # If no watermark, just output the scaled stream (if any)
+                # If we used [scaled], we need to make sure it's the final output.
+                # But filters are chained with ';'. If the last filter has an output label,
+                # we might need to map it or ensure it flows to output.
+                # In -vf, if we don't label the last output, it goes to encoder.
+                # But we labeled it [scaled].
+                # Actually, if we just don't label the last one, it works.
+                # Let's adjust:
+                if resolution:
+                    # Remove [scaled] label from the first filter if no watermark
+                    filters[0] = filters[0].replace("[scaled]", "")
+
             cmd.extend(
                 [
+                    "-vf",
+                    ";".join(filters),
                     "-c:v",
                     "libx264",
                     "-preset",
@@ -762,6 +812,7 @@ class FFmpegHelper:
                     "start": start_time,
                     "end": end_time,
                     "resolution": resolution,
+                    "watermark": bool(watermark_path),
                 },
             )
         except subprocess.CalledProcessError as e:
@@ -845,3 +896,115 @@ class FFmpegHelper:
         except subprocess.CalledProcessError as e:
             logger.error("FFmpeg transcoding failed", exc_info=e, extra={"stderr": e.stderr})
             raise FFmpegError(f"Failed to transcode video: {e.stderr}") from e
+
+    def process_podcast_audio(
+        self,
+        input_path: Path,
+        output_path: Path,
+        silence_regions: list[dict[str, float]] | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> None:
+        """Process audio for podcast: remove silence, normalize, and encode to MP3.
+
+        Args:
+            input_path: Input video/audio path
+            output_path: Output MP3 path
+            silence_regions: List of silence regions to remove (start_time, end_time)
+            metadata: ID3 tags to add
+
+        Raises:
+            FFmpegError: If processing fails
+        """
+        # 1. Build filter complex
+        filters = []
+
+        # Select audio stream
+        # [0:a] is the input audio
+        current_stream = "[0:a]"
+
+        # Silence removal (if regions provided)
+        if silence_regions and len(silence_regions) > 0:
+            # We need to keep the NON-silent parts.
+            # So if silence is 10-20, we keep 0-10 and 20-end.
+
+            # Sort regions just in case
+            sorted_regions = sorted(silence_regions, key=lambda x: x["start_time"])
+
+            select_parts = []
+            last_end = 0.0
+
+            for region in sorted_regions:
+                start = region["start_time"]
+                end = region["end_time"]
+
+                # Keep segment before silence if it has duration
+                if start > last_end:
+                    select_parts.append(f"between(t,{last_end},{start})")
+
+                last_end = end
+
+            # Add final segment (from last silence end to infinity)
+            select_parts.append(f"gte(t,{last_end})")
+
+            select_expr = "+".join(select_parts)
+
+            # Use aselect filter to keep non-silent parts
+            # asetpts=N/SR/TB resets timestamps to be continuous
+            filters.append(f"{current_stream}aselect='{select_expr}',asetpts=N/SR/TB[selected]")
+            current_stream = "[selected]"
+
+        # Audio normalization (Loudness Normalization)
+        # Target: -16 LUFS (standard for podcasts), True Peak -1.5 dBTP
+        filters.append(f"{current_stream}loudnorm=I=-16:TP=-1.5:LRA=11[normalized]")
+        current_stream = "[normalized]"
+
+        # Build command
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_path),
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            current_stream,
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "128k",
+            "-ar",
+            "44100",
+            "-ac",
+            "2",
+        ]
+
+        # Add metadata
+        if metadata:
+            for key, value in metadata.items():
+                cmd.extend(["-metadata", f"{key}={value}"])
+
+        cmd.append(str(output_path))
+
+        try:
+            subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=600,  # 10 minutes max
+            )
+            logger.info(
+                "Podcast audio processed",
+                extra={
+                    "input": str(input_path),
+                    "output": str(output_path),
+                    "silence_regions_removed": len(silence_regions) if silence_regions else 0,
+                },
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                "FFmpeg podcast processing failed",
+                exc_info=e,
+                extra={"stderr": e.stderr, "cmd": " ".join(cmd)},
+            )
+            raise FFmpegError(f"Failed to process podcast audio: {e.stderr}") from e

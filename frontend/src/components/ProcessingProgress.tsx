@@ -14,6 +14,7 @@ import {
   Activity,
   Zap,
   Layout,
+  Image,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -75,6 +76,12 @@ const stageConfigs: Record<
     icon: Layout,
     color: 'bg-indigo-500',
   },
+  image_extraction: {
+    name: 'Image Extraction',
+    description: 'Extracting slide content',
+    icon: Image,
+    color: 'bg-blue-600',
+  },
   content_analysis: {
     name: 'Content Analysis',
     description: 'Understanding key topics',
@@ -118,9 +125,11 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
         progress: 0,
       }));
 
-    // filter out layout_analysis for audio mode
+    // filter out layout_analysis and image_extraction for audio mode
     if (processingMode === 'audio') {
-      return allStages.filter((stage) => stage.id !== 'layout_analysis');
+      return allStages.filter(
+        (stage) => stage.id !== 'layout_analysis' && stage.id !== 'image_extraction'
+      );
     }
 
     // for vision mode, mark silence, transcription and layout_analysis as parallel
@@ -131,7 +140,8 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
       if (
         stage.id === 'silence_detection' ||
         stage.id === 'transcription' ||
-        stage.id === 'layout_analysis'
+        stage.id === 'layout_analysis' ||
+        stage.id === 'image_extraction'
       ) {
         return {
           ...stage,
@@ -301,6 +311,14 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
                   )}
                 </Badge>
               </div>
+              {currentProgress?.agent_name && (
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-500/10 text-amber-500 border-0 text-xs">
+                    <Brain className="w-3 h-3 mr-1" />
+                    {currentProgress.agent_name}
+                  </Badge>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -376,6 +394,12 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
                     <Badge className="bg-blue-500/10 text-blue-500 border-0 text-[10px] px-1.5 py-0">
                       <Zap className="w-2.5 h-2.5 mr-0.5" />
                       Parallel
+                    </Badge>
+                  )}
+                  {stage.id === currentProgress?.stage && currentProgress?.agent_name && (
+                    <Badge className="bg-amber-500/10 text-amber-500 border-0 text-[10px] px-1.5 py-0">
+                      <Brain className="w-2.5 h-2.5 mr-0.5" />
+                      {currentProgress.agent_name}
                     </Badge>
                   )}
                   {getStatusIcon(stage)}

@@ -30,6 +30,12 @@ class Job(Base):
     original_s3_key = Column(String(500), nullable=False)
     compiled_video_s3_key = Column(String(500), nullable=True)  # Highlight video (compiled clips)
 
+    # Podcast information
+    podcast_s3_key = Column(String(500), nullable=True)
+    podcast_duration = Column(Float, nullable=True)
+    podcast_file_size = Column(Integer, nullable=True)
+    podcast_status = Column(String(20), nullable=True)  # pending, processing, completed, failed
+
     # Video metadata
     video_duration = Column(Float, nullable=True)
     video_metadata = Column(JSON, default=dict)
@@ -72,6 +78,10 @@ class Job(Base):
     processing_logs = relationship(
         "ProcessingLog", back_populates="job", cascade="all, delete-orphan"
     )
+    quizzes = relationship("Quiz", back_populates="job", cascade="all, delete-orphan")
+    summary = relationship(
+        "Summary", back_populates="job", uselist=False, cascade="all, delete-orphan"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary.
@@ -97,6 +107,10 @@ class Job(Base):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "completed_at": self.completed_at,
+            "podcast_s3_key": self.podcast_s3_key,
+            "podcast_duration": self.podcast_duration,
+            "podcast_file_size": self.podcast_file_size,
+            "podcast_status": self.podcast_status,
         }
 
 
@@ -191,17 +205,15 @@ class LayoutAnalysis(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     layout_id = Column(String(100), unique=True, index=True, nullable=False)
-    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, unique=True, index=True)
+    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, index=True)
 
-    # Layout regions (stored as JSON: {x, y, width, height})
-    screen_region = Column(JSON, nullable=False)
-    camera_region = Column(JSON, nullable=False)
-
-    # Layout properties
-    split_ratio = Column(Float, nullable=False)  # e.g., 0.7 for 70/30 split
-    layout_type = Column(String(30), nullable=False)  # 'side_by_side', 'picture_in_picture', etc.
-    confidence_score = Column(Float, nullable=True)
-    sample_frame_time = Column(Float, nullable=True)
+    # Layout information
+    layout_type = Column(String(30), nullable=False)
+    screen_region = Column(JSON, nullable=True)
+    camera_region = Column(JSON, nullable=True)
+    split_ratio = Column(Float, nullable=True)
+    confidence_score = Column(Float, nullable=False)
+    sample_frame_time = Column(Float, nullable=False)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -218,18 +230,66 @@ class LayoutAnalysis(Base):
         return {
             "layout_id": self.layout_id,
             "job_id": self.job_id,
+            "layout_type": self.layout_type,
             "screen_region": self.screen_region,
             "camera_region": self.camera_region,
             "split_ratio": self.split_ratio,
-            "layout_type": self.layout_type,
             "confidence_score": self.confidence_score,
             "sample_frame_time": self.sample_frame_time,
             "created_at": self.created_at,
         }
 
 
+class SlideContent(Base):
+    """Slide content database model for Image Agent OCR and visual analysis results."""
+
+    __tablename__ = "slide_content"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content_id = Column(String(100), unique=True, index=True, nullable=False)
+    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, index=True)
+
+    # Analysis metadata
+    frames_analyzed = Column(Integer, nullable=False)
+    extraction_method = Column(String(50), nullable=False)
+
+    # Extracted content
+    text_blocks = Column(JSON, nullable=False)
+    visual_elements = Column(JSON, nullable=True)
+    key_concepts = Column(JSON, nullable=True)
+
+    # Processing metadata
+    processing_time_seconds = Column(Float, nullable=True)
+    model_used = Column(String(50), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    job = relationship("Job", back_populates="slide_content")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert model to dictionary.
+
+        Returns:
+            Dictionary representation of slide content
+        """
+        return {
+            "content_id": self.content_id,
+            "job_id": self.job_id,
+            "frames_analyzed": self.frames_analyzed,
+            "extraction_method": self.extraction_method,
+            "text_blocks": self.text_blocks,
+            "visual_elements": self.visual_elements,
+            "key_concepts": self.key_concepts,
+            "processing_time_seconds": self.processing_time_seconds,
+            "model_used": self.model_used,
+            "created_at": self.created_at,
+        }
+
+
 class ContentSegment(Base):
-    """Content segment database model for Gemini content analysis."""
+    """Content segment database model for AI-analyzed educational content."""
 
     __tablename__ = "content_segments"
 
@@ -242,20 +302,19 @@ class ContentSegment(Base):
     end_time = Column(Float, nullable=False)
     duration = Column(Float, nullable=False)
 
-    # Content analysis
-    topic = Column(String(500), nullable=False)
-    description = Column(Text, nullable=True)
+    # Content metadata
+    topic = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
     importance_score = Column(Float, nullable=False, index=True)
     keywords = Column(JSON, default=list)
     concepts = Column(JSON, default=list)
-    segment_order = Column(Integer, nullable=False, index=True)
+    segment_order = Column(Integer, nullable=False)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
     job = relationship("Job", back_populates="content_segments")
-    clip = relationship("Clip", back_populates="content_segment", uselist=False)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary.
@@ -279,78 +338,33 @@ class ContentSegment(Base):
         }
 
 
-class SlideContent(Base):
-    """Slide content database model for Image Agent visual analysis."""
-
-    __tablename__ = "slide_content"
-
-    id = Column(Integer, primary_key=True, index=True)
-    content_id = Column(String(100), unique=True, index=True, nullable=False)
-    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, unique=True, index=True)
-
-    # Analysis results
-    frames_analyzed = Column(Integer, nullable=False)
-    text_blocks = Column(JSON, nullable=False)  # [{timestamp, text}, ...]
-    visual_elements = Column(JSON, nullable=False)  # ["diagram", "chart", ...]
-    key_concepts = Column(JSON, nullable=False)  # ["concept1", "concept2", ...]
-    frame_data = Column(JSON, nullable=False)  # per-frame summary data
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    # Relationships
-    job = relationship("Job", back_populates="slide_content")
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert model to dictionary.
-
-        Returns:
-            Dictionary representation of the slide content
-        """
-        return {
-            "content_id": self.content_id,
-            "job_id": self.job_id,
-            "frames_analyzed": self.frames_analyzed,
-            "text_blocks": self.text_blocks,
-            "visual_elements": self.visual_elements,
-            "key_concepts": self.key_concepts,
-            "frame_data": self.frame_data,
-            "created_at": self.created_at,
-        }
-
-
 class Clip(Base):
-    """Generated clip database model."""
+    """Clip database model for extracted video highlights."""
 
     __tablename__ = "clips"
 
     id = Column(Integer, primary_key=True, index=True)
     clip_id = Column(String(100), unique=True, index=True, nullable=False)
     job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, index=True)
-    content_segment_id = Column(
-        String(100), ForeignKey("content_segments.segment_id"), nullable=True, index=True
-    )
+    content_segment_id = Column(String(100), nullable=True)
 
-    # Content
-    title = Column(String(500), nullable=False)
-    topic = Column(String(500), nullable=True)
-    importance_score = Column(Float, nullable=True, index=True)
+    # Metadata
+    title = Column(String(200), nullable=False)
+    topic = Column(String(200), nullable=False)
+    importance_score = Column(Float, nullable=False)
 
     # Timing
     start_time = Column(Float, nullable=False)
     end_time = Column(Float, nullable=False)
     duration = Column(Float, nullable=False)
 
-    # Storage
-    s3_key = Column(String(500), nullable=False)
-    file_size_bytes = Column(Integer, nullable=True)  # size of the clip video file
+    # Files
+    s3_key = Column(String(500), nullable=True)
     thumbnail_s3_key = Column(String(500), nullable=True)
     subtitle_s3_key = Column(String(500), nullable=True)
 
-    # Display
-    clip_order = Column(Integer, nullable=True, index=True)
-
-    # Metadata
+    # Ordering & metadata
+    clip_order = Column(Integer, nullable=False)
     extra_metadata = Column(JSON, default=dict)
 
     # Timestamps
@@ -358,7 +372,6 @@ class Clip(Base):
 
     # Relationships
     job = relationship("Job", back_populates="clips")
-    content_segment = relationship("ContentSegment", back_populates="clip")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary.
@@ -377,7 +390,6 @@ class Clip(Base):
             "end_time": self.end_time,
             "duration": self.duration,
             "s3_key": self.s3_key,
-            "file_size_bytes": self.file_size_bytes,
             "thumbnail_s3_key": self.thumbnail_s3_key,
             "subtitle_s3_key": self.subtitle_s3_key,
             "clip_order": self.clip_order,
@@ -395,18 +407,17 @@ class ProcessingLog(Base):
     log_id = Column(String(100), unique=True, index=True, nullable=False)
     job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, index=True)
 
-    # Processing details
+    # Log details
     stage = Column(String(50), nullable=False, index=True)
-    agent_name = Column(String(100), nullable=True)
-    status = Column(String(20), nullable=False)  # 'started', 'completed', 'failed'
+    agent_name = Column(String(50), nullable=True)
+    status = Column(String(20), nullable=False)
+    message = Column(Text, nullable=True)
+    error_details = Column(JSON, nullable=True)
     duration_seconds = Column(Float, nullable=True)
-    error_message = Column(Text, nullable=True)
-
-    # Additional context
-    extra_metadata = Column(JSON, default=dict)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
     job = relationship("Job", back_populates="processing_logs")
@@ -423,8 +434,138 @@ class ProcessingLog(Base):
             "stage": self.stage,
             "agent_name": self.agent_name,
             "status": self.status,
+            "message": self.message,
+            "error_details": self.error_details,
             "duration_seconds": self.duration_seconds,
-            "error_message": self.error_message,
-            "extra_metadata": self.extra_metadata,
+            "timestamp": self.timestamp,
+            "created_at": self.created_at,
+        }
+
+
+class Quiz(Base):
+    """Quiz database model for AI-generated quizzes."""
+
+    __tablename__ = "quizzes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quiz_id = Column(String(100), unique=True, index=True, nullable=False)
+    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, index=True)
+    user_id = Column(String(100), ForeignKey("users.user_id"), nullable=True, index=True)
+
+    # Quiz metadata
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    difficulty = Column(String(20), nullable=False)
+    total_questions = Column(Integer, nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    # Relationships
+    job = relationship("Job", back_populates="quizzes")
+    user = relationship("User", back_populates="quizzes")
+    questions = relationship("QuizQuestion", back_populates="quiz", cascade="all, delete-orphan")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert model to dictionary.
+
+        Returns:
+            Dictionary representation of the quiz
+        """
+        return {
+            "quiz_id": self.quiz_id,
+            "job_id": self.job_id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "description": self.description,
+            "difficulty": self.difficulty,
+            "total_questions": self.total_questions,
+            "created_at": self.created_at,
+        }
+
+
+class QuizQuestion(Base):
+    """Quiz question database model for individual quiz questions."""
+
+    __tablename__ = "quiz_questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    question_id = Column(String(100), unique=True, index=True, nullable=False)
+    quiz_id = Column(String(100), ForeignKey("quizzes.quiz_id"), nullable=False, index=True)
+
+    # Question content
+    question_text = Column(Text, nullable=False)
+    question_type = Column(String(50), nullable=False)
+    options = Column(JSON, nullable=False)
+    correct_answer_index = Column(Integer, nullable=False)
+    explanation = Column(Text, nullable=True)
+
+    # Ordering
+    question_order = Column(Integer, nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    quiz = relationship("Quiz", back_populates="questions")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert model to dictionary.
+
+        Returns:
+            Dictionary representation of the quiz question
+        """
+        return {
+            "question_id": self.question_id,
+            "quiz_id": self.quiz_id,
+            "question": self.question_text,
+            "type": self.question_type,
+            "options": self.options,
+            "correctAnswer": self.correct_answer_index,
+            "explanation": self.explanation,
+            "difficulty": self.quiz.difficulty if self.quiz else "medium",
+        }
+
+
+class Summary(Base):
+    """Summary database model for AI-generated lecture summaries."""
+
+    __tablename__ = "summaries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    summary_id = Column(String(100), unique=True, index=True, nullable=False)
+    job_id = Column(String(100), ForeignKey("jobs.job_id"), nullable=False, index=True)
+
+    # Summary content
+    summary_text = Column(Text, nullable=False)
+    key_takeaways = Column(JSON, nullable=False)
+    topics_covered = Column(JSON, nullable=False)
+    learning_objectives = Column(JSON, nullable=True)
+
+    # Metadata
+    word_count = Column(Integer, nullable=True)
+    model_used = Column(String(50), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    job = relationship("Job", back_populates="summary")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert model to dictionary.
+
+        Returns:
+            Dictionary representation of the summary
+        """
+        return {
+            "summary_id": self.summary_id,
+            "job_id": self.job_id,
+            "summary_text": self.summary_text,
+            "key_takeaways": self.key_takeaways,
+            "topics_covered": self.topics_covered,
+            "learning_objectives": self.learning_objectives,
+            "word_count": self.word_count,
+            "model_used": self.model_used,
             "created_at": self.created_at,
         }

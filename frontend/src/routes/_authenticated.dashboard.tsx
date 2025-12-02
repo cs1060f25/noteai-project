@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   Video,
@@ -18,9 +16,7 @@ import { motion } from 'motion/react';
 
 import { GlassButton } from '@/components/GlassButton';
 import { Button } from '@/components/ui/button';
-import type { DashboardData } from '@/types/api';
-
-import { getDashboardData } from '../services/dashboardService';
+import { useDashboard } from '@/hooks/useAppQueries';
 
 // helper function to format bytes to human readable
 const formatBytes = (bytes: number): string => {
@@ -63,28 +59,8 @@ const formatDuration = (seconds: number | null): string => {
 
 export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // fetch dashboard data on mount
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getDashboardData();
-        setDashboardData(data);
-      } catch (err) {
-        setError('Failed to load dashboard data. Please try again.');
-        console.error('Error fetching dashboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboard();
-  }, []);
+  const { data: dashboardData, isLoading: loading, error: queryError } = useDashboard();
+  const error = queryError ? 'Failed to load dashboard data. Please try again.' : null;
 
   // calculate percentage changes (comparing last 7 days to previous 7 days)
   const calculateChange = (last7d: number, last30d: number): string => {
@@ -205,15 +181,20 @@ export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string)
     <div className="h-full overflow-auto p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
           <div>
             <h1 className="mb-2 font-bold">Dashboard Overview</h1>
             <p className="text-muted-foreground">
               Welcome back! Here's what's happening with your videos.
             </p>
           </div>
-          <Link to="/upload">
-            <GlassButton variant="primary" size="md" onClick={() => onNavigate?.('upload')}>
+          <Link to="/upload" className="w-full sm:w-auto">
+            <GlassButton
+              variant="primary"
+              size="md"
+              onClick={() => onNavigate?.('upload')}
+              className="w-full sm:w-auto justify-center"
+            >
               <Video className="w-4 h-4" />
               Upload Video
             </GlassButton>
@@ -264,7 +245,7 @@ export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string)
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Activity */}
           <div className="lg:col-span-2">
-            <div className="glass-card border border-border/50 rounded-xl p-6">
+            <div className="glass-card border border-border/50 rounded-xl p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2>Recent Activity</h2>
                 <Button
@@ -288,7 +269,7 @@ export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string)
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.4 + index * 0.1 }}
-                      className="flex items-center gap-4 p-4 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+                      className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
                       onClick={() => navigate({ to: `/library/${item.job_id}` })}
                     >
                       <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -296,7 +277,7 @@ export function DashboardComponent({ onNavigate }: { onNavigate?: (page: string)
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm truncate mb-1">{item.filename}</h3>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Scissors className="w-3 h-3" />
                             {item.clips_count} clips

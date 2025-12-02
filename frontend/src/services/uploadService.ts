@@ -202,6 +202,62 @@ export const getJobs = async (limit = 50, offset = 0): Promise<JobListResponse> 
   }
 };
 
+export const deleteJob = async (jobId: string): Promise<void> => {
+  try {
+    await apiClient.delete(`/jobs/${jobId}`);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to delete job', 'JOB_DELETE_FAILED');
+  }
+};
+
+export const generatePodcast = async (
+  jobId: string,
+  options?: { numSpeakers: 1 | 2; voice1: string; voice2: string }
+): Promise<void> => {
+  try {
+    await apiClient.post(`/jobs/${jobId}/podcast`, options);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to generate podcast', 'PODCAST_GEN_FAILED');
+  }
+};
+
+export const deletePodcast = async (jobId: string): Promise<void> => {
+  try {
+    await apiClient.delete(`/jobs/${jobId}/podcast`);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to delete podcast', 'PODCAST_DELETE_FAILED');
+  }
+};
+
+export const getPodcastUrl = async (
+  jobId: string
+): Promise<{ url: string; duration: number; file_size: number }> => {
+  try {
+    const response = await apiClient.get<{ url: string; duration: number; file_size: number }>(
+      `/jobs/${jobId}/podcast`
+    );
+    return response;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      throw new UploadError(apiError.message, apiError.code, error.response.status);
+    }
+    throw new UploadError('Failed to get podcast URL', 'PODCAST_URL_FAILED');
+  }
+};
+
 export const validateYouTubeUrl = (url: string): { valid: boolean; error?: string } => {
   if (!url || typeof url !== 'string') {
     return { valid: false, error: 'Please enter a URL' };

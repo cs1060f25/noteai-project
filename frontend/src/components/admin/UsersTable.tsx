@@ -2,22 +2,15 @@ import React, { useEffect, useState } from 'react';
 
 import { Search, ChevronLeft, ChevronRight, Users, Shield, User, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
-import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { getAllUsers, AdminError } from '@/services/adminService';
-import type { AdminUserResponse, AdminUsersQueryParams } from '@/types/admin';
+import { useAdminUsers } from '@/hooks/useAppQueries';
+import type { AdminUsersQueryParams } from '@/types/admin';
 
 export const UsersTable: React.FC = () => {
-  const [users, setUsers] = useState<AdminUserResponse[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Query params
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,37 +26,24 @@ export const UsersTable: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchUsers = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const params: AdminUsersQueryParams = {
-        limit,
-        offset: (page - 1) * limit,
-      };
-
-      if (debouncedSearch) {
-        params.search = debouncedSearch;
-      }
-
-      const data = await getAllUsers(params);
-      setUsers(data.users);
-      setTotal(data.total);
-    } catch (err) {
-      const errorMessage = err instanceof AdminError ? err.message : 'Failed to fetch users';
-      setError(errorMessage);
-      toast.error('Failed to load users', {
-        description: errorMessage,
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const params: AdminUsersQueryParams = {
+    limit,
+    offset: (page - 1) * limit,
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, [page, limit, debouncedSearch]);
+  if (debouncedSearch) {
+    params.search = debouncedSearch;
+  }
+
+  const { data, isLoading, error: queryError, refetch } = useAdminUsers(params);
+
+  const users = data?.users || [];
+  const total = data?.total || 0;
+  const error = queryError ? (queryError as Error).message : null;
+
+  const fetchUsers = () => {
+    refetch();
+  };
 
   const totalPages = Math.ceil(total / limit);
 
