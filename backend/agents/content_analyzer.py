@@ -8,7 +8,6 @@ from typing import Any
 
 import cv2
 import google.generativeai as genai
-import numpy as np
 from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -381,62 +380,6 @@ def split_transcript_into_chunks(
     return chunks
 
 
-def analyze_chunk_with_gemini(
-    chunk_text: str,
-    job_id: str,
-    chunk_idx: int,
-    api_key: str,
-    layout_info: dict[str, Any] | None = None,
-    custom_instructions: str | None = None,
-    visual_content: dict[str, Any] | None = None,
-) -> list[dict]:
-    """analyze a single transcript chunk with Gemini API.
-
-    Args:
-        chunk_text: chunk of transcript text
-        job_id: job identifier for logging
-        chunk_idx: index of this chunk
-        api_key: Gemini API key
-        layout_info: optional layout analysis data to provide context
-        custom_instructions: optional user-provided AI instructions
-        visual_content: optional slide content data to provide context
-
-    Returns:
-        list of segment dictionaries from Gemini
-    """
-    logger.info(
-        f"Analyzing chunk {chunk_idx + 1} with Gemini",
-        extra={
-            "job_id": job_id,
-            "chunk_size": len(chunk_text),
-            "has_custom_instructions": bool(custom_instructions),
-        },
-    )
-
-    prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions, visual_content)
-
-    # log prompt details for debugging (first 800 chars only for chunks)
-    prompt_preview = prompt[:800] + "..." if len(prompt) > 800 else prompt
-    logger.info(
-        f"Chunk {chunk_idx + 1} prompt (has_custom_instructions={bool(custom_instructions)}):\n{prompt_preview}",
-        extra={"job_id": job_id},
-    )
-
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(settings.gemini_model)
-
-    response = model.generate_content(prompt)
-    parsed_data = parse_gemini_response(response.text)
-    segments = parsed_data.get("segments", [])
-
-    logger.info(
-        f"Chunk {chunk_idx + 1} analyzed",
-        extra={"job_id": job_id, "segments_found": len(segments)},
-    )
-
-    return segments
-
-
 def merge_and_deduplicate_segments(
     chunk_results: list[list[dict]], overlap_threshold: float = 5.0
 ) -> list[dict]:
@@ -482,10 +425,10 @@ def merge_and_deduplicate_segments(
 
 def parse_timestamps_from_chunk(chunk_text: str) -> tuple[float, float]:
     """Parse start and end timestamps from a transcript chunk.
-    
+
     Args:
         chunk_text: Transcript chunk text with timestamps like [123.4s - 125.6s]
-        
+
     Returns:
         Tuple of (start_time, end_time) in seconds. Returns (0.0, 0.0) if not found.
     """
@@ -494,12 +437,12 @@ def parse_timestamps_from_chunk(chunk_text: str) -> tuple[float, float]:
     matches = re.findall(r"\[([\d.]+)s - ([\d.]+)s\]", chunk_text)
     if not matches:
         return 0.0, 0.0
-        
+
     # Start time of first segment
     start_time = float(matches[0][0])
     # End time of last segment
     end_time = float(matches[-1][1])
-    
+
     return start_time, end_time
 
 
@@ -521,10 +464,10 @@ def extract_frames_from_video(
 
     frames = []
     cap = None
-    
+
     try:
         cap = cv2.VideoCapture(video_path)
-        
+
         if not cap.isOpened():
             logger.warning(f"Failed to open video: {video_path}", extra={"job_id": job_id})
             return []
@@ -902,7 +845,7 @@ def analyze_content(
                         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                         duration = total_frames / fps if fps > 0 else 0
                         cap.release()
-                        
+
                         if duration > 0:
                             # Sample 5 frames evenly: 1/6, 2/6, 3/6, 4/6, 5/6 of the video
                             timestamps = [duration * i / 6 for i in range(1, 6)]
