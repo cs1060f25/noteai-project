@@ -727,29 +727,21 @@ class FFmpegHelper:
             for key, value in metadata.items():
                 cmd.extend(["-metadata", f"{key}={value}"])
 
-        # transcode or copy
-        if resolution or watermark_path:
+        # transcode or copy (only if we haven't already set up filters with -filter_complex)
+        if (resolution or watermark_path) and not resolution:
+            # NOTE: If resolution is set, we already added -filter_complex above
+            # Only process watermark here if NO resolution scaling was requested
             # Build filter chain
             filters = []
 
-            # 1. Scaling (if requested)
-            if resolution:
-                width, height = resolution
-                # Scale and pad to target resolution
-                filters.append(
-                    f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1[scaled]"
-                )
-                main_stream = "[scaled]"
-            else:
+            # 1. Scaling (should not happen here if resolution was set above)
+            # This block is for watermark-only case
+            if watermark_path:
                 # No scaling, use input stream directly
-                # In -filter_complex, we'd use [0:v], but in -vf we can use 'null' to pass through or implicit
-                # Using 'null' filter to label the stream
                 filters.append("null[main]")
                 main_stream = "[main]"
 
-            # 2. Watermark (if requested)
-            if watermark_path:
+                # 2. Watermark (if requested)
                 # Escape path for ffmpeg
                 wm_path = str(watermark_path).replace("\\", "/").replace(":", "\\:")
 
@@ -762,23 +754,33 @@ class FFmpegHelper:
 
                 # Overlay watermark (bottom-right with 10px padding)
                 filters.append("[main_ref][wm_scaled]overlay=W-w-10:H-h-10")
-            else:
-                # If no watermark, just output the scaled stream (if any)
-                # If we used [scaled], we need to make sure it's the final output.
-                # But filters are chained with ';'. If the last filter has an output label,
-                # we might need to map it or ensure it flows to output.
-                # In -vf, if we don't label the last output, it goes to encoder.
-                # But we labeled it [scaled].
-                # Actually, if we just don't label the last one, it works.
-                # Let's adjust:
-                if resolution:
-                    # Remove [scaled] label from the first filter if no watermark
-                    filters[0] = filters[0].replace("[scaled]", "")
 
             cmd.extend(
                 [
                     "-vf",
                     ";".join(filters),
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "fast",
+                    "-crf",
+                    "23",
+                    "-c:a",
+                    "aac",
+                    "-b:a",
+                    "192k",
+                    "-movflags",
+                    "+faststart",
+                ]
+            )
+        elif not resolution and not watermark_path:
+            # If using copy mode (no filters at all), we already set up the command above
+            pass
+        else:
+            # Resolution was set, so -filter_complex is already in the command
+            # Just add encoding parameters
+            cmd.extend(
+                [
                     "-c:v",
                     "libx264",
                     "-preset",
