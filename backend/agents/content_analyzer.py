@@ -6,7 +6,10 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
+import cv2
 import google.generativeai as genai
+import numpy as np
+from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -473,8 +476,75 @@ def merge_and_deduplicate_segments(
     return deduplicated
 
 
+def extract_frames_from_video(
+    video_path: str, timestamps: list[float], job_id: str
+) -> list[Image.Image]:
+    """Extract frames from video at specific timestamps.
+
+    Args:
+        video_path: Path to video file
+        timestamps: List of timestamps in seconds
+        job_id: Job identifier for logging
+
+    Returns:
+        List of PIL Images
+    """
+    if not video_path or not timestamps:
+        return []
+
+    frames = []
+    cap = None
+    
+    try:
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            logger.warning(f"Failed to open video: {video_path}", extra={"job_id": job_id})
+            return []
+
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = total_frames / fps if fps > 0 else 0
+
+        for ts in timestamps:
+            if ts < 0 or ts > duration:
+                continue
+
+            frame_idx = int(ts * fps)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+
+            if ret:
+                # Convert BGR to RGB
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pil_image = Image.fromarray(rgb_frame)
+                frames.append(pil_image)
+
+        logger.info(
+            f"Extracted {len(frames)} frames from video",
+            extra={"job_id": job_id, "requested_timestamps": len(timestamps)},
+        )
+
+        return frames
+
+    except Exception as e:
+        logger.error(
+            "Failed to extract frames",
+            exc_info=e,
+            extra={"job_id": job_id, "video_path": video_path},
+        )
+        return []
+    finally:
+        if cap is not None:
+            cap.release()
+
+
 def analyze_content(
-    _transcript_data: dict, job_id: str, api_key: str | None = None, config: dict | None = None
+    _transcript_data: dict,
+    job_id: str,
+    api_key: str | None = None,
+    config: dict | None = None,
+    video_path: str | None = None,
 ) -> dict:
     """analyze transcript content and extract topics using Gemini.
 
@@ -486,7 +556,7 @@ def analyze_content(
         job_id: job identifier
         config: optional processing configuration (includes custom prompt)
         api_key: Gemini API key (required)
-        config: optional processing configuration (includes custom prompt)
+        video_path: optional path to video file for frame extraction
 
     Returns:
         result dictionary with analysis statistics
@@ -497,7 +567,10 @@ def analyze_content(
     """
     start_time = time.time()
 
-    logger.info("content analysis started", extra={"job_id": job_id})
+    logger.info(
+        "content analysis started",
+        extra={"job_id": job_id, "has_video": bool(video_path)},
+    )
 
     # retrieve custom prompt from config or database
     custom_prompt = None
@@ -711,10 +784,41 @@ def analyze_content(
                 extra={"job_id": job_id},
             )
 
+            # Extract frames if video path provided
+            frames = []
+            if video_path:
+                # Sample 5 frames uniformly across the video
+                try:
+                    cap = cv2.VideoCapture(video_path)
+                    if cap.isOpened():
+                        fps = cap.get(cv2.CAP_PROP_FPS)
+                        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                        duration = total_frames / fps if fps > 0 else 0
+                        cap.release()
+                        
+                        if duration > 0:
+                            # Sample 5 frames evenly: 1/6, 2/6, 3/6, 4/6, 5/6 of the video
+                            timestamps = [duration * i / 6 for i in range(1, 6)]
+                            frames = extract_frames_from_video(video_path, timestamps, job_id)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to get video duration: {e}",
+                        extra={"job_id": job_id},
+                    )
+
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel(settings.gemini_model)
 
-            response = model.generate_content(prompt)
+            # Prepare content parts (text + images)
+            content_parts = [prompt]
+            if frames:
+                content_parts.extend(frames)
+                logger.info(
+                    f"Including {len(frames)} video frames in content analysis",
+                    extra={"job_id": job_id},
+                )
+
+            response = model.generate_content(content_parts)
 
             logger.info(
                 "Gemini API response received",
