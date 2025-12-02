@@ -6,7 +6,9 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
+import cv2
 import google.generativeai as genai
+from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -151,6 +153,10 @@ Please prioritize the above user instructions while maintaining the structured o
 
     prompt = f"""You are analyzing an educational lecture transcript to identify key content segments for highlight extraction.
 {layout_context}{custom_context}{visual_context}
+VIDEO FRAMES:
+I have provided video frames from the lecture. Use these frames to understand visual demonstrations, slides, or whiteboard content that might not be fully described in the audio.
+However, do NOT rely solely on the frames. The transcript is the primary source of content. Use the frames to enhance your understanding and identify segment boundaries more accurately.
+
 TRANSCRIPT (time-stamped):
 {transcript_text}
 
@@ -374,62 +380,6 @@ def split_transcript_into_chunks(
     return chunks
 
 
-def analyze_chunk_with_gemini(
-    chunk_text: str,
-    job_id: str,
-    chunk_idx: int,
-    api_key: str,
-    layout_info: dict[str, Any] | None = None,
-    custom_instructions: str | None = None,
-    visual_content: dict[str, Any] | None = None,
-) -> list[dict]:
-    """analyze a single transcript chunk with Gemini API.
-
-    Args:
-        chunk_text: chunk of transcript text
-        job_id: job identifier for logging
-        chunk_idx: index of this chunk
-        api_key: Gemini API key
-        layout_info: optional layout analysis data to provide context
-        custom_instructions: optional user-provided AI instructions
-        visual_content: optional slide content data to provide context
-
-    Returns:
-        list of segment dictionaries from Gemini
-    """
-    logger.info(
-        f"Analyzing chunk {chunk_idx + 1} with Gemini",
-        extra={
-            "job_id": job_id,
-            "chunk_size": len(chunk_text),
-            "has_custom_instructions": bool(custom_instructions),
-        },
-    )
-
-    prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions, visual_content)
-
-    # log prompt details for debugging (first 800 chars only for chunks)
-    prompt_preview = prompt[:800] + "..." if len(prompt) > 800 else prompt
-    logger.info(
-        f"Chunk {chunk_idx + 1} prompt (has_custom_instructions={bool(custom_instructions)}):\n{prompt_preview}",
-        extra={"job_id": job_id},
-    )
-
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(settings.gemini_model)
-
-    response = model.generate_content(prompt)
-    parsed_data = parse_gemini_response(response.text)
-    segments = parsed_data.get("segments", [])
-
-    logger.info(
-        f"Chunk {chunk_idx + 1} analyzed",
-        extra={"job_id": job_id, "segments_found": len(segments)},
-    )
-
-    return segments
-
-
 def merge_and_deduplicate_segments(
     chunk_results: list[list[dict]], overlap_threshold: float = 5.0
 ) -> list[dict]:
@@ -473,8 +423,178 @@ def merge_and_deduplicate_segments(
     return deduplicated
 
 
+def parse_timestamps_from_chunk(chunk_text: str) -> tuple[float, float]:
+    """Parse start and end timestamps from a transcript chunk.
+
+    Args:
+        chunk_text: Transcript chunk text with timestamps like [123.4s - 125.6s]
+
+    Returns:
+        Tuple of (start_time, end_time) in seconds. Returns (0.0, 0.0) if not found.
+    """
+    import re
+
+    # Find all timestamps
+    matches = re.findall(r"\[([\d.]+)s - ([\d.]+)s\]", chunk_text)
+    if not matches:
+        return 0.0, 0.0
+
+    # Start time of first segment
+    start_time = float(matches[0][0])
+    # End time of last segment
+    end_time = float(matches[-1][1])
+
+    return start_time, end_time
+
+
+def extract_frames_from_video(
+    video_path: str, timestamps: list[float], job_id: str
+) -> list[Image.Image]:
+    """Extract frames from video at specific timestamps.
+
+    Args:
+        video_path: Path to video file
+        timestamps: List of timestamps in seconds
+        job_id: Job identifier for logging
+
+    Returns:
+        List of PIL Images
+    """
+    if not video_path or not timestamps:
+        return []
+
+    frames = []
+    cap = None
+
+    try:
+        cap = cv2.VideoCapture(video_path)
+
+        if not cap.isOpened():
+            logger.warning(f"Failed to open video: {video_path}", extra={"job_id": job_id})
+            return []
+
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = total_frames / fps if fps > 0 else 0
+
+        for ts in timestamps:
+            if ts < 0 or ts > duration:
+                continue
+
+            frame_idx = int(ts * fps)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+
+            if ret:
+                # Convert BGR to RGB
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pil_image = Image.fromarray(rgb_frame)
+                frames.append(pil_image)
+
+        logger.info(
+            f"Extracted {len(frames)} frames from video",
+            extra={"job_id": job_id, "requested_timestamps": len(timestamps)},
+        )
+
+        return frames
+
+    except Exception as e:
+        logger.error(
+            "Failed to extract frames",
+            exc_info=e,
+            extra={"job_id": job_id, "video_path": video_path},
+        )
+        return []
+    finally:
+        if cap is not None:
+            cap.release()
+
+
+def analyze_chunk_with_gemini(
+    chunk_text: str,
+    job_id: str,
+    chunk_idx: int,
+    api_key: str,
+    layout_info: dict[str, Any] | None = None,
+    custom_instructions: str | None = None,
+    visual_content: dict[str, Any] | None = None,
+    video_path: str | None = None,
+) -> list[dict]:
+    """analyze a single transcript chunk with Gemini API.
+
+    Args:
+        chunk_text: chunk of transcript text
+        job_id: job identifier for logging
+        chunk_idx: index of this chunk
+        api_key: Gemini API key
+        layout_info: optional layout analysis data to provide context
+        custom_instructions: optional user-provided AI instructions
+        visual_content: optional slide content data to provide context
+        video_path: optional path to video file for frame extraction
+
+    Returns:
+        list of segment dictionaries from Gemini
+    """
+    logger.info(
+        f"Analyzing chunk {chunk_idx + 1} with Gemini",
+        extra={
+            "job_id": job_id,
+            "chunk_size": len(chunk_text),
+            "has_custom_instructions": bool(custom_instructions),
+            "has_video": bool(video_path),
+        },
+    )
+
+    prompt = build_analysis_prompt(chunk_text, layout_info, custom_instructions, visual_content)
+
+    # log prompt details for debugging (first 800 chars only for chunks)
+    prompt_preview = prompt[:800] + "..." if len(prompt) > 800 else prompt
+    logger.info(
+        f"Chunk {chunk_idx + 1} prompt (has_custom_instructions={bool(custom_instructions)}):\n{prompt_preview}",
+        extra={"job_id": job_id},
+    )
+
+    # Extract frames for this chunk
+    frames = []
+    if video_path:
+        start_time, end_time = parse_timestamps_from_chunk(chunk_text)
+        if start_time < end_time:
+            # Sample 3 frames: start, middle, end
+            mid_time = (start_time + end_time) / 2
+            # Add small offset to start/end to avoid boundary issues
+            timestamps = [start_time + 1.0, mid_time, end_time - 1.0]
+            frames = extract_frames_from_video(video_path, timestamps, job_id)
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(settings.gemini_model)
+
+    # Prepare content parts
+    content_parts = [prompt]
+    if frames:
+        content_parts.extend(frames)
+        logger.info(
+            f"Including {len(frames)} video frames in chunk {chunk_idx + 1} analysis",
+            extra={"job_id": job_id},
+        )
+
+    response = model.generate_content(content_parts)
+    parsed_data = parse_gemini_response(response.text)
+    segments = parsed_data.get("segments", [])
+
+    logger.info(
+        f"Chunk {chunk_idx + 1} analyzed",
+        extra={"job_id": job_id, "segments_found": len(segments)},
+    )
+
+    return segments
+
+
 def analyze_content(
-    _transcript_data: dict, job_id: str, api_key: str | None = None, config: dict | None = None
+    _transcript_data: dict,
+    job_id: str,
+    api_key: str | None = None,
+    config: dict | None = None,
+    video_path: str | None = None,
 ) -> dict:
     """analyze transcript content and extract topics using Gemini.
 
@@ -486,7 +606,7 @@ def analyze_content(
         job_id: job identifier
         config: optional processing configuration (includes custom prompt)
         api_key: Gemini API key (required)
-        config: optional processing configuration (includes custom prompt)
+        video_path: optional path to video file for frame extraction
 
     Returns:
         result dictionary with analysis statistics
@@ -497,7 +617,10 @@ def analyze_content(
     """
     start_time = time.time()
 
-    logger.info("content analysis started", extra={"job_id": job_id})
+    logger.info(
+        "content analysis started",
+        extra={"job_id": job_id, "has_video": bool(video_path)},
+    )
 
     # retrieve custom prompt from config or database
     custom_prompt = None
@@ -659,6 +782,7 @@ def analyze_content(
                         layout_info,
                         custom_prompt,
                         visual_content,
+                        video_path,
                     ): idx
                     for idx, chunk in enumerate(chunks)
                 }
@@ -711,10 +835,41 @@ def analyze_content(
                 extra={"job_id": job_id},
             )
 
+            # Extract frames if video path provided
+            frames = []
+            if video_path:
+                # Sample 5 frames uniformly across the video
+                try:
+                    cap = cv2.VideoCapture(video_path)
+                    if cap.isOpened():
+                        fps = cap.get(cv2.CAP_PROP_FPS)
+                        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                        duration = total_frames / fps if fps > 0 else 0
+                        cap.release()
+
+                        if duration > 0:
+                            # Sample 5 frames evenly: 1/6, 2/6, 3/6, 4/6, 5/6 of the video
+                            timestamps = [duration * i / 6 for i in range(1, 6)]
+                            frames = extract_frames_from_video(video_path, timestamps, job_id)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to get video duration: {e}",
+                        extra={"job_id": job_id},
+                    )
+
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel(settings.gemini_model)
 
-            response = model.generate_content(prompt)
+            # Prepare content parts (text + images)
+            content_parts = [prompt]
+            if frames:
+                content_parts.extend(frames)
+                logger.info(
+                    f"Including {len(frames)} video frames in content analysis",
+                    extra={"job_id": job_id},
+                )
+
+            response = model.generate_content(content_parts)
 
             logger.info(
                 "Gemini API response received",

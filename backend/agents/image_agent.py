@@ -530,7 +530,6 @@ def store_visual_content_in_database(visual_content: dict[str, Any], job_id: str
             text_blocks=visual_content["text_blocks"],
             visual_elements=visual_content["visual_elements"],
             key_concepts=visual_content["key_concepts"],
-            frame_data=visual_content["frame_data"],
         )
 
         db.commit()

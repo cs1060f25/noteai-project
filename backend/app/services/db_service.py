@@ -793,7 +793,9 @@ class SlideContentRepository:
         text_blocks: list[dict[str, Any]],
         visual_elements: list[str],
         key_concepts: list[str],
-        frame_data: list[dict[str, Any]],
+        extraction_method: str = "gemini_vision",
+        processing_time_seconds: float | None = None,
+        model_used: str | None = None,
     ) -> SlideContent:
         """Create a new slide content record.
 
@@ -804,7 +806,9 @@ class SlideContentRepository:
             text_blocks: Extracted text blocks with timestamps
             visual_elements: List of visual element types
             key_concepts: List of key concepts
-            frame_data: Per-frame analysis data
+            extraction_method: Method used for extraction
+            processing_time_seconds: Time taken for processing
+            model_used: Model used for extraction
 
         Returns:
             Created SlideContent instance
@@ -816,7 +820,9 @@ class SlideContentRepository:
             text_blocks=text_blocks,
             visual_elements=visual_elements,
             key_concepts=key_concepts,
-            frame_data=frame_data,
+            extraction_method=extraction_method,
+            processing_time_seconds=processing_time_seconds,
+            model_used=model_used,
         )
         self.db.add(slide_content)
         self.db.commit()
