@@ -132,7 +132,7 @@ class FFmpegHelper:
                         return float(stream["start_time"])
                     except (ValueError, TypeError):
                         pass
-                
+
                 # Priority 2: start_pts * time_base
                 if "start_pts" in stream and "time_base" in stream:
                     try:
@@ -143,14 +143,14 @@ class FFmpegHelper:
                             return pts * (num / den)
                     except (ValueError, TypeError, AttributeError):
                         pass
-                
+
                 # Priority 3: format start_time (container level)
                 if "start_time" in probe_data.get("format", {}):
                     try:
                         return float(probe_data["format"]["start_time"])
                     except (ValueError, TypeError):
                         pass
-                        
+
                 return 0.0
 
             # Get audio stream if available
@@ -680,7 +680,7 @@ class FFmpegHelper:
         # Move -ss AFTER -i for output seeking (slower but guaranteed accurate)
         # This decodes from file start to seek point, ensuring exact frame alignment
         # Not affected by keyframe positions, container quirks, or metadata
-        
+
         # Build filter chain for scaling if needed (no trim filters)
         if resolution:
             width, height = resolution
@@ -695,15 +695,15 @@ class FFmpegHelper:
                 "-i",
                 str(input_path),
                 "-ss",
-                str(start_time),   # Output seek (after -i) for guaranteed accuracy
+                str(start_time),  # Output seek (after -i) for guaranteed accuracy
                 "-t",
-                str(duration),     # Extract exact duration
+                str(duration),  # Extract exact duration
                 "-filter_complex",
                 filter_complex,
                 "-map",
                 "[v]",
                 "-map",
-                "0:a",             # Map original audio (no filter needed)
+                "0:a",  # Map original audio (no filter needed)
             ]
         else:
             # No scaling - simple copy with output seek
@@ -713,11 +713,11 @@ class FFmpegHelper:
                 "-i",
                 str(input_path),
                 "-ss",
-                str(start_time),   # Output seek (after -i) for guaranteed accuracy
+                str(start_time),  # Output seek (after -i) for guaranteed accuracy
                 "-t",
-                str(duration),     # Extract exact duration
+                str(duration),  # Extract exact duration
                 "-c",
-                "copy",            # Fast copy when no processing needed
+                "copy",  # Fast copy when no processing needed
             ]
 
         # add metadata if provided

@@ -342,7 +342,7 @@ class VideoCompiler:
         }
         # --- extract + transcode + metadata in ONE ffmpeg pass (3x faster!) ---
         final_path = temp_path / f"final_{clip_id}.mp4"
-        
+
         # FORCE RE-ENCODE: We always pass resolution to force re-encoding.
         # This is critical because "copy" mode (without re-encoding) snaps to keyframes,
         # causing the actual start time to drift from the requested start time.
