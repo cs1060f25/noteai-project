@@ -433,6 +433,7 @@ def parse_timestamps_from_chunk(chunk_text: str) -> tuple[float, float]:
         Tuple of (start_time, end_time) in seconds. Returns (0.0, 0.0) if not found.
     """
     import re
+
     # Find all timestamps
     matches = re.findall(r"\[([\d.]+)s - ([\d.]+)s\]", chunk_text)
     if not matches:

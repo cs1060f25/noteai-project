@@ -1,4 +1,3 @@
-
 import os
 import sys
 from unittest.mock import MagicMock, patch
@@ -23,11 +22,12 @@ from agents.content_analyzer import analyze_content  # noqa: E402
 
 def test_analyze_content_with_video():
     # Mock dependencies
-    with patch("agents.content_analyzer.get_db_session") as _mock_get_db, \
-         patch("agents.content_analyzer.DatabaseService") as mock_db_service, \
-         patch("agents.content_analyzer.genai") as mock_genai, \
-         patch("agents.content_analyzer.settings") as mock_settings:
-
+    with (
+        patch("agents.content_analyzer.get_db_session") as _mock_get_db,
+        patch("agents.content_analyzer.DatabaseService") as mock_db_service,
+        patch("agents.content_analyzer.genai") as mock_genai,
+        patch("agents.content_analyzer.settings") as mock_settings,
+    ):
         # Setup mocks
         mock_settings.gemini_api_key = "fake_key"
         mock_settings.gemini_model = "gemini-pro-vision"
@@ -56,12 +56,14 @@ def test_analyze_content_with_video():
         # Mock cv2 behavior
         mock_cap = MagicMock()
         mock_cap.isOpened.return_value = True
-        mock_cap.get.side_effect = lambda prop: 30.0 if prop == cv2.CAP_PROP_FPS else 300.0 # 10 seconds
-        mock_cap.read.return_value = (True, MagicMock()) # Return success and a dummy frame
+        mock_cap.get.side_effect = (
+            lambda prop: 30.0 if prop == cv2.CAP_PROP_FPS else 300.0
+        )  # 10 seconds
+        mock_cap.read.return_value = (True, MagicMock())  # Return success and a dummy frame
         cv2.VideoCapture.return_value = mock_cap
 
         # Mock cv2.cvtColor
-        cv2.cvtColor.return_value = MagicMock() # Dummy RGB frame
+        cv2.cvtColor.return_value = MagicMock()  # Dummy RGB frame
 
         # Mock PIL Image
         with patch("agents.content_analyzer.Image") as mock_image:
@@ -78,7 +80,7 @@ def test_analyze_content_with_video():
                     _transcript_data={},
                     job_id="test_job",
                     api_key="fake_key",
-                    video_path=video_path
+                    video_path=video_path,
                 )
 
                 # Verify generate_content was called
@@ -90,7 +92,9 @@ def test_analyze_content_with_video():
 
                 # Check if images are present in content parts
                 image_count = sum(1 for part in content_parts if part == "mock_pil_image")
-                print(f"Gemini called with {len(content_parts)} parts, including {image_count} images")
+                print(
+                    f"Gemini called with {len(content_parts)} parts, including {image_count} images"
+                )
 
                 if image_count > 0:
                     print("SUCCESS: Images were passed to Gemini!")
@@ -100,7 +104,9 @@ def test_analyze_content_with_video():
             except Exception as e:
                 print(f"Test failed with exception: {e}")
                 import traceback
+
                 traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_analyze_content_with_video()
