@@ -36,7 +36,7 @@ def format_vtt_timestamp(seconds: float) -> str:
 
 
 def adjust_transcript_timestamps(
-    transcripts: list, clip_start_time: float
+    transcripts: list, clip_start_time: float, clip_duration: float
 ) -> list[dict[str, float | str]]:
     """Adjust transcript timestamps to be relative to clip start time.
 
@@ -62,7 +62,7 @@ def adjust_transcript_timestamps(
         adjusted_segments.append(
             {
                 "start_time": max(0.0, transcript.start_time - clip_start_time),
-                "end_time": max(0.0, transcript.end_time - clip_start_time),
+                "end_time": min(clip_duration, max(0.0, transcript.end_time - clip_start_time)),
                 "text": transcript.text,
             }
         )
@@ -191,7 +191,8 @@ def generate_vtt_from_transcripts(
         return False
 
     # Adjust timestamps to be relative to clip start
-    adjusted_segments = adjust_transcript_timestamps(transcripts, clip_start_time)
+    clip_duration = clip_end_time - clip_start_time
+    adjusted_segments = adjust_transcript_timestamps(transcripts, clip_start_time, clip_duration)
 
     # Filter out any segments that are completely outside the clip range
     # (shouldn't happen if database query is correct, but be defensive)

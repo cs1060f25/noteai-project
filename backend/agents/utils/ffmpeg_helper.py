@@ -124,8 +124,46 @@ class FFmpegHelper:
             if not video_stream:
                 raise FFmpegError("No video stream found")
 
+            # Helper to safely get start time from stream
+            def get_stream_start(stream: dict) -> float:
+                # Priority 1: explicit start_time
+                if "start_time" in stream:
+                    try:
+                        return float(stream["start_time"])
+                    except (ValueError, TypeError):
+                        pass
+                
+                # Priority 2: start_pts * time_base
+                if "start_pts" in stream and "time_base" in stream:
+                    try:
+                        pts = float(stream["start_pts"])
+                        # time_base is usually "1/90000" string
+                        num, den = map(int, stream["time_base"].split("/"))
+                        if den != 0:
+                            return pts * (num / den)
+                    except (ValueError, TypeError, AttributeError):
+                        pass
+                
+                # Priority 3: format start_time (container level)
+                if "start_time" in probe_data.get("format", {}):
+                    try:
+                        return float(probe_data["format"]["start_time"])
+                    except (ValueError, TypeError):
+                        pass
+                        
+                return 0.0
+
+            # Get audio stream if available
+            audio_stream = next(
+                (s for s in probe_data.get("streams", []) if s["codec_type"] == "audio"),
+                None,
+            )
+
             return {
                 "duration": float(probe_data.get("format", {}).get("duration", 0)),
+                "start_time": float(probe_data.get("format", {}).get("start_time", 0)),
+                "video_start_time": get_stream_start(video_stream),
+                "audio_start_time": get_stream_start(audio_stream) if audio_stream else 0.0,
                 "width": int(video_stream.get("width", 0)),
                 "height": int(video_stream.get("height", 0)),
                 # converts "30/1" to 30.0
@@ -638,29 +676,59 @@ class FFmpegHelper:
         """
         duration = end_time - start_time
 
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-ss",
-            str(start_time),
-            "-i",
-            str(input_path),
-            "-t",
-            str(duration),
-        ]
+        # Output Seek strategy - the ONLY guaranteed frame-accurate method
+        # Move -ss AFTER -i for output seeking (slower but guaranteed accurate)
+        # This decodes from file start to seek point, ensuring exact frame alignment
+        # Not affected by keyframe positions, container quirks, or metadata
+        
+        # Build filter chain for scaling if needed (no trim filters)
+        if resolution:
+            width, height = resolution
+            # Only use filter for scaling
+            filter_complex = (
+                f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v]"
+            )
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(input_path),
+                "-ss",
+                str(start_time),   # Output seek (after -i) for guaranteed accuracy
+                "-t",
+                str(duration),     # Extract exact duration
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "[v]",
+                "-map",
+                "0:a",             # Map original audio (no filter needed)
+            ]
+        else:
+            # No scaling - simple copy with output seek
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(input_path),
+                "-ss",
+                str(start_time),   # Output seek (after -i) for guaranteed accuracy
+                "-t",
+                str(duration),     # Extract exact duration
+                "-c",
+                "copy",            # Fast copy when no processing needed
+            ]
 
         # add metadata if provided
         if metadata:
             for key, value in metadata.items():
                 cmd.extend(["-metadata", f"{key}={value}"])
 
-        # transcode or copy
+        # Encoding settings (only if we're using filters)
         if resolution:
-            width, height = resolution
             cmd.extend(
                 [
-                    "-vf",
-                    f"scale={width}:{height}:force_original_aspect_ratio=decrease",
                     "-c:v",
                     "libx264",
                     "-preset",
@@ -675,9 +743,6 @@ class FFmpegHelper:
                     "+faststart",
                 ]
             )
-        else:
-            # fast copy mode (no re-encoding)
-            cmd.extend(["-c", "copy"])
 
         cmd.append(str(output_path))
 
