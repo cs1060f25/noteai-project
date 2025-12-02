@@ -32,11 +32,21 @@ const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+
+  // handle future dates or clock skew - show "Just now" instead of negative time
+  if (diffMs < 0) {
+    return 'Just now';
+  }
+
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffHours / 24);
 
   if (diffHours < 1) {
     const diffMins = Math.floor(diffMs / (1000 * 60));
+    // handle edge case where diffMins is 0
+    if (diffMins === 0) {
+      return 'Just now';
+    }
     return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
   } else if (diffHours < 24) {
     return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;

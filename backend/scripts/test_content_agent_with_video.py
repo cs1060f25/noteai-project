@@ -56,8 +56,8 @@ def test_analyze_content_with_video():
         # Mock cv2 behavior
         mock_cap = MagicMock()
         mock_cap.isOpened.return_value = True
-        mock_cap.get.side_effect = (
-            lambda prop: 30.0 if prop == cv2.CAP_PROP_FPS else 300.0
+        mock_cap.get.side_effect = lambda prop: (
+            30.0 if prop == cv2.CAP_PROP_FPS else 300.0
         )  # 10 seconds
         mock_cap.read.return_value = (True, MagicMock())  # Return success and a dummy frame
         cv2.VideoCapture.return_value = mock_cap

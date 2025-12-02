@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.authorization import require_admin
+from app.api.dependencies.clerk_auth import get_current_user_clerk
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit_config import limiter
@@ -21,7 +22,7 @@ from app.models.schemas import (
     TranscriptSegment,
     TranscriptsResponse,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services.db_service import DatabaseService
 
 logger = get_logger(__name__)
@@ -427,7 +428,7 @@ def get_layout_analysis(
 @router.get(
     "/{job_id}/summary",
     response_model=SummaryResponse,
-    summary="Get lecture summary (Admin only)",
+    summary="Get lecture summary",
     description="""
     Retrieve AI-generated summary for a completed job.
 
@@ -439,7 +440,7 @@ def get_layout_analysis(
     - Generation metadata
 
     **Requirements:**
-    - Admin role required
+    - User must own the job or be an admin
     - Job must be completed
 
     **Note**: If no summary exists, returns 404.
@@ -450,14 +451,58 @@ def get_summary(
     request: Request,
     response: Response,
     job_id: str,
-    admin_user: User = Depends(require_admin),
+    current_user: User = Depends(get_current_user_clerk),
     db: Session = Depends(get_db),
 ) -> SummaryResponse:
-    """get summary for a completed job (admin only)."""
-    # verify job exists and is completed
-    verify_job_exists_and_completed(job_id, db)
-
+    """get summary for a completed job."""
     db_service = DatabaseService(db)
+
+    # get job
+    job = db_service.jobs.get_by_id(job_id)
+
+    if not job:
+        logger.warning("Job not found for summary", extra={"job_id": job_id})
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "JOB_NOT_FOUND",
+                    "message": f"Job with ID '{job_id}' not found",
+                }
+            },
+        )
+
+    # verify job belongs to current user (or user is admin)
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
+        logger.warning(
+            "Unauthorized summary access attempt",
+            extra={"job_id": job_id, "user_id": current_user.user_id, "job_owner": job.user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to access this job's summary",
+                }
+            },
+        )
+
+    # check if job is completed
+    if job.status != "completed":
+        logger.warning(
+            "Summary requested for incomplete job",
+            extra={"job_id": job_id, "status": job.status},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "JOB_NOT_COMPLETED",
+                    "message": f"Job is not completed. Current status: {job.status}",
+                }
+            },
+        )
 
     # get summary
     summary_db = db_service.summaries.get_by_job_id(job_id)
@@ -503,7 +548,7 @@ def get_summary(
 @router.post(
     "/{job_id}/summary",
     response_model=SummaryResponse,
-    summary="Generate lecture summary (Admin only)",
+    summary="Generate lecture summary",
     description="""
     Generate an AI-powered summary for a completed job.
 
@@ -511,7 +556,7 @@ def get_summary(
     If a summary already exists, it will be replaced.
 
     **Requirements:**
-    - Admin role required
+    - User must own the job or be an admin
     - Job must be completed
     - Transcripts must exist
 
@@ -524,12 +569,58 @@ def generate_summary_endpoint(
     response: Response,
     job_id: str,
     body: GenerateSummaryRequest,
-    admin_user: User = Depends(require_admin),
+    current_user: User = Depends(get_current_user_clerk),
     db: Session = Depends(get_db),
 ) -> SummaryResponse:
-    """generate summary for a completed job (admin only)."""
-    # verify job exists and is completed
-    verify_job_exists_and_completed(job_id, db)
+    """generate summary for a completed job."""
+    db_service = DatabaseService(db)
+
+    # get job
+    job = db_service.jobs.get_by_id(job_id)
+
+    if not job:
+        logger.warning("Job not found for summary generation", extra={"job_id": job_id})
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "JOB_NOT_FOUND",
+                    "message": f"Job with ID '{job_id}' not found",
+                }
+            },
+        )
+
+    # verify job belongs to current user (or user is admin)
+    if job.user_id != current_user.user_id and current_user.role != UserRole.ADMIN:
+        logger.warning(
+            "Unauthorized summary generation attempt",
+            extra={"job_id": job_id, "user_id": current_user.user_id, "job_owner": job.user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to generate a summary for this job",
+                }
+            },
+        )
+
+    # check if job is completed
+    if job.status != "completed":
+        logger.warning(
+            "Summary generation requested for incomplete job",
+            extra={"job_id": job_id, "status": job.status},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "JOB_NOT_COMPLETED",
+                    "message": f"Job is not completed. Current status: {job.status}",
+                }
+            },
+        )
 
     logger.info("Summary generation requested", extra={"job_id": job_id})
 
@@ -552,7 +643,6 @@ def generate_summary_endpoint(
         )
 
         # retrieve the generated summary from database
-        db_service = DatabaseService(db)
         summary_db = db_service.summaries.get_by_job_id(job_id)
 
         if not summary_db:
@@ -613,35 +703,46 @@ def generate_summary_endpoint(
 @summaries_router.get(
     "/summaries",
     response_model=list[SummaryResponse],
-    summary="Get all summaries (Admin only)",
+    summary="Get summaries",
     description="""
-    Retrieve summaries for all completed jobs that have summaries generated.
+    Retrieve summaries for completed jobs.
+
+    Users will see summaries for their own jobs.
+    Admins will see all summaries.
 
     More efficient than making individual requests for each job.
 
-    **Requirements:**
-    - Admin role required
-
-    **Returns**: List of all available summaries.
+    **Returns**: List of available summaries.
     """,
 )
 @limiter.limit(settings.rate_limit_results)
 def get_all_summaries(
     request: Request,
     response: Response,
-    admin_user: User = Depends(require_admin),
+    current_user: User = Depends(get_current_user_clerk),
     db: Session = Depends(get_db),
 ) -> list[SummaryResponse]:
-    """get all summaries for completed jobs (admin only)."""
-    from app.models.database import Summary
+    """get summaries for completed jobs (filtered by user)."""
+    from app.models.database import Job, Summary
 
-    summaries = db.query(Summary).all()
+    # admins can see all summaries, users only see their own
+    if current_user.role == UserRole.ADMIN:
+        summaries = db.query(Summary).all()
+    else:
+        # join with jobs table to filter by user_id
+        summaries = (
+            db.query(Summary)
+            .join(Job, Summary.job_id == Job.job_id)
+            .filter(Job.user_id == current_user.user_id)
+            .all()
+        )
 
     logger.info(
-        "All summaries retrieved",
+        "Summaries retrieved",
         extra={
             "count": len(summaries),
-            "user_id": admin_user.user_id,
+            "user_id": current_user.user_id,
+            "is_admin": current_user.role == UserRole.ADMIN,
         },
     )
 

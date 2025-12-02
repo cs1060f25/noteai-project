@@ -1,7 +1,6 @@
 import { useUser } from '@clerk/clerk-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Outlet, createRootRoute } from '@tanstack/react-router';
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -25,9 +24,6 @@ const RootComponent = () => {
     <QueryClientProvider client={queryClient}>
       {/* All routes render here - both public and protected */}
       <Outlet />
-
-      {/* TanStack Router DevTools - only in development */}
-      <TanStackRouterDevtools position="bottom-right" />
     </QueryClientProvider>
   );
 };
