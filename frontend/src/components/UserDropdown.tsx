@@ -7,7 +7,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuGroup,
-  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
@@ -28,12 +27,8 @@ export const UserDropdownContent = ({ onLogout }: UserDropdownProps) => {
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <Link to="/settings">
-          <DropdownMenuItem>
-            Settings
-            <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
-          </DropdownMenuItem>
+          <DropdownMenuItem>Settings</DropdownMenuItem>
         </Link>
-        <DropdownMenuItem>Support</DropdownMenuItem>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
       <DropdownMenuSub>
@@ -59,10 +54,7 @@ export const UserDropdownContent = ({ onLogout }: UserDropdownProps) => {
       </DropdownMenuSub>
 
       <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={onLogout}>
-        Log out
-        <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
-      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onLogout}>Log out</DropdownMenuItem>
     </DropdownMenuContent>
   );
 };

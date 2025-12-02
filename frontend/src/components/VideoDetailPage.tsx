@@ -311,6 +311,24 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
     window.location.reload();
   };
 
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error('Failed to download video');
+    }
+  };
+
   const aiFeatures = [
     {
       id: 'podcast',
@@ -381,16 +399,20 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
           <div className="flex flex-col items-center justify-center py-20">
             <div className="glass-card rounded-xl border border-border/50 p-8 max-w-md text-center">
               <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-              <h2 className="text-xl mb-2">Unable to Load Video</h2>
+              <h2 className="text-xl mb-2">
+                {error === 'Video not found' ? 'Video Not Found' : 'Unable to Load Video'}
+              </h2>
               <p className="text-muted-foreground mb-6">{error}</p>
               <div className="flex gap-2 justify-center">
                 <Button onClick={onBack} variant="outline" className="glass-card">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Library
                 </Button>
-                <Button onClick={handleRetry} className="glass-button bg-primary">
-                  Try Again
-                </Button>
+                {error !== 'Video not found' && (
+                  <Button onClick={handleRetry} className="glass-button bg-primary">
+                    Try Again
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -526,7 +548,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
                   onClick={() => {
                     const originalVideo = results?.metadata?.original_video;
                     if (originalVideo?.url) {
-                      window.open(originalVideo.url, '_blank');
+                      handleDownload(originalVideo.url, originalVideo.filename || 'video.mp4');
                     } else {
                       toast.error('Download URL not available');
                     }
@@ -618,7 +640,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
                         onClick={(e) => {
                           e.stopPropagation();
                           if (clip.url) {
-                            window.open(clip.url, '_blank');
+                            handleDownload(clip.url, `${clip.title}.mp4`);
                           } else {
                             toast.error('Download URL not available');
                           }

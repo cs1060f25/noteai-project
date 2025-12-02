@@ -372,8 +372,13 @@ export const LoginForm = ({ onSubmit, onOAuthSignIn, loading, error }: LoginForm
             transition={{ delay: 0.9, duration: 0.4 }}
           >
             By continuing, you agree to NoteAI's{' '}
-            <button className="underline hover:text-foreground">Terms of Service</button> and{' '}
-            <button className="underline hover:text-foreground">Privacy Policy</button>
+            <Link to="/legal/terms" className="underline hover:text-foreground">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link to="/legal/privacy" className="underline hover:text-foreground">
+              Privacy Policy
+            </Link>
           </motion.p>
         </motion.div>
       </div>
