@@ -1,39 +1,63 @@
-# Frontend
+# NoteAI Frontend
 
-React + TypeScript frontend application built with Vite.
+React + TypeScript frontend for the NoteAI lecture highlight extraction platform.
 
 ## Tech Stack
 
 - **React 19** - UI library
 - **TypeScript** - Type safety
 - **Vite** - Build tool & dev server
-- **Tailwind CSS** - Styling
+- **TailwindCSS** - Styling framework
+- **Shadcn/ui** - Component library
+- **TanStack Router** - Type-safe routing
+- **TanStack Query** - Data fetching
+- **Clerk** - Authentication
 - **Axios** - HTTP client
-- **Shadcn/ui** - UI components
 
 ## Quick Start
 
+### Prerequisites
+
+- **Node.js** v18+ installed
+
+### Installation
+
 ```bash
+cd frontend
+
 # install dependencies
 npm install
 
-# copy environment variables
+# configure environment
 cp .env.example .env
+```
 
-# start development server
+Edit `.env`:
+
+```bash
+VITE_API_URL=http://localhost:8000/api/v1
+VITE_WS_URL=ws://localhost:8000/ws
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_XXXXXXXXXXXXXXXXXXXXX
+```
+
+### Run Development Server
+
+```bash
 npm run dev
 ```
+
+Frontend available at: **http://localhost:5173**
 
 ## Available Scripts
 
 ```bash
-npm run dev          # start dev server (http://localhost:5173)
+npm run dev          # start dev server
 npm run build        # build for production
 npm run preview      # preview production build
 npm run lint         # check for lint errors
 npm run lint:fix     # auto-fix lint errors
 npm run format       # format code with prettier
-npm run format:check # check code formatting
+npm run type-check   # run TypeScript checks
 ```
 
 ## Project Structure
@@ -42,82 +66,40 @@ npm run format:check # check code formatting
 src/
 ├── components/      # reusable UI components
 │   └── ui/         # shadcn components
-├── lib/            # utilities and configurations
-│   ├── api.ts      # axios client setup
-│   └── utils.ts    # helper functions
-├── assets/         # static files
-├── App.tsx         # main app component
-└── main.tsx        # app entry point
+├── routes/         # TanStack Router pages
+├── lib/            # utilities and API client
+├── hooks/          # custom React hooks
+└── assets/         # static files
 ```
 
 ## Environment Variables
 
-Create a `.env` file in the root directory:
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_API_URL` | Backend API base URL | `http://localhost:8000/api/v1` |
+| `VITE_WS_URL` | WebSocket URL for real-time updates | `ws://localhost:8000/ws` |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Clerk authentication key | `pk_test_...` |
+
+## Code Quality
+
+Before committing, ensure code passes:
 
 ```bash
-VITE_API_URL=http://localhost:8000/api
+npm run lint:fix && npm run format && npm run type-check
 ```
 
-Access in code: `import.meta.env.VITE_API_URL`
+**Enforced Standards:**
+- ESLint with React/TypeScript rules
+- Prettier formatting (single quotes, 2 spaces)
+- Import organization (React → external → internal → relative)
+- Unused imports/variables removed automatically
 
-## API Usage
+## Adding UI Components
 
-Use the pre-configured axios client for all API calls:
-
-```tsx
-import { apiClient } from '@/lib/api';
-
-// type-safe requests
-interface User {
-  id: string;
-  name: string;
-}
-
-const users = await apiClient.get<User[]>('/users');
-const newUser = await apiClient.post<User>('/users', { name: 'John' });
-```
-
-See `src/lib/README.md` for detailed API client documentation.
-
-## Code Standards
-
-### ESLint Rules
-
-- ✅ Unused imports automatically removed
-- ✅ Unused variables warned
-- ✅ Import ordering enforced (React → external → internal → relative)
-- ✅ Alphabetically sorted imports
-
-### Prettier Configuration
-
-- Single quotes
-- Semicolons enabled
-- 100 character line width
-- 2 space indentation
-
-Run `npm run lint:fix && npm run format` before committing.
-
-## Adding Components
-
-Use shadcn CLI to add components:
+Use Shadcn CLI:
 
 ```bash
 npx shadcn@latest add button
 npx shadcn@latest add card
+npx shadcn@latest add dialog
 ```
-
-## Path Aliases
-
-Configure in `tsconfig.json`:
-
-```json
-{
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
-}
-```
-
-Usage: `import { Button } from '@/components/ui/button';`

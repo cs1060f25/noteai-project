@@ -1,14 +1,22 @@
-# Lecture Highlight Extractor - Backend
+# NoteAI Backend
 
 AI-powered lecture video processing pipeline built with FastAPI and Celery.
+
+## Overview
+
+The NoteAI backend handles video upload, processing orchestration, and results delivery. It uses a multi-agent pipeline to transform long lecture videos into short, engaging highlights with AI-powered content analysis.
 
 ## Tech Stack
 
 - **Framework**: FastAPI
 - **Task Queue**: Celery
 - **Broker/Cache**: Redis
-- **Database**: PostgreSQL
-- **Storage**: AWS S3 + CloudFront
+- **Database**: PostgreSQL (development & production)
+- **Storage**: AWS S3
+- **AI Services**: Google Gemini
+- **Video Processing**: FFmpeg, MoviePy, OpenCV
+- **Auth**: Clerk (JWT-based)
+- **Monitoring**: Prometheus + Grafana
 - **Runtime**: Python 3.11+, uv package manager
 - **Containerization**: Docker + Docker Compose
 
@@ -28,85 +36,151 @@ backend/
 └── docker-compose.yml      # Docker configuration
 ```
 
-## Prerequisites
+## Quick Start
 
-- Python 3.11+
-- [uv](https://github.com/astral-sh/uv) package manager
-- Docker and Docker Compose (for containerized setup)
+### Prerequisites
 
-## Setup
+- **Docker Desktop** installed and running
+- **Python 3.11+** (optional, for local development without Docker)
 
-### 1. Install uv (if not already installed)
+### Installation
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### 2. Create virtual environment and install dependencies
+#### 1. Configure Environment Variables
 
 ```bash
-# Create virtual environment
-uv venv
-
-# Activate virtual environment
-source .venv/bin/activate  # On macOS/Linux
-# or
-.venv\Scripts\activate  # On Windows
-
-# Install dependencies
-uv pip install -e ".[dev]"
-```
-
-### 3. Configure environment variables
-
-```bash
+cd backend
 cp .env.example .env
-# Edit .env with your configuration
 ```
 
-### 4. Run with Docker Compose (Recommended)
+Edit `.env` with your configuration. **Required variables:**
 
 ```bash
-# Build and start all services (API, PostgreSQL, Redis)
-docker-compose up --build
+# AWS S3 (for video storage)
+AWS_ACCESS_KEY_ID=your_access_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_key_here
+S3_BUCKET_NAME=your-bucket-name
+AWS_REGION=us-east-1
 
-# Run in detached mode
+# AI Services
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Clerk Authentication
+CLERK_PUBLISHABLE_KEY=pk_test_XXXXXXXXXXXXXXXXXXXXX
+CLERK_SECRET_KEY=sk_test_XXXXXXXXXXXXXXXXXXXXX
+
+# Database (already configured for Docker)
+DATABASE_URL=postgresql://lecture_user:lecture_password@127.0.0.1:5432/lecture_extractor
+
+# Redis (already configured for Docker)
+REDIS_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
+```
+
+**Where to get API keys:**
+
+- **AWS Credentials**: [AWS Console](https://console.aws.amazon.com/iam/) → Create IAM user with S3 access
+- **Gemini API Key**: [Google AI Studio](https://aistudio.google.com/app/apikey)
+- **OpenAI API Key**: [OpenAI Platform](https://platform.openai.com/api-keys)
+- **Clerk Keys**: [Clerk Dashboard](https://dashboard.clerk.com) (Free tier: 10,000 MAU/month)
+
+#### 2. Start the Backend
+
+```bash
 docker-compose up -d
+```
 
-# View logs
+This command will:
+
+- Pull and build all Docker images
+- Start PostgreSQL database
+- Start Redis for task queue
+- Start FastAPI API server (port 8000)
+- Start Celery worker for video processing
+- Start monitoring services (Prometheus, Grafana)
+
+**Verify the backend is running:**
+
+```bash
+curl http://localhost:8000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "healthy",
+  "version": "0.1.0",
+  "environment": "development"
+}
+```
+
+#### 3. View Logs
+
+```bash
+# View all logs
 docker-compose logs -f
 
-# View logs for specific service
-docker-compose logs -f api
-docker-compose logs -f db
+# View specific service logs
+docker-compose logs -f api      # FastAPI server
+docker-compose logs -f worker   # Celery worker
+docker-compose logs -f db       # PostgreSQL
+docker-compose logs -f redis    # Redis
+```
 
-# Stop services
+#### 4. Stop the Backend
+
+```bash
+# Stop all services
 docker-compose down
 
-# Stop and remove volumes (clean slate)
+# Stop and remove all data (clean slate)
 docker-compose down -v
 ```
 
-The API will be available at `http://localhost:8000`.
+### Running Without Docker (Alternative)
 
-**Services:**
-- **API:** http://localhost:8000
-- **PostgreSQL:** localhost:5432 (user: `lecture_user`, db: `lecture_extractor`)
-- **Redis:** localhost:6379
-
-### 5. Run locally (without Docker)
+If you prefer to run without Docker:
 
 ```bash
-# Start PostgreSQL (required)
-# Ensure PostgreSQL is installed and running
+# Install uv package manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment
+uv venv
+source .venv/bin/activate  # macOS/Linux
+# or .venv\Scripts\activate  # Windows
+
+# Install dependencies
+uv pip install -e ".[dev]"
+
+# Start PostgreSQL (install separately)
 createdb lecture_extractor
 
-# Start Redis (required)
+# Start Redis (install separately)
 redis-server
 
 # Run the API
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# In another terminal, start Celery worker
+celery -A pipeline.celery_app worker --loglevel=info
 ```
+
+## Available Services
+
+When running with Docker Compose, the following services are available:
+
+| Service         | Port | URL                         | Description                         |
+| --------------- | ---- | --------------------------- | ----------------------------------- |
+| **FastAPI API** | 8000 | http://localhost:8000       | Main API server                     |
+| **API Docs**    | 8000 | http://localhost:8000/docs  | Swagger UI (interactive API docs)   |
+| **ReDoc**       | 8000 | http://localhost:8000/redoc | Alternative API documentation       |
+| **PostgreSQL**  | 5432 | localhost:5432              | Database                            |
+| **Redis**       | 6379 | localhost:6379              | Task queue & cache                  |
+| **Prometheus**  | 9090 | http://localhost:9090       | Metrics collection                  |
+| **Grafana**     | 3000 | http://localhost:3000       | Monitoring dashboards (admin/admin) |
 
 ## Development
 
@@ -132,6 +206,7 @@ docker-compose exec api alembic history
 ```
 
 **PostgreSQL commands:**
+
 ```sql
 -- List all tables
 \dt
@@ -176,37 +251,46 @@ pytest --cov=app tests/
 
 ## API Documentation
 
-When running in development mode, API documentation is available at:
+### Base URL
+
+```
+http://localhost:8000/api/v1
+```
+
+### Authentication
+
+All endpoints require **Clerk JWT authentication** (except `/health` and `/contact`):
+
+```bash
+Authorization: Bearer <your_clerk_jwt_token>
+```
+
+### Main Endpoint Groups
+
+- **Upload**: `/upload`, `/upload/confirm`, `/upload/from-youtube`
+- **Jobs**: `/jobs`, `/jobs/{id}`, `/jobs/{id}/podcast`
+- **Results**: `/results/{id}`, `/results/{id}/export-transcript`
+- **Quiz**: `/jobs/{id}/quiz`, `/quizzes`, `/quizzes/{id}`
+- **User**: `/users/me`, `/users/api-keys`
+- **Dashboard**: `/dashboard`
+- **Admin**: `/admin/jobs`, `/admin/users`, `/admin/metrics`
+- **WebSocket**: `/ws/jobs/{id}` (real-time progress)
+- **System**: `/health`, `/metrics`, `/contact`
+
+### Interactive Documentation
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
-## Health Check
+### Processing Pipeline
 
-```bash
-curl http://localhost:8000/health
-```
+Sequential Celery pipeline with real-time WebSocket updates:
 
-Expected response:
-```json
-{
-  "status": "healthy",
-  "version": "0.1.0",
-  "environment": "development"
-}
-```
-
-## Environment Variables
-
-See `.env.example` for all available configuration options.
-
-### Required for Production
-
-- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-- `S3_BUCKET_NAME`
-- `OPENAI_API_KEY` (for Whisper transcription)
-- `GEMINI_API_KEY` (for content analysis)
-- `SECRET_KEY` (generate a secure random key)
+1. **Silence Detection** - PyDub/librosa
+2. **Transcription** - Google Gemini
+3. **Content Analysis** - Gemini AI
+4. **Segment Extraction** - Highlight selection
+5. **Video Compilation** - FFmpeg
 
 ## License
 
