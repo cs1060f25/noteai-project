@@ -10,6 +10,8 @@ NoteAI is a multi-agent AI pipeline that processes long lecture recordings (5–
 
 This project leverages distributed processing with Celery, integrates Google Gemini for content analysis, and uses OpenAI Whisper for transcription and subtitle generation.
 
+![NoteAI Landing Page](docs/landing_page.png)
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -40,6 +42,10 @@ This project leverages distributed processing with Celery, integrates Google Gem
 - Professional, accessible output with subtitles
 - Supports educational content re-use and accessibility with quizz and podcast features
 
+## Architecture
+
+![System Architecture](docs/architecture.png)
+
 ### System Components
 
 | Component                         | Description                                                                                                   |
@@ -50,6 +56,10 @@ This project leverages distributed processing with Celery, integrates Google Gem
 | **Broker (Redis/RabbitMQ)**       | Queues processing jobs for distributed workers                                                                |
 | **Database (PostgreSQL)**         | Stores job records, transcript metadata, and results                                                          |
 | **Storage (AWS S3)**              | Stores uploaded and processed video content                                                                   |
+
+### Database Schema
+
+![Database Diagram](docs/db_diagram.png)
 
 ## Tech Stack
 
