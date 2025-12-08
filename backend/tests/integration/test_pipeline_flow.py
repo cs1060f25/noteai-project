@@ -34,30 +34,58 @@ def mock_pipeline_services(db, tmp_path):
     dummy_audio = tmp_path / "test_audio.wav"
 
     # Create a 1-second black video with silent audio using FFmpeg
-    subprocess.run([
-        "ffmpeg", "-f", "lavfi", "-i", "color=black:s=1280x720:d=1",
-        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo:d=1",
-        "-c:v", "libx264", "-c:a", "aac", "-y", str(dummy_video)
-    ], check=True, capture_output=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=black:s=1280x720:d=1",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=44100:cl=stereo:d=1",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-y",
+            str(dummy_video),
+        ],
+        check=True,
+        capture_output=True,
+    )
 
     # Create a 1-second silent audio file
-    subprocess.run([
-        "ffmpeg", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo:d=1",
-        "-c:a", "pcm_s16le", "-y", str(dummy_audio)
-    ], check=True, capture_output=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=44100:cl=stereo:d=1",
+            "-c:a",
+            "pcm_s16le",
+            "-y",
+            str(dummy_audio),
+        ],
+        check=True,
+        capture_output=True,
+    )
 
     # Patch functions where they are USED in pipeline.tasks
-    with patch("pipeline.tasks.s3_service") as mock_s3, \
-         patch("pipeline.tasks.download_video_from_s3_to_temp") as mock_download_video, \
-         patch("pipeline.tasks.download_audio_from_s3_to_temp") as mock_download_audio, \
-         patch("pipeline.tasks.generate_transcript") as mock_transcript, \
-         patch("pipeline.tasks.detect_silence") as mock_silence, \
-         patch("pipeline.tasks.analyze_content") as mock_content, \
-         patch("pipeline.tasks.extract_segments") as mock_segments, \
-         patch("pipeline.tasks.compile_clips") as mock_compile, \
-         patch("agents.quiz_agent.generate_quiz") as mock_quiz, \
-         patch("agents.summary_agent.generate_summary") as mock_summary:
-
+    with (
+        patch("pipeline.tasks.s3_service") as mock_s3,
+        patch("pipeline.tasks.download_video_from_s3_to_temp") as mock_download_video,
+        patch("pipeline.tasks.download_audio_from_s3_to_temp") as mock_download_audio,
+        patch("pipeline.tasks.generate_transcript") as mock_transcript,
+        patch("pipeline.tasks.detect_silence") as mock_silence,
+        patch("pipeline.tasks.analyze_content") as mock_content,
+        patch("pipeline.tasks.extract_segments") as mock_segments,
+        patch("pipeline.tasks.compile_clips") as mock_compile,
+        patch("agents.quiz_agent.generate_quiz") as mock_quiz,
+        patch("agents.summary_agent.generate_summary") as mock_summary,
+    ):
         # 1. S3 & Downloads - return paths to real dummy files
         mock_s3.object_exists.return_value = True
         mock_s3.generate_presigned_url.return_value = "http://mock-s3/video.mp4"
@@ -67,7 +95,11 @@ def mock_pipeline_services(db, tmp_path):
         # 2. Transcript Agent
         def side_effect_transcript(job_id, **kwargs):
             t1 = Transcript(
-                segment_id=f"seg_{uuid.uuid4()}", job_id=job_id, start_time=0.0, end_time=10.0, text="Welcome to AI."
+                segment_id=f"seg_{uuid.uuid4()}",
+                job_id=job_id,
+                start_time=0.0,
+                end_time=10.0,
+                text="Welcome to AI.",
             )
             db.add(t1)
             db.commit()
@@ -78,8 +110,9 @@ def mock_pipeline_services(db, tmp_path):
                 "total_transcript_duration": 10.0,
                 "average_confidence": 0.9,
                 "language": "en",
-                "processing_time_seconds": 1.0
+                "processing_time_seconds": 1.0,
             }
+
         mock_transcript.side_effect = side_effect_transcript
 
         # 3. Silence Detector
@@ -88,8 +121,9 @@ def mock_pipeline_services(db, tmp_path):
                 "job_id": job_id,
                 "status": "completed",
                 "silence_regions": [],
-                "processing_time_seconds": 0.5
+                "processing_time_seconds": 0.5,
             }
+
         mock_silence.side_effect = side_effect_silence
 
         # 4. Content Analyzer
@@ -103,7 +137,7 @@ def mock_pipeline_services(db, tmp_path):
                 topic="Intro",
                 description="Intro to AI",
                 importance_score=0.9,
-                segment_order=1
+                segment_order=1,
             )
             db.add(cs)
             db.commit()
@@ -114,8 +148,9 @@ def mock_pipeline_services(db, tmp_path):
                 "segments_filtered": 0,
                 "total_segments_analyzed": 1,
                 "processing_time_seconds": 1.0,
-                "model_used": "gemini-1.5-flash"
+                "model_used": "gemini-1.5-flash",
             }
+
         mock_content.side_effect = side_effect_content
 
         # 5. Quiz Agent
@@ -126,7 +161,7 @@ def mock_pipeline_services(db, tmp_path):
                 job_id=job_id,
                 title="Test Quiz",
                 difficulty="medium",
-                total_questions=1
+                total_questions=1,
             )
             db.add(quiz)
 
@@ -137,11 +172,12 @@ def mock_pipeline_services(db, tmp_path):
                 question_type="multiple-choice",
                 options=["Magic", "Math"],
                 correct_answer_index=1,
-                question_order=1
+                question_order=1,
             )
             db.add(q)
             db.commit()
             return MagicMock(questions=[q])
+
         mock_quiz.side_effect = side_effect_quiz
 
         # 6. Summary Agent
@@ -152,11 +188,12 @@ def mock_pipeline_services(db, tmp_path):
                 summary_text="AI is math.",
                 key_takeaways=["Math is hard"],
                 topics_covered=["AI"],
-                word_count=10
+                word_count=10,
             )
             db.add(summary)
             db.commit()
             return {"summary_text": "AI is math."}
+
         mock_summary.side_effect = side_effect_summary
 
         # 7. Segment Extractor (Clips)
@@ -171,7 +208,7 @@ def mock_pipeline_services(db, tmp_path):
                 end_time=10.0,
                 duration=10.0,
                 clip_order=1,
-                s3_key="clips/clip1.mp4"
+                s3_key="clips/clip1.mp4",
             )
             db.add(clip)
             db.commit()
@@ -182,18 +219,15 @@ def mock_pipeline_services(db, tmp_path):
                 "segments_analyzed": 1,
                 "segments_created": 1,
                 "silence_regions_available": 0,
-                "processing_time_seconds": 1.0
+                "processing_time_seconds": 1.0,
             }
+
         mock_segments.side_effect = side_effect_segments
 
         # 8. Video Compiler
         mock_compile.return_value = ["clips/clip1.mp4"]
 
-        yield {
-            "transcript": mock_transcript,
-            "quiz": mock_quiz,
-            "summary": mock_summary
-        }
+        yield {"transcript": mock_transcript, "quiz": mock_quiz, "summary": mock_summary}
 
 
 @pytest.fixture
@@ -242,7 +276,7 @@ def test_full_video_processing_flow(db: Session, mock_pipeline_services, mock_sh
         clerk_user_id="mock_clerk_user_id",
         gemini_api_key_encrypted="encrypted_key",
         email_notifications=True,
-        processing_notifications=True
+        processing_notifications=True,
     )
     db.add(user)
 
@@ -254,7 +288,7 @@ def test_full_video_processing_flow(db: Session, mock_pipeline_services, mock_sh
         content_type="video/mp4",
         original_s3_key="uploads/test_lecture.mp4",
         status="queued",
-        extra_metadata={"processing_config": {"processing_mode": "vision"}}
+        extra_metadata={"processing_config": {"processing_mode": "vision"}},
     )
     db.add(job)
     db.commit()
@@ -289,5 +323,3 @@ def test_full_video_processing_flow(db: Session, mock_pipeline_services, mock_sh
     stages = [log.stage for log in logs]
     assert "transcription" in stages
     assert "content_analysis" in stages
-
-
