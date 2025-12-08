@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 os.environ["CELERY_BROKER_URL"] = "redis://localhost:6379/0"
 os.environ["CELERY_RESULT_BACKEND"] = "redis://localhost:6379/0"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 # Mock external services before importing app
 sys.modules["boto3"] = MagicMock()

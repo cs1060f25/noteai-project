@@ -361,10 +361,12 @@ class ErrorResponse(BaseModel):
     error: dict[str, Any] = Field(
         ...,
         description="Error information",
-        example={
-            "code": "VALIDATION_ERROR",
-            "message": "Invalid input data",
-            "details": [{"field": "filename", "message": "Field is required"}],
+        json_schema_extra={
+            "example": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid input data",
+                "details": [{"field": "filename", "message": "Field is required"}],
+            }
         },
     )
 

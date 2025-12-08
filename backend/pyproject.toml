@@ -143,6 +143,9 @@ warn_unused_configs = true
 testpaths = ["tests"]
 python_files = "test_*.py"
 addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning:pydub.utils",
+]
 asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]

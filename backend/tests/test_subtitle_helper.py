@@ -68,7 +68,7 @@ class TestAdjustTranscriptTimestamps:
             MockTranscript(8.0, 12.0, "Second segment"),
         ]
 
-        result = adjust_transcript_timestamps(transcripts, clip_start_time=5.0)
+        result = adjust_transcript_timestamps(transcripts, clip_start_time=5.0, clip_duration=10.0)
 
         assert len(result) == 2
         assert result[0]["start_time"] == 0.0
@@ -90,7 +90,7 @@ class TestAdjustTranscriptTimestamps:
 
         transcripts = [MockTranscript(0.0, 5.0, "Start of video")]
 
-        result = adjust_transcript_timestamps(transcripts, clip_start_time=0.0)
+        result = adjust_transcript_timestamps(transcripts, clip_start_time=0.0, clip_duration=10.0)
 
         assert result[0]["start_time"] == 0.0
         assert result[0]["end_time"] == 5.0
@@ -107,7 +107,7 @@ class TestAdjustTranscriptTimestamps:
         # This could happen if database query isn't perfect
         transcripts = [MockTranscript(4.5, 7.0, "Overlapping segment")]
 
-        result = adjust_transcript_timestamps(transcripts, clip_start_time=5.0)
+        result = adjust_transcript_timestamps(transcripts, clip_start_time=5.0, clip_duration=10.0)
 
         # Start should be clamped to 0 (was -0.5)
         assert result[0]["start_time"] == 0.0
