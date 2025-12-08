@@ -1,11 +1,21 @@
-import json
 import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models.database import Job, Transcript, ContentSegment, Quiz, QuizQuestion, Summary, Clip, ProcessingLog
+import agents.quiz_agent
+import agents.summary_agent
+from app.models.database import (
+    Clip,
+    ContentSegment,
+    Job,
+    ProcessingLog,
+    Quiz,
+    QuizQuestion,
+    Summary,
+    Transcript,
+)
 from app.models.user import User
 from pipeline.tasks import process_video_optimized
 
@@ -19,23 +29,23 @@ def mock_pipeline_services(db, tmp_path):
     """
     # Create real dummy media files for FFmpeg operations
     import subprocess
-    
+
     dummy_video = tmp_path / "test_video.mp4"
     dummy_audio = tmp_path / "test_audio.wav"
-    
+
     # Create a 1-second black video with silent audio using FFmpeg
     subprocess.run([
         "ffmpeg", "-f", "lavfi", "-i", "color=black:s=1280x720:d=1",
         "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo:d=1",
         "-c:v", "libx264", "-c:a", "aac", "-y", str(dummy_video)
     ], check=True, capture_output=True)
-    
+
     # Create a 1-second silent audio file
     subprocess.run([
         "ffmpeg", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo:d=1",
         "-c:a", "pcm_s16le", "-y", str(dummy_audio)
     ], check=True, capture_output=True)
-    
+
     # Patch functions where they are USED in pipeline.tasks
     with patch("pipeline.tasks.s3_service") as mock_s3, \
          patch("pipeline.tasks.download_video_from_s3_to_temp") as mock_download_video, \
@@ -46,8 +56,7 @@ def mock_pipeline_services(db, tmp_path):
          patch("pipeline.tasks.extract_segments") as mock_segments, \
          patch("pipeline.tasks.compile_clips") as mock_compile, \
          patch("agents.quiz_agent.generate_quiz") as mock_quiz, \
-         patch("agents.summary_agent.generate_summary") as mock_summary, \
-         patch("pipeline.tasks.EmailService") as mock_email:
+         patch("agents.summary_agent.generate_summary") as mock_summary:
 
         # 1. S3 & Downloads - return paths to real dummy files
         mock_s3.object_exists.return_value = True
@@ -120,7 +129,7 @@ def mock_pipeline_services(db, tmp_path):
                 total_questions=1
             )
             db.add(quiz)
-            
+
             q = QuizQuestion(
                 question_id=f"q_{uuid.uuid4()}",
                 quiz_id=quiz_id,
@@ -191,7 +200,7 @@ def mock_pipeline_services(db, tmp_path):
 def mock_shared_db_engine(db):
     """Patch create_engine in all modules to return the test DB engine."""
     engine = db.get_bind()
-    
+
     modules_to_patch = [
         "pipeline.tasks",
         "agents.silence_detector",
@@ -202,30 +211,27 @@ def mock_shared_db_engine(db):
         "agents.image_agent",
         "agents.summary_agent",
     ]
-    
+
     patches = []
     for module in modules_to_patch:
         p = patch(f"{module}.create_engine", return_value=engine)
         p.start()
         patches.append(p)
-        
+
     yield
-    
+
     for p in patches:
         p.stop()
 
 
-import agents.quiz_agent
-import agents.summary_agent
-
 def test_full_video_processing_flow(db: Session, mock_pipeline_services, mock_shared_db_engine):
     """
     Test the full video processing pipeline.
-    
+
     This test runs the 'process_video_optimized' task synchronously.
     It mocks the Agent entry points to simulate their work (DB creation)
     without running their internal logic (external API calls).
-    
+
     Since the pipeline task itself does not trigger Quiz/Summary generation (triggered via API),
     we manually call these agents here to verify the full flow expected by the user.
     """
@@ -239,7 +245,7 @@ def test_full_video_processing_flow(db: Session, mock_pipeline_services, mock_sh
         processing_notifications=True
     )
     db.add(user)
-    
+
     job = Job(
         job_id="job_integration_1",
         user_id="test_user",
@@ -257,7 +263,7 @@ def test_full_video_processing_flow(db: Session, mock_pipeline_services, mock_sh
     with patch("app.core.security.decrypt_string", return_value="mock_api_key"):
         # Run the pipeline
         process_video_optimized(job_id="job_integration_1")
-        
+
         # Manually trigger Quiz and Summary generation (simulating API calls)
         # These are mocked in mock_pipeline_services to write to DB
         agents.quiz_agent.generate_quiz(job_id="job_integration_1", db=db, api_key="mock_api_key")
@@ -265,18 +271,18 @@ def test_full_video_processing_flow(db: Session, mock_pipeline_services, mock_sh
 
     # 3. Verify Database State
     db.refresh(job)
-    
+
     # A. Job Status
     assert job.status == "completed"
     assert job.progress_percent == 100.0
-    
+
     # B. Artifacts
     assert len(job.transcripts) == 1
     assert len(job.content_segments) == 1
     assert len(job.quizzes) == 1
     assert job.summary is not None
     assert len(job.clips) == 1
-    
+
     # C. Processing Logs
     # Check that logs were created for stages
     logs = db.query(ProcessingLog).filter(ProcessingLog.job_id == job.job_id).all()

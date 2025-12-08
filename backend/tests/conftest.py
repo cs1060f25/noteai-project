@@ -71,7 +71,7 @@ app.core.rate_limit_config.limiter = Limiter(
 from app.core.database import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.database import Base  # noqa: E402
-from app.models.user import User  # noqa: E402
+from app.models.user import User  # noqa: E402, F401 - Import required for table creation
 
 # Use in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
