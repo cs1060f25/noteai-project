@@ -167,7 +167,7 @@ class TestQuizModels:
             explanation="2+2=4",
             difficulty="easy",
         )
-        assert q.correctAnswer == 1
+        assert q.correct_answer == 1
 
 
 class TestUserModels:
