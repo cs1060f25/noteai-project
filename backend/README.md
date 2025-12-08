@@ -241,13 +241,54 @@ mypy .
 
 ### Testing
 
+#### First-Time Setup
+
+Before running tests, you need to set up your development environment:
+
 ```bash
-# Run tests
-pytest
+# Install uv package manager (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies (this creates .venv automatically)
+uv sync
+```
+
+#### Running Tests
+
+```bash
+# Run all tests (recommended - uses uv to manage environment)
+uv run pytest
+
+# Run with verbose output
+uv run pytest -v
+
+# Run specific test file
+uv run pytest tests/integration/test_pipeline_flow.py
 
 # Run with coverage
+uv run pytest --cov=app tests/
+
+# Run only integration tests
+uv run pytest tests/integration/
+
+# Run only unit tests
+uv run pytest tests/unit/
+```
+
+**Alternative**: If you prefer to activate the virtual environment manually:
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate  # macOS/Linux
+# or .venv\Scripts\activate  # Windows
+
+# Run tests directly
+pytest
+pytest -v
 pytest --cov=app tests/
 ```
+
+**Note**: The `.venv/` directory is **not committed to git** and must be created locally by each developer using `uv sync`.
 
 ## API Documentation
 

@@ -140,14 +140,17 @@ warn_return_any = true
 warn_unused_configs = true
 
 [tool.pytest.ini_options]
+minversion = "7.0"
 testpaths = ["tests"]
-python_files = "test_*.py"
-addopts = "-ra"
-filterwarnings = [
-    "ignore::DeprecationWarning:pydub.utils",
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-ra -q --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
 ]
-asyncio_mode = "auto"
-
+asyncio_mode = "auto"  # Automatically detect and run async tests
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*", "agents*", "pipeline*"]
