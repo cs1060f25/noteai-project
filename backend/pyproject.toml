@@ -48,6 +48,9 @@ dependencies = [
     "yt-dlp>=2023.10.0",
     "resend>=2.19.0",
     "google-genai>=1.52.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
 ]
 
 [project.optional-dependencies]
@@ -147,6 +150,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-ra -q --strict-markers"
 markers = [
+    "asyncio: marks tests as async tests",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
 ]
