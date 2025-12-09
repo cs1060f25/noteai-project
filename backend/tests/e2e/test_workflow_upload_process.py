@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,8 +12,8 @@ MOCK_USER = User(
     email="test@example.com",
     name="Test User",
     clerk_user_id="user_123_clerk",
-    created_at=datetime.utcnow(),
-    updated_at=datetime.utcnow(),
+    created_at=datetime.now(UTC),
+    updated_at=datetime.now(UTC),
 )
 
 

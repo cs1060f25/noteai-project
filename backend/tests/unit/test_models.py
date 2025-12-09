@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -83,8 +83,8 @@ class TestJobModels:
             job_id="123",
             status=JobStatus.PENDING,
             filename="test.mp4",
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         assert job.job_id == "123"
         assert job.status == JobStatus.PENDING
@@ -125,7 +125,7 @@ class TestAgentOutputModels:
             end_time=2.0,
             duration=2.0,
             silence_type="audio_silence",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         assert region.duration == 2.0
 
@@ -138,7 +138,7 @@ class TestAgentOutputModels:
             split_ratio=0.5,
             layout_type="side_by_side",
             confidence_score=0.9,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         assert layout.confidence_score == 0.9
 
@@ -151,7 +151,7 @@ class TestAgentOutputModels:
             topic="Intro",
             importance_score=0.8,
             segment_order=1,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         assert segment.importance_score == 0.8
 
@@ -177,7 +177,7 @@ class TestUserModels:
             email="test@example.com",
             email_notifications=True,
             processing_notifications=False,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         assert user.email == "test@example.com"

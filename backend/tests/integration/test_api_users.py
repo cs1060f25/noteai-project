@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -15,8 +15,8 @@ MOCK_USER = User(
     email_notifications=True,
     processing_notifications=True,
     clerk_user_id="user_123_clerk",
-    created_at=datetime.utcnow(),
-    updated_at=datetime.utcnow(),
+    created_at=datetime.now(UTC),
+    updated_at=datetime.now(UTC),
 )
 
 from app.main import app  # noqa: E402
