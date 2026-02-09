@@ -158,13 +158,12 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
   const [summarySize, setSummarySize] = useState<'brief' | 'medium' | 'detailed'>('medium');
   const [summaryStyle, setSummaryStyle] = useState<'academic' | 'casual' | 'concise'>('academic');
 
+  const [numQuestions, setNumQuestions] = useState(10);
+  const [difficulty, setDifficulty] = useState('medium');
+
   const handleGenerateQuiz = async () => {
     try {
       setIsGeneratingQuiz(true);
-      // Get values from select inputs (using defaults for now as they are not controlled)
-      const numQuestions = 5;
-      const difficulty = 'medium';
-
       const response = await api.generateQuiz(lectureId, numQuestions, difficulty);
       setQuizQuestions(response.questions);
 
@@ -812,7 +811,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
           <div className="space-y-4 mt-4">
             <div>
               <Label>Number of Questions</Label>
-              <Select defaultValue="10">
+              <Select defaultValue="10" onValueChange={(value) => setNumQuestions(parseInt(value))}>
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
@@ -827,7 +826,7 @@ export function VideoDetailPage({ lectureId, onBack, initialQuizId }: VideoDetai
 
             <div>
               <Label>Difficulty Level</Label>
-              <Select defaultValue="medium">
+              <Select defaultValue="medium" onValueChange={setDifficulty}>
                 <SelectTrigger className="mt-2 glass-card border-border/50">
                   <SelectValue />
                 </SelectTrigger>
